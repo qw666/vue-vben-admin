@@ -1,0 +1,47 @@
+{
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "codeLogin": "Code Login",
+    "qrcodeLogin": "Qr Code Login",
+    "forgetPassword": "Forget Password",
+    "profile": "Profile"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "analytics": "Analytics",
+    "workspace": "Workspace"
+  },
+  "shuzhiliu": {
+    "title": "ShuZhiLiu",
+    "list": "Flow Orchestration",
+    "editor": "Flow Editor",
+    "create": "Create Flow",
+    "edit": "Edit Flow",
+    "save": "Save Flow",
+    "run": "Run Flow",
+    "delete": "Delete Flow",
+    "folder": {
+      "title": "Folder",
+      "create": "Create Folder",
+      "rename": "Rename Folder",
+      "delete": "Delete Folder"
+    },
+    "nodes": {
+      "start": "Start Node",
+      "end": "End Node",
+      "llm": "LLM Node",
+      "prompt": "Prompt Node",
+      "code": "Code Node",
+      "condition": "Condition Node",
+      "webhook": "Webhook Node",
+      "data": "Data Node",
+      "input": "Input Node",
+      "output": "Output Node"
+    },
+    "panel": {
+      "properties": "Node Properties",
+      "nodeList": "Node List"
+    }
+  }
+}

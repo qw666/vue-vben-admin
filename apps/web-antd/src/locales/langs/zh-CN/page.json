@@ -1,0 +1,47 @@
+{
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "codeLogin": "验证码登录",
+    "qrcodeLogin": "二维码登录",
+    "forgetPassword": "忘记密码",
+    "profile": "个人中心"
+  },
+  "dashboard": {
+    "title": "概览",
+    "analytics": "分析页",
+    "workspace": "工作台"
+  },
+  "shuzhiliu": {
+    "title": "数智流",
+    "list": "流程编排",
+    "editor": "流程编辑",
+    "create": "创建流程",
+    "edit": "编辑流程",
+    "save": "保存流程",
+    "run": "运行流程",
+    "delete": "删除流程",
+    "folder": {
+      "title": "文件夹",
+      "create": "创建文件夹",
+      "rename": "重命名文件夹",
+      "delete": "删除文件夹"
+    },
+    "nodes": {
+      "start": "开始节点",
+      "end": "结束节点",
+      "llm": "LLM节点",
+      "prompt": "提示词节点",
+      "code": "代码节点",
+      "condition": "条件节点",
+      "webhook": "Webhook节点",
+      "data": "数据节点",
+      "input": "输入节点",
+      "output": "输出节点"
+    },
+    "panel": {
+      "properties": "节点属性",
+      "nodeList": "节点列表"
+    }
+  }
+}
