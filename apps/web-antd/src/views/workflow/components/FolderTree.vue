@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, h } from 'vue';
+import { ref, computed, onMounted, h, watch } from 'vue';
 
 import { Tree, Button, message, Popconfirm, Tooltip, Input, Modal, Form, Select } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
@@ -84,8 +84,16 @@ function onCreateFolder() {
     store.loadProjects();
   }
   selectedProjectId.value = store.projectId;
+  
   const selectedKey = selectedKeys.value[0];
-  selectedParentId.value = selectedKey ? parseInt(selectedKey) : null;
+  if (selectedKey) {
+    const selectedFolderId = parseInt(selectedKey);
+    const folderExists = store.findFolderById(selectedFolderId);
+    selectedParentId.value = folderExists ? selectedFolderId : null;
+  } else {
+    selectedParentId.value = null;
+  }
+  
   showModal.value = true;
 }
 
@@ -134,6 +142,11 @@ async function onDeleteFolder() {
 
 onMounted(() => {
   store.loadFolders();
+});
+
+watch(() => store.projectId, () => {
+  selectedKeys.value = [];
+  store.setSelectedFolderId(null);
 });
 </script>
 
