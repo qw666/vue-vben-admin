@@ -45,7 +45,7 @@ function nodesByCategory(category: string) {
 async function loadPlugins() {
   isPluginLoading.value = true;
   try {
-    const response = await getPluginTree();
+    const response = await getPluginTree('task');
     if (response) {
       pluginGroups.value = response;
     }
