@@ -127,16 +127,12 @@ function onSelect(selectedKeysValue: string[]) {
   store.setSelectedFolderId(folderId);
 }
 
-// ==========【最终修复核心函数】==========
 function onCreateFolder(parentId?: number) {
-  // 关键：打开弹窗前立刻缓存选中ID
   const tempSelectId = selectedKeys.value.length ? Number(selectedKeys.value[0]) : null;
 
   folderName.value = '';
   selectedProjectId.value = store.projectId;
-  selectedParentId.value = null;
 
-  // 优先使用右键子文件夹ID，否则使用缓存的选中ID
   if (parentId !== undefined) {
     selectedParentId.value = parentId;
   } else {
@@ -156,7 +152,7 @@ async function handleCreateFolder() {
   }
   loading.value = true;
   const parentId = selectedParentId.value || undefined;
-  const newFolder = await store.createFolder(folderName.value.trim(), parentId, selectedProjectId.value);
+  const newFolder = await store.createFolder(folderName.value.trim(), parentId, store.projectId);
   loading.value = false;
   if (newFolder) {
     expandedKeys.value = [...expandedKeys.value, newFolder.id];
@@ -275,7 +271,7 @@ onMounted(() => {
             </Select.Option>
           </Select>
         </Form.Item>
-        <Form.Item label="父文件夹">
+        <Form.Item label="父分组">
           <Select
             v-model="selectedParentId"
             placeholder="根文件夹"
