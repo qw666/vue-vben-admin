@@ -37,7 +37,7 @@ export interface Workflow {
   id: string;
   name: string;
   description?: string;
-  folderId?: string;
+  folderId?: number;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   createdAt: string;
@@ -45,11 +45,12 @@ export interface Workflow {
 }
 
 export interface WorkflowFolder {
-  id: string;
+  id: number;
   name: string;
-  parentId?: string;
+  parentId: number;
+  sort: number;
   children?: WorkflowFolder[];
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface NodeTemplate {

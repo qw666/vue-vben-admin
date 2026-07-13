@@ -3,7 +3,7 @@ import type { CSSProperties } from 'vue';
 
 import type { VbenLayoutProps } from './vben-layout';
 
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useSlots } from 'vue';
 
 import {
   SCROLL_FIXED_CLASS,
@@ -503,6 +503,11 @@ function handleHeaderToggle() {
 }
 
 const idMainContent = ELEMENT_ID_MAIN_CONTENT;
+
+const slots = useSlots();
+const headerExtraSlots = computed(() => {
+  return Object.keys(slots).filter((key) => key.startsWith('header-'));
+});
 </script>
 
 <template>
@@ -594,6 +599,9 @@ const idMainContent = ELEMENT_ID_MAIN_CONTENT;
               <IconifyIcon v-if="showSidebar" icon="ep:fold" />
               <IconifyIcon v-else icon="ep:expand" />
             </VbenIconButton>
+          </template>
+          <template v-for="slotName in headerExtraSlots" #[slotName]>
+            <slot :name="slotName"></slot>
           </template>
           <slot name="header"></slot>
         </LayoutHeader>

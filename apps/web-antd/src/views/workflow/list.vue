@@ -1,8 +1,24 @@
 <script lang="ts" setup>
+import { onMounted, watch } from 'vue';
+
 import { Page } from '@vben/common-ui';
+
+import { useWorkflowStore } from '#/store/workflow';
 
 import FolderTree from './components/FolderTree.vue';
 import WorkflowList from './components/WorkflowList.vue';
+
+const store = useWorkflowStore();
+
+onMounted(async () => {
+  await store.loadProjects();
+});
+
+watch(() => store.projectId, async (newId) => {
+  if (newId) {
+    await store.loadFolders();
+  }
+});
 </script>
 
 <template>

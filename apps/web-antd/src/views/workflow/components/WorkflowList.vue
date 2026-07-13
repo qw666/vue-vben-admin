@@ -43,7 +43,6 @@ function formatDate(dateStr: string) {
 }
 
 onMounted(() => {
-  store.initMockData();
 });
 </script>
 

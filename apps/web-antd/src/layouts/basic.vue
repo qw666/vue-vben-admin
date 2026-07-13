@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import type { NotificationItem } from '@vben/layouts';
 
-import { computed, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
-import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
+import { AuthenticationLoginExpiredModal, VbenSelect } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
 import { useWatermark } from '@vben/hooks';
 import { BookOpenText, CircleHelp, SvgGithubIcon } from '@vben/icons';
@@ -20,6 +20,7 @@ import { openWindow } from '@vben/utils';
 
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
+import { useWorkflowStore } from '#/store/workflow';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
 const notifications = ref<NotificationItem[]>([
@@ -76,14 +77,32 @@ const notifications = ref<NotificationItem[]>([
 ]);
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const accessStore = useAccessStore();
+const workflowStore = useWorkflowStore();
 const { destroyWatermark, updateWatermark } = useWatermark();
 const { isDark } = usePreferences();
 const showDot = computed(() =>
   notifications.value.some((item) => !item.isRead),
 );
+
+async function handleProjectChange(val: string) {
+  const projectId = Number(val);
+  workflowStore.setProjectId(projectId);
+  await workflowStore.loadFolders();
+}
+
+onMounted(async () => {
+  await workflowStore.loadProjects();
+});
+
+watch(() => route.path, async (newPath) => {
+  if (newPath.startsWith('/workflow')) {
+    await workflowStore.loadProjects();
+  }
+});
 
 const menus = computed(() => [
   {
@@ -218,6 +237,18 @@ watch(
 
 <template>
   <BasicLayout @clear-preferences-and-logout="handleLogout">
+    <template #header-right-0>
+      <VbenSelect
+        :disabled="workflowStore.projects.length === 0"
+        :value="workflowStore.projects.length > 0 ? String(workflowStore.projectId) : ''"
+        :options="workflowStore.projects.map(p => ({ label: p.projectName, value: String(p.id) }))"
+        class="mr-2 w-40"
+        placeholder="选择项目"
+        @change="handleProjectChange"
+      />
+    </template>
+    <template #header-left-1>
+    </template>
     <template #user-dropdown>
       <UserDropdown
         :avatar

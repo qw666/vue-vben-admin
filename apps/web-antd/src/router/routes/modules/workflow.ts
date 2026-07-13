@@ -1,13 +1,11 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import { $t } from '#/locales';
-
 const routes: RouteRecordRaw[] = [
   {
     meta: {
       icon: 'mdi:flow-tree',
       order: 101,
-      title: $t('page.shuzhiliu.title'),
+      title: 'page.shuzhiliu.title',
     },
     name: 'ShuZhiLiu',
     path: '/workflow',
@@ -19,7 +17,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/workflow/list.vue'),
         meta: {
           icon: 'mdi:format-list-bulleted',
-          title: $t('page.shuzhiliu.list'),
+          title: 'page.shuzhiliu.list',
         },
       },
       {
@@ -28,7 +26,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/workflow/editor.vue'),
         meta: {
           hideInMenu: true,
-          title: $t('page.shuzhiliu.editor'),
+          title: 'page.shuzhiliu.editor',
         },
       },
     ],

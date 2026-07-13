@@ -2,13 +2,25 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 import type { Workflow, WorkflowNode, WorkflowEdge, WorkflowFolder } from '#/types/workflow';
+import { addFolder, updateFolder, deleteFolder, getFolderTree, getProjectList } from '#/api';
+
+export interface ProjectVO {
+  id: number;
+  projectName: string;
+  namespace: string;
+  description: string;
+  createBy: string;
+  createTime: string;
+}
 
 export const useWorkflowStore = defineStore('workflow', () => {
   const workflows = ref<Workflow[]>([]);
   const folders = ref<WorkflowFolder[]>([]);
+  const projects = ref<ProjectVO[]>([]);
   const currentWorkflow = ref<Workflow | null>(null);
   const selectedNodeId = ref<string | null>(null);
-  const selectedFolderId = ref<string | null>(null);
+  const selectedFolderId = ref<number | null>(null);
+  const projectId = ref<number>(1);
 
   const workflowsByFolder = computed(() => {
     if (!selectedFolderId.value) {
@@ -25,8 +37,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
     selectedNodeId.value = id;
   }
 
-  function setSelectedFolderId(id: string | null) {
+  function setSelectedFolderId(id: number | null) {
     selectedFolderId.value = id;
+  }
+
+  function setProjectId(id: number) {
+    projectId.value = id;
   }
 
   function addNode(node: WorkflowNode) {
@@ -72,7 +88,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  function createWorkflow(name: string, folderId?: string, description?: string): Workflow {
+  function createWorkflow(name: string, folderId?: number, description?: string): Workflow {
     const now = new Date().toISOString();
     const workflow: Workflow = {
       id: `workflow-${Date.now()}`,
@@ -112,43 +128,90 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return workflows.value.find((w) => w.id === workflowId);
   }
 
-  function createFolder(name: string, parentId?: string): WorkflowFolder {
-    const now = new Date().toISOString();
-    const folder: WorkflowFolder = {
-      id: `folder-${Date.now()}`,
-      name,
-      parentId,
-      children: [],
-      createdAt: now,
-    };
-    if (parentId) {
-      const parent = findFolderById(parentId);
-      if (parent) {
-        parent.children = parent.children || [];
-        parent.children.push(folder);
+  async function loadProjects() {
+    try {
+      const response = await getProjectList();
+      projects.value = response || [];
+      if (projects.value.length > 0 && projectId.value === 1) {
+        projectId.value = projects.value[0].id;
       }
-    } else {
-      folders.value.push(folder);
-    }
-    return folder;
-  }
-
-  function updateFolder(folderId: string, updates: Partial<WorkflowFolder>) {
-    const folder = findFolderById(folderId);
-    if (folder) {
-      Object.assign(folder, updates);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      projects.value = [];
     }
   }
 
-  function deleteFolder(folderId: string) {
-    workflows.value = workflows.value.filter((w) => w.folderId !== folderId);
-    deleteFolderRecursive(folderId, folders.value);
-    if (selectedFolderId.value === folderId) {
-      selectedFolderId.value = null;
+  async function loadFolders() {
+    try {
+      const response = await getFolderTree(projectId.value);
+      if (response && response.length > 0) {
+        folders.value = response.map((item: any) => ({
+          id: item.id,
+          name: item.folderName,
+          parentId: item.parentId,
+          sort: item.sort,
+          children: item.children ? item.children.map((child: any) => ({
+            id: child.id,
+            name: child.folderName,
+            parentId: child.parentId,
+            sort: child.sort,
+            children: child.children,
+          })) : undefined,
+        }));
+      } else {
+        folders.value = [];
+      }
+    } catch (error) {
+      console.error('Failed to load folders:', error);
+      folders.value = [];
     }
   }
 
-  function findFolderById(folderId: string, searchFolders?: WorkflowFolder[]): WorkflowFolder | undefined {
+  async function createFolder(name: string, parentId?: number, selectedProjectId?: number): Promise<WorkflowFolder | null> {
+    try {
+      const response = await addFolder({
+        projectId: selectedProjectId ?? projectId.value,
+        parentId: parentId ?? 0,
+        folderName: name,
+      });
+      await loadFolders();
+      return response || null;
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      return null;
+    }
+  }
+
+  async function updateFolderById(folderId: number, name: string): Promise<boolean> {
+    try {
+      await updateFolder(folderId, {
+        projectId: projectId.value,
+        folderName: name,
+      });
+      await loadFolders();
+      return true;
+    } catch (error) {
+      console.error('Failed to update folder:', error);
+      return false;
+    }
+  }
+
+  async function deleteFolderById(folderId: number): Promise<boolean> {
+    try {
+      await deleteFolder(folderId, projectId.value);
+      workflows.value = workflows.value.filter((w) => w.folderId !== folderId);
+      await loadFolders();
+      if (selectedFolderId.value === folderId) {
+        selectedFolderId.value = null;
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      return false;
+    }
+  }
+
+  function findFolderById(folderId: number, searchFolders?: WorkflowFolder[]): WorkflowFolder | undefined {
     const targetFolders = searchFolders || folders.value;
     for (const folder of targetFolders) {
       if (folder.id === folderId) return folder;
@@ -160,42 +223,31 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return undefined;
   }
 
-  function deleteFolderRecursive(folderId: string, targetFolders: WorkflowFolder[]) {
-    const index = targetFolders.findIndex((f) => f.id === folderId);
-    if (index !== -1) {
-      targetFolders.splice(index, 1);
-    } else {
-      for (const folder of targetFolders) {
-        if (folder.children) {
-          deleteFolderRecursive(folderId, folder.children);
-        }
-      }
-    }
-  }
-
   function initMockData() {
     if (workflows.value.length === 0 && folders.value.length === 0) {
       const now = new Date().toISOString();
       folders.value = [
         {
-          id: 'folder-1',
+          id: 1,
           name: '默认文件夹',
+          parentId: 0,
+          sort: 1,
           children: [],
-          createdAt: now,
         },
         {
-          id: 'folder-2',
+          id: 2,
           name: 'AI 流程',
+          parentId: 0,
+          sort: 2,
           children: [
             {
-              id: 'folder-2-1',
+              id: 3,
               name: '问答流程',
-              parentId: 'folder-2',
+              parentId: 2,
+              sort: 1,
               children: [],
-              createdAt: now,
             },
           ],
-          createdAt: now,
         },
       ];
 
@@ -204,7 +256,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           id: 'workflow-1',
           name: '示例流程',
           description: '一个简单的示例流程',
-          folderId: 'folder-1',
+          folderId: 1,
           nodes: [],
           edges: [],
           createdAt: now,
@@ -214,7 +266,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           id: 'workflow-2',
           name: 'AI问答流程',
           description: '基于LLM的问答流程',
-          folderId: 'folder-2-1',
+          folderId: 3,
           nodes: [],
           edges: [],
           createdAt: now,
@@ -224,7 +276,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           id: 'workflow-3',
           name: '数据处理流程',
           description: '数据清洗和转换流程',
-          folderId: 'folder-1',
+          folderId: 1,
           nodes: [],
           edges: [],
           createdAt: now,
@@ -237,13 +289,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
   return {
     workflows,
     folders,
+    projects,
     currentWorkflow,
     selectedNodeId,
     selectedFolderId,
+    projectId,
     workflowsByFolder,
     setCurrentWorkflow,
     setSelectedNodeId,
     setSelectedFolderId,
+    setProjectId,
     addNode,
     removeNode,
     updateNode,
@@ -253,9 +308,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     saveWorkflow,
     deleteWorkflow,
     getWorkflowById,
+    loadProjects,
+    loadFolders,
     createFolder,
-    updateFolder,
-    deleteFolder,
+    updateFolderById,
+    deleteFolderById,
     findFolderById,
     initMockData,
   };

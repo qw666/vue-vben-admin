@@ -351,6 +351,9 @@ const headerSlots = computed(() => {
         <template #timezone>
           <slot name="timezone"></slot>
         </template>
+        <template #header-right-0>
+          <slot name="header-right-0"></slot>
+        </template>
         <template v-for="item in headerSlots" #[item]>
           <slot :name="item"></slot>
         </template>

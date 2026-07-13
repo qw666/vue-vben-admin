@@ -1,17 +1,24 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, h } from 'vue';
 
-import { Tree, Button, message, Popconfirm, Tooltip, Input } from 'ant-design-vue';
+import { Tree, Button, message, Popconfirm, Tooltip, Input, Modal, Form, Select } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
 
 const store = useWorkflowStore();
 
-const expandedKeys = ref<string[]>([]);
+const expandedKeys = ref<number[]>([]);
 const selectedKeys = ref<string[]>([]);
-const editingKey = ref<string | null>(null);
+const editingKey = ref<number | null>(null);
 const editingName = ref('');
+const loading = ref(false);
+
+const showModal = ref(false);
+const folderName = ref('');
+const selectedProjectId = ref<number>(1);
+const selectedParentId = ref<number | null>(null);
+const formRef = ref();
 
 const treeData = computed(() => {
   return foldersToTree(store.folders);
@@ -19,7 +26,7 @@ const treeData = computed(() => {
 
 function foldersToTree(folders: any[]): any[] {
   return folders.map((folder) => ({
-    key: folder.id,
+    key: String(folder.id),
     title: renderTitle(folder),
     icon: () => h(IconifyIcon, { icon: 'mdi:folder', size: 16, class: 'text-yellow-500' }),
     children: folder.children?.length ? foldersToTree(folder.children) : undefined,
@@ -45,38 +52,65 @@ function renderTitle(folder: any) {
   return folder.name;
 }
 
-function handleEditBlur(folder: any) {
-  return () => {
+async function handleEditBlur(folder: any) {
+  return async () => {
     if (editingName.value.trim()) {
-      store.updateFolder(folder.id, { name: editingName.value.trim() });
-      message.success('文件夹已重命名');
+      loading.value = true;
+      const success = await store.updateFolderById(folder.id, editingName.value.trim());
+      loading.value = false;
+      if (success) {
+        message.success('文件夹已重命名');
+      } else {
+        message.error('重命名失败');
+      }
     }
     editingKey.value = null;
   };
 }
 
-function onExpand(expandedKeysValue: string[]) {
+function onExpand(expandedKeysValue: number[]) {
   expandedKeys.value = expandedKeysValue;
 }
 
 function onSelect(selectedKeysValue: string[]) {
   selectedKeys.value = selectedKeysValue;
-  store.setSelectedFolderId(selectedKeysValue[0] || null);
+  const folderId = selectedKeysValue[0] ? parseInt(selectedKeysValue[0]) : null;
+  store.setSelectedFolderId(folderId);
 }
 
 function onCreateFolder() {
-  const parentId = selectedKeys.value[0] || null;
-  const newFolder = store.createFolder('新建文件夹', parentId);
-  expandedKeys.value = [...expandedKeys.value, newFolder.id];
-  selectedKeys.value = [newFolder.id];
-  editingKey.value = newFolder.id;
-  editingName.value = '新建文件夹';
-  message.success('文件夹已创建');
+  folderName.value = '';
+  if (store.projects.length === 0) {
+    store.loadProjects();
+  }
+  selectedProjectId.value = store.projectId;
+  const selectedKey = selectedKeys.value[0];
+  selectedParentId.value = selectedKey ? parseInt(selectedKey) : null;
+  showModal.value = true;
+}
+
+async function handleCreateFolder() {
+  if (!folderName.value.trim()) {
+    message.warning('请输入文件夹名称');
+    return;
+  }
+  loading.value = true;
+  const parentId = selectedParentId.value || undefined;
+  const newFolder = await store.createFolder(folderName.value.trim(), parentId, selectedProjectId.value);
+  loading.value = false;
+  if (newFolder) {
+    expandedKeys.value = [...expandedKeys.value, newFolder.id];
+    selectedKeys.value = [String(newFolder.id)];
+    message.success('文件夹已创建');
+  } else {
+    message.error('创建失败');
+  }
+  showModal.value = false;
 }
 
 function onRenameFolder() {
   if (selectedKeys.value[0]) {
-    const folder = store.findFolderById(selectedKeys.value[0]);
+    const folder = store.findFolderById(parseInt(selectedKeys.value[0]));
     if (folder) {
       editingKey.value = folder.id;
       editingName.value = folder.name;
@@ -84,24 +118,30 @@ function onRenameFolder() {
   }
 }
 
-function onDeleteFolder() {
+async function onDeleteFolder() {
   if (selectedKeys.value[0]) {
-    store.deleteFolder(selectedKeys.value[0]);
-    selectedKeys.value = [];
-    message.success('文件夹已删除');
+    loading.value = true;
+    const success = await store.deleteFolderById(parseInt(selectedKeys.value[0]));
+    loading.value = false;
+    if (success) {
+      selectedKeys.value = [];
+      message.success('文件夹已删除');
+    } else {
+      message.error('删除失败');
+    }
   }
 }
 
 onMounted(() => {
-  store.initMockData();
+  store.loadFolders();
 });
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-white border-r border-gray-200">
-    <div class="p-4 border-b border-gray-200 flex-1 overflow-y-auto">
+  <div class="flex flex-col h-full bg-card border-r border-border text-foreground">
+    <div class="p-4 border-b border-border flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-semibold text-gray-800">文件夹</h2>
+        <h2 class="text-lg font-semibold text-foreground">文件夹</h2>
         <Button type="text" size="small" @click="onCreateFolder">
           <IconifyIcon icon="mdi:plus" :size="16" />
         </Button>
@@ -116,7 +156,7 @@ onMounted(() => {
         @select="onSelect"
       />
     </div>
-    <div class="p-4 border-t border-gray-200 flex items-center gap-2">
+    <div class="p-4 border-t border-border flex items-center gap-2">
       <Tooltip title="新建文件夹">
         <Button type="text" size="small" @click="onCreateFolder">
           <IconifyIcon icon="mdi:folder-plus" :size="16" />
@@ -135,5 +175,59 @@ onMounted(() => {
         </Tooltip>
       </Popconfirm>
     </div>
+
+    <Modal
+      v-model:open="showModal"
+      title="新建文件夹"
+      ok-text="确定"
+      cancel-text="取消"
+      :loading="loading"
+      @ok="handleCreateFolder"
+    >
+      <Form :model="{ folderName, selectedProjectId, selectedParentId }" layout="vertical">
+        <Form.Item label="项目">
+          <Select
+            v-model="selectedProjectId"
+            placeholder="请选择项目"
+            style="width: 100%"
+          >
+            <Select.Option
+              v-for="project in store.projects"
+              :key="project.id"
+              :value="project.id"
+            >
+              {{ project.projectName }}
+            </Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item label="父文件夹">
+          <Select
+            v-model="selectedParentId"
+            placeholder="根文件夹"
+            style="width: 100%"
+            allow-clear
+          >
+            <Select.Option :value="null" key="root">根文件夹</Select.Option>
+            <template v-for="folder in store.folders" :key="'folder-' + folder.id">
+              <Select.Option :value="folder.id" :label="folder.name">
+                {{ folder.name }}
+              </Select.Option>
+              <template v-for="child in folder.children" :key="'child-' + child.id">
+                <Select.Option :value="child.id" :label="'├── ' + child.name">
+                  ├── {{ child.name }}
+                </Select.Option>
+              </template>
+            </template>
+          </Select>
+        </Form.Item>
+        <Form.Item label="文件夹名称">
+          <Input
+            v-model="folderName"
+            placeholder="请输入文件夹名称"
+            @keyup.enter="handleCreateFolder"
+          />
+        </Form.Item>
+      </Form>
+    </Modal>
   </div>
 </template>

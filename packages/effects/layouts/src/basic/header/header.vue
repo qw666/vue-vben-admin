@@ -96,11 +96,9 @@ const rightSlots = computed(() => {
   }
 
   Object.keys(slots).forEach((key) => {
-    // 适配插槽名称，例如第一个插槽名：header-right-1
     if (key.startsWith('header-right')) {
-      // 取第三个占位的数字，若是第三个占位不是数字，则自动分配排序索引
       const slotIndex = Number(key.split('-')[2]);
-      const index = Number.isNaN(slotIndex) ? nextIndex(list) : slotIndex;
+      const index = Number.isNaN(slotIndex) ? nextIndex(list) : REFERENCE_VALUE + slotIndex - 5;
       list.push({ index, name: key });
     }
   });
