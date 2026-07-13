@@ -19,7 +19,6 @@ const showModal = ref(false);
 const folderName = ref('');
 const selectedProjectId = ref<number>(1);
 const selectedParentId = ref<number | null>(null);
-const formRef = ref();
 
 const treeData = computed(() => {
   return foldersToTree(store.folders);
@@ -128,31 +127,24 @@ function onSelect(selectedKeysValue: string[]) {
   store.setSelectedFolderId(folderId);
 }
 
-// 【修复版】新建文件夹弹窗赋值逻辑
+// ==========【最终修复核心函数】==========
 function onCreateFolder(parentId?: number) {
-  // 每次打开先清空
+  // 关键：打开弹窗前立刻缓存选中ID
+  const tempSelectId = selectedKeys.value.length ? Number(selectedKeys.value[0]) : null;
+
   folderName.value = '';
+  selectedProjectId.value = store.projectId;
   selectedParentId.value = null;
 
-  if (store.projects.length === 0) {
-    store.loadProjects();
-  }
-  // 刷新文件夹树，保证下拉列表最新
-  store.loadFolders();
-
-  selectedProjectId.value = store.projectId;
-
-  // 优先使用传入的父ID（子文件夹新建），否则取当前选中
+  // 优先使用右键子文件夹ID，否则使用缓存的选中ID
   if (parentId !== undefined) {
     selectedParentId.value = parentId;
   } else {
-    if (selectedKeys.value.length) {
-      const num = Number(selectedKeys.value[0]);
-      if (!Number.isNaN(num)) {
-        selectedParentId.value = num;
-      }
-    }
+    selectedParentId.value = tempSelectId;
   }
+
+  // 【最关键修复】彻底删除 loadProjects / loadFolders
+  // 避免 projectId 变更导致弹窗关闭、选中清空
 
   showModal.value = true;
 }
@@ -170,6 +162,8 @@ async function handleCreateFolder() {
     expandedKeys.value = [...expandedKeys.value, newFolder.id];
     selectedKeys.value = [String(newFolder.id)];
     message.success('文件夹已创建');
+    // 创建后自动刷新一次树
+    store.loadFolders();
   } else {
     message.error('创建失败');
   }
@@ -202,7 +196,7 @@ async function onDeleteFolder(folderId?: number) {
   }
 }
 
-// 弹窗打开时，切换树节点实时同步父文件夹
+// 弹窗打开期间实时同步选中
 watch(selectedKeys, (newKeys) => {
   if (!showModal.value) return;
   if (!newKeys.length) {
@@ -215,7 +209,7 @@ watch(selectedKeys, (newKeys) => {
   }
 }, { flush: 'post' });
 
-// 关闭弹窗清空脏数据
+// 关闭弹窗清空
 watch(showModal, (isOpen) => {
   if (!isOpen) {
     selectedParentId.value = null;
@@ -223,14 +217,17 @@ watch(showModal, (isOpen) => {
   }
 });
 
-// 切换项目关闭弹窗防错乱
+// ==========【终极修复】重写 projectId 监听 ==========
+// 弹窗打开时，禁止关闭弹窗、禁止清空选中
 watch(() => store.projectId, () => {
-  showModal.value = false;
-  selectedKeys.value = [];
+  if (!showModal.value) {
+    selectedKeys.value = [];
+  }
 });
 
 onMounted(() => {
   store.loadFolders();
+  store.loadProjects();
 });
 </script>
 
