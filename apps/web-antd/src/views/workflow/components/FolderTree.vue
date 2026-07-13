@@ -238,7 +238,7 @@ onMounted(() => {
   <div class="flex flex-col h-full bg-card border-r border-border text-foreground">
     <div class="p-4 border-b border-border flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-semibold text-foreground">文件夹</h2>
+        <h2 class="text-lg font-semibold text-foreground">分组</h2>
         <Button type="text" size="small" @click="onCreateFolder()">
           <IconifyIcon icon="mdi:plus" :size="16" />
         </Button>
@@ -252,25 +252,6 @@ onMounted(() => {
         @expand="onExpand"
         @select="onSelect"
       />
-    </div>
-    <div class="p-4 border-t border-border flex items-center gap-2">
-      <Tooltip title="新建文件夹">
-        <Button type="text" size="small" @click="onCreateFolder()">
-          <IconifyIcon icon="mdi:folder-plus" :size="16" />
-        </Button>
-      </Tooltip>
-      <Tooltip title="重命名">
-        <Button type="text" size="small" :disabled="!selectedKeys.length" @click="onRenameFolder()">
-          <IconifyIcon icon="mdi:pencil" :size="16" />
-        </Button>
-      </Tooltip>
-      <Popconfirm title="确定删除这个文件夹吗？" ok-text="确定" cancel-text="取消">
-        <Tooltip title="删除">
-          <Button type="text" size="small" danger :disabled="!selectedKeys.length">
-            <IconifyIcon icon="mdi:trash-can" :size="16" />
-          </Button>
-        </Tooltip>
-      </Popconfirm>
     </div>
 
     <Modal
