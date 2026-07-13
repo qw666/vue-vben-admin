@@ -141,23 +141,21 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  function transformFolder(folder: any): WorkflowFolder {
+    return {
+      id: folder.id,
+      name: folder.folderName,
+      parentId: folder.parentId,
+      sort: folder.sort,
+      children: folder.children ? folder.children.map((child: any) => transformFolder(child)) : undefined,
+    };
+  }
+
   async function loadFolders() {
     try {
       const response = await getFolderTree(projectId.value);
       if (response && response.length > 0) {
-        folders.value = response.map((item: any) => ({
-          id: item.id,
-          name: item.folderName,
-          parentId: item.parentId,
-          sort: item.sort,
-          children: item.children ? item.children.map((child: any) => ({
-            id: child.id,
-            name: child.folderName,
-            parentId: child.parentId,
-            sort: child.sort,
-            children: child.children,
-          })) : undefined,
-        }));
+        folders.value = response.map((item: any) => transformFolder(item));
       } else {
         folders.value = [];
       }
@@ -169,23 +167,26 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   async function createFolder(name: string, parentId?: number, selectedProjectId?: number): Promise<WorkflowFolder | null> {
     try {
-      const response = await addFolder({
+      await addFolder({
         projectId: selectedProjectId ?? projectId.value,
         parentId: parentId ?? 0,
         folderName: name,
       });
       await loadFolders();
-      return response || null;
+      return {} as WorkflowFolder;
     } catch (error) {
       console.error('Failed to create folder:', error);
       return null;
     }
   }
 
-  async function updateFolderById(folderId: number, name: string): Promise<boolean> {
+  async function updateFolderById(folderId: number, name: string, newProjectId?: number, newParentId?: number): Promise<boolean> {
     try {
-      await updateFolder(folderId, {
-        projectId: projectId.value,
+      const folder = findFolderById(folderId);
+      await updateFolder({
+        id: folderId,
+        projectId: newProjectId ?? projectId.value,
+        parentId: newParentId ?? folder?.parentId ?? 0,
         folderName: name,
       });
       await loadFolders();

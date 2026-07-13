@@ -10,7 +10,9 @@ export interface FolderAddRequest {
 }
 
 export interface FolderUpdateRequest {
+  id: number;
   projectId: number;
+  parentId?: number;
   folderName: string;
   sort?: number;
 }
@@ -52,10 +54,9 @@ export async function addFolder(data: FolderAddRequest): Promise<ApiResponse> {
 }
 
 export async function updateFolder(
-  id: number,
   data: FolderUpdateRequest,
 ): Promise<ApiResponse> {
-  return requestClient.post(`${BASE_URL}/folder/update?id=${id}`, data, {
+  return requestClient.post(`${BASE_URL}/folder/update`, data, {
     headers: getHeaders(),
   });
 }

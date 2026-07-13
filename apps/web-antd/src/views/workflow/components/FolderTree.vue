@@ -20,6 +20,12 @@ const folderName = ref('');
 const selectedProjectId = ref<number>(1);
 const selectedParentId = ref<number | null>(null);
 
+const showEditModal = ref(false);
+const editingFolderId = ref<number | null>(null);
+const editingFolderName = ref('');
+const editingProjectId = ref<number>(1);
+const editingParentId = ref<number | null>(null);
+
 const treeData = computed(() => {
   return foldersToTree(store.folders);
 });
@@ -145,25 +151,44 @@ function onCreateFolder(parentId?: number) {
   showModal.value = true;
 }
 
-async function handleCreateFolder() {
-  if (!folderName.value.trim()) {
+function handleCancelCreate() {
+  showModal.value = false;
+  folderName.value = '';
+}
+
+function handleCancelEdit() {
+  showEditModal.value = false;
+  editingFolderId.value = null;
+  editingFolderName.value = '';
+  editingProjectId.value = 1;
+  editingParentId.value = null;
+}
+
+function handleCreateFolder() {
+  const name = folderName.value.trim();
+  if (!name) {
     message.warning('请输入文件夹名称');
     return;
   }
   loading.value = true;
   const parentId = selectedParentId.value || undefined;
-  const newFolder = await store.createFolder(folderName.value.trim(), parentId, store.projectId);
-  loading.value = false;
-  if (newFolder) {
-    expandedKeys.value = [...expandedKeys.value, newFolder.id];
-    selectedKeys.value = [String(newFolder.id)];
-    message.success('文件夹已创建');
-    // 创建后自动刷新一次树
-    store.loadFolders();
-  } else {
-    message.error('创建失败');
-  }
-  showModal.value = false;
+  store.createFolder(name, parentId, store.projectId)
+    .then((newFolder) => {
+      loading.value = false;
+      if (newFolder) {
+        message.success('文件夹已创建');
+      } else {
+        message.error('创建失败');
+      }
+      folderName.value = '';
+      showModal.value = false;
+    })
+    .catch((error) => {
+      loading.value = false;
+      message.error('创建失败');
+      folderName.value = '';
+      showModal.value = false;
+    });
 }
 
 function onRenameFolder(folderId?: number) {
@@ -171,10 +196,49 @@ function onRenameFolder(folderId?: number) {
   if (id !== null) {
     const folder = store.findFolderById(id);
     if (folder) {
-      editingKey.value = folder.id;
-      editingName.value = folder.name;
+      editingFolderId.value = folder.id;
+      editingFolderName.value = folder.name;
+      editingProjectId.value = store.projectId;
+      editingParentId.value = folder.parentId === 0 ? null : folder.parentId;
+      showEditModal.value = true;
     }
   }
+}
+
+function handleEditFolder() {
+  const name = editingFolderName.value.trim();
+  if (!name) {
+    message.warning('请输入文件夹名称');
+    return;
+  }
+  if (editingFolderId.value === null) {
+    return;
+  }
+  loading.value = true;
+  const parentId = editingParentId.value === null ? 0 : editingParentId.value;
+  store.updateFolderById(editingFolderId.value, name, editingProjectId.value, parentId)
+    .then((success) => {
+      loading.value = false;
+      if (success) {
+        message.success('文件夹已更新');
+      } else {
+        message.error('更新失败');
+      }
+      editingFolderId.value = null;
+      editingFolderName.value = '';
+      editingProjectId.value = 1;
+      editingParentId.value = null;
+      showEditModal.value = false;
+    })
+    .catch((error) => {
+      loading.value = false;
+      message.error('更新失败');
+      editingFolderId.value = null;
+      editingFolderName.value = '';
+      editingProjectId.value = 1;
+      editingParentId.value = null;
+      showEditModal.value = false;
+    });
 }
 
 async function onDeleteFolder(folderId?: number) {
@@ -205,11 +269,9 @@ watch(selectedKeys, (newKeys) => {
   }
 }, { flush: 'post' });
 
-// 关闭弹窗清空
 watch(showModal, (isOpen) => {
   if (!isOpen) {
     selectedParentId.value = null;
-    folderName.value = '';
   }
 });
 
@@ -249,16 +311,17 @@ onMounted(() => {
 
     <Modal
       v-model:open="showModal"
-      title="新建文件夹"
+      title="新建分组"
       ok-text="确定"
       cancel-text="取消"
-      :loading="loading"
+      :confirm-loading="loading"
       @ok="handleCreateFolder"
+      @cancel="handleCancelCreate"
     >
       <Form :model="{ folderName, selectedProjectId, selectedParentId }" layout="vertical">
         <Form.Item label="项目">
           <Select
-            v-model="selectedProjectId"
+            v-model:value="selectedProjectId"
             placeholder="请选择项目"
             style="width: 100%"
           >
@@ -273,7 +336,7 @@ onMounted(() => {
         </Form.Item>
         <Form.Item label="父分组">
           <Select
-            v-model="selectedParentId"
+            v-model:value="selectedParentId"
             placeholder="根文件夹"
             style="width: 100%"
             allow-clear
@@ -289,9 +352,60 @@ onMounted(() => {
         </Form.Item>
         <Form.Item label="文件夹名称">
           <Input
-            v-model="folderName"
+            v-model:value="folderName"
             placeholder="请输入文件夹名称"
             @keyup.enter="handleCreateFolder"
+          />
+        </Form.Item>
+      </Form>
+    </Modal>
+
+    <Modal
+      v-model:open="showEditModal"
+      title="编辑分组"
+      ok-text="保存"
+      cancel-text="取消"
+      :confirm-loading="loading"
+      @ok="handleEditFolder"
+      @cancel="handleCancelEdit"
+    >
+      <Form :model="{ editingFolderName, editingProjectId, editingParentId }" layout="vertical">
+        <Form.Item label="项目">
+          <Select
+            v-model:value="editingProjectId"
+            placeholder="请选择项目"
+            style="width: 100%"
+          >
+            <Select.Option
+              v-for="project in store.projects"
+              :key="project.id"
+              :value="project.id"
+            >
+              {{ project.projectName }}
+            </Select.Option>
+          </Select>
+        </Form.Item>
+        <Form.Item label="父分组">
+          <Select
+            v-model:value="editingParentId"
+            placeholder="根文件夹"
+            style="width: 100%"
+            allow-clear
+          >
+            <Select.Option :value="null" key="root">根文件夹</Select.Option>
+            <template v-for="folder in store.folders" :key="'folder-' + folder.id">
+              <Select.Option :value="folder.id">{{ folder.name }}</Select.Option>
+              <template v-for="child in folder.children" :key="'child-' + child.id">
+                <Select.Option :value="child.id">├── {{ child.name }}</Select.Option>
+              </template>
+            </template>
+          </Select>
+        </Form.Item>
+        <Form.Item label="文件夹名称">
+          <Input
+            v-model:value="editingFolderName"
+            placeholder="请输入文件夹名称"
+            @keyup.enter="handleEditFolder"
           />
         </Form.Item>
       </Form>
