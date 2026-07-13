@@ -87,3 +87,24 @@ export async function getProjectList(): Promise<ApiResponse<ProjectVO[]>> {
     headers: getHeaders(),
   });
 }
+
+export interface PluginSimpleDTO {
+  type: string;
+  nodeName: string;
+  nodeCategory: string;
+  icon: string;
+}
+
+export interface PluginGroupTreeDTO {
+  groupKey: string;
+  groupName: string;
+  sort: number;
+  pluginList: PluginSimpleDTO[];
+}
+
+export async function getPluginTree(nodeCategory?: string): Promise<ApiResponse<PluginGroupTreeDTO[]>> {
+  const params = nodeCategory ? `?nodeCategory=${nodeCategory}` : '';
+  return requestClient.post(`${BASE_URL}/plugin/tree${params}`, {}, {
+    headers: getHeaders(),
+  });
+}

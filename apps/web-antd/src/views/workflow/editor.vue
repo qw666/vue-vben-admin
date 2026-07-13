@@ -1,11 +1,12 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 import { Button, message, Tooltip, Drawer, Input } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
+import { getPluginTree } from '#/api';
 
 const router = useRouter();
 const route = useRoute();
@@ -17,23 +18,43 @@ const isConfigOpen = ref(false);
 const selectedNode = ref<any>(null);
 const nodeLabel = ref('');
 
-const nodeTemplates = [
-  { type: 'start', label: '开始', icon: 'mdi:play-circle', category: '基础', color: 'bg-green-500' },
-  { type: 'end', label: '结束', icon: 'mdi:stop-circle', category: '基础', color: 'bg-red-500' },
-  { type: 'llm', label: 'LLM', icon: 'mdi:brain', category: 'AI', color: 'bg-purple-500' },
-  { type: 'prompt', label: '提示词', icon: 'mdi:file-text', category: 'AI', color: 'bg-blue-500' },
-  { type: 'code', label: '代码', icon: 'mdi:code', category: '工具', color: 'bg-orange-500' },
-  { type: 'condition', label: '条件', icon: 'mdi:git-branch', category: '控制', color: 'bg-yellow-500' },
-  { type: 'webhook', label: 'Webhook', icon: 'mdi:webhook', category: '工具', color: 'bg-cyan-500' },
-  { type: 'data', label: '数据', icon: 'mdi:database', category: '数据', color: 'bg-indigo-500' },
-  { type: 'input', label: '输入', icon: 'mdi:input', category: '数据', color: 'bg-teal-500' },
-  { type: 'output', label: '输出', icon: 'mdi:output', category: '数据', color: 'bg-pink-500' },
-];
+const pluginGroups = ref<any[]>([]);
+const isPluginLoading = ref(false);
 
-const categories = ['基础', 'AI', '工具', '控制', '数据'];
+const colorMap: Record<string, string> = {
+  '基础': 'bg-green-500',
+  'AI': 'bg-purple-500',
+  '工具': 'bg-orange-500',
+  '控制': 'bg-yellow-500',
+  '数据': 'bg-indigo-500',
+};
+
+function getCategoryColor(category: string): string {
+  return colorMap[category] || 'bg-gray-500';
+}
+
+const categories = computed(() => {
+  return pluginGroups.value.map(g => g.groupName);
+});
 
 function nodesByCategory(category: string) {
-  return nodeTemplates.filter((t) => t.category === category);
+  const group = pluginGroups.value.find(g => g.groupName === category);
+  return group ? group.pluginList : [];
+}
+
+async function loadPlugins() {
+  isPluginLoading.value = true;
+  try {
+    const response = await getPluginTree();
+    if (response) {
+      pluginGroups.value = response;
+    }
+  } catch (error) {
+    console.error('Failed to load plugins:', error);
+    message.error('加载节点列表失败');
+  } finally {
+    isPluginLoading.value = false;
+  }
 }
 
 function onDragStart(e: DragEvent, nodeType: string) {
@@ -63,21 +84,28 @@ function onDrop(e: DragEvent) {
     const data = e.dataTransfer.getData('application/json');
     if (data) {
       const { nodeType } = JSON.parse(data);
-      const template = nodeTemplates.find((t) => t.type === nodeType);
+      let template: any = null;
+      for (const group of pluginGroups.value) {
+        template = group.pluginList.find((p: any) => p.type === nodeType);
+        if (template) {
+          template.category = group.groupName;
+          break;
+        }
+      }
       if (template && store.currentWorkflow) {
         const newNode = {
           id: `node-${Date.now()}`,
           type: 'custom',
           position,
           data: {
-            label: template.label,
+            label: template.nodeName,
             type: template.type,
             icon: template.icon,
-            description: template.category,
+            description: template.nodeCategory,
           },
         };
         store.currentWorkflow.nodes.push(newNode);
-        message.success(`已添加 ${template.label} 节点`);
+        message.success(`已添加 ${template.nodeName} 节点`);
       }
     }
   }
@@ -138,6 +166,7 @@ function handleBack() {
 
 onMounted(() => {
   store.initMockData();
+  loadPlugins();
   const workflowId = route.params.id as string;
   if (workflowId) {
     const workflow = store.getWorkflowById(workflowId);
@@ -189,27 +218,32 @@ onMounted(() => {
           <p class="text-sm text-gray-500 mt-1">拖拽节点到画布</p>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-4">
-          <div v-for="category in categories" :key="category">
-            <h3 class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-gray-400" />
-              {{ category }}
-            </h3>
-            <div class="space-y-2">
-              <div
-                v-for="node in nodesByCategory(category)"
-                :key="node.type"
-                class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors border border-gray-200"
-                draggable="true"
-                @dragstart="onDragStart($event, node.type)"
-              >
+          <div v-if="isPluginLoading" class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+          <div v-else>
+            <div v-for="group in pluginGroups" :key="group.groupKey">
+              <h3 class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full" :class="getCategoryColor(group.groupName)" />
+                {{ group.groupName }}
+              </h3>
+              <div class="space-y-2">
                 <div
-                  class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
-                  :class="node.color"
+                  v-for="plugin in group.pluginList"
+                  :key="plugin.type"
+                  class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 cursor-grab active:cursor-grabbing transition-colors border border-gray-200"
+                  draggable="true"
+                  @dragstart="onDragStart($event, plugin.type)"
                 >
-                  <IconifyIcon :icon="node.icon" :size="20" />
-                </div>
-                <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-800">{{ node.label }}</div>
+                  <div
+                    class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+                    :class="getCategoryColor(group.groupName)"
+                  >
+                    <IconifyIcon :icon="plugin.icon" :size="20" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-800">{{ plugin.nodeName }}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -254,7 +288,7 @@ onMounted(() => {
             <div class="flex items-center gap-2 mb-1">
               <div
                 class="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                :class="nodeTemplates.find(t => t.type === node.data.type)?.color"
+                :class="getCategoryColor(node.data.description || '基础')"
               >
                 <IconifyIcon :icon="node.data.icon" :size="16" />
               </div>
