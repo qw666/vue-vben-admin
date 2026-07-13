@@ -14,8 +14,7 @@ export default defineConfig(async () => {
           },
           '/api': {
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api/, ''),
-            target: 'http://localhost:5320/api',
+            target: 'http://localhost:5320',
             ws: true,
           },
         },

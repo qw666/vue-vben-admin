@@ -13,6 +13,7 @@ const selectedKeys = ref<string[]>([]);
 const editingKey = ref<number | null>(null);
 const editingName = ref('');
 const loading = ref(false);
+const hoveredKey = ref<string | null>(null);
 
 const showModal = ref(false);
 const folderName = ref('');
@@ -49,7 +50,56 @@ function renderTitle(folder: any) {
       },
     });
   }
-  return folder.name;
+
+  return h('div', {
+    class: 'flex items-center justify-between w-full',
+    onMouseenter: () => { hoveredKey.value = String(folder.id); },
+    onMouseleave: () => { hoveredKey.value = null; },
+  }, [
+    h('span', { class: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap' }, folder.name),
+    h('div', {
+      class: `flex items-center gap-1 transition-opacity duration-200 ${hoveredKey.value === String(folder.id) ? 'opacity-100' : 'opacity-0'}`,
+    }, [
+      h(Tooltip, { title: '新建子文件夹' }, () =>
+        h(Button, {
+          type: 'text',
+          size: 'small',
+          onClick: (e: any) => {
+            e.stopPropagation();
+            onCreateFolder(folder.id);
+          }
+        }, () => h(IconifyIcon, { icon: 'mdi:plus', size: 14 }))
+      ),
+      h(Tooltip, { title: '重命名' }, () =>
+        h(Button, {
+          type: 'text',
+          size: 'small',
+          onClick: (e: any) => {
+            e.stopPropagation();
+            onRenameFolder(folder.id);
+          }
+        }, () => h(IconifyIcon, { icon: 'mdi:pencil', size: 14 }))
+      ),
+      h(Tooltip, { title: '删除' }, () =>
+        h(Popconfirm, {
+          title: '确定删除这个文件夹吗？',
+          okText: '确定',
+          cancelText: '取消',
+          onConfirm: (e: any) => {
+            e?.stopPropagation();
+            onDeleteFolder(folder.id);
+          }
+        }, () =>
+          h(Button, {
+            type: 'text',
+            size: 'small',
+            danger: true,
+            onClick: (e: any) => e.stopPropagation(),
+          }, () => h(IconifyIcon, { icon: 'mdi:trash-can', size: 14 }))
+        )
+      ),
+    ]),
+  ]);
 }
 
 async function handleEditBlur(folder: any) {
@@ -78,22 +128,32 @@ function onSelect(selectedKeysValue: string[]) {
   store.setSelectedFolderId(folderId);
 }
 
-function onCreateFolder() {
+// 【修复版】新建文件夹弹窗赋值逻辑
+function onCreateFolder(parentId?: number) {
+  // 每次打开先清空
   folderName.value = '';
+  selectedParentId.value = null;
+
   if (store.projects.length === 0) {
     store.loadProjects();
   }
+  // 刷新文件夹树，保证下拉列表最新
+  store.loadFolders();
+
   selectedProjectId.value = store.projectId;
-  
-  const selectedKey = selectedKeys.value[0];
-  if (selectedKey) {
-    const selectedFolderId = parseInt(selectedKey);
-    const folderExists = store.findFolderById(selectedFolderId);
-    selectedParentId.value = folderExists ? selectedFolderId : null;
+
+  // 优先使用传入的父ID（子文件夹新建），否则取当前选中
+  if (parentId !== undefined) {
+    selectedParentId.value = parentId;
   } else {
-    selectedParentId.value = null;
+    if (selectedKeys.value.length) {
+      const num = Number(selectedKeys.value[0]);
+      if (!Number.isNaN(num)) {
+        selectedParentId.value = num;
+      }
+    }
   }
-  
+
   showModal.value = true;
 }
 
@@ -116,9 +176,10 @@ async function handleCreateFolder() {
   showModal.value = false;
 }
 
-function onRenameFolder() {
-  if (selectedKeys.value[0]) {
-    const folder = store.findFolderById(parseInt(selectedKeys.value[0]));
+function onRenameFolder(folderId?: number) {
+  const id = folderId ?? (selectedKeys.value[0] ? parseInt(selectedKeys.value[0]) : null);
+  if (id !== null) {
+    const folder = store.findFolderById(id);
     if (folder) {
       editingKey.value = folder.id;
       editingName.value = folder.name;
@@ -126,27 +187,50 @@ function onRenameFolder() {
   }
 }
 
-async function onDeleteFolder() {
-  if (selectedKeys.value[0]) {
+async function onDeleteFolder(folderId?: number) {
+  const id = folderId ?? (selectedKeys.value[0] ? parseInt(selectedKeys.value[0]) : null);
+  if (id !== null) {
     loading.value = true;
-    const success = await store.deleteFolderById(parseInt(selectedKeys.value[0]));
+    const success = await store.deleteFolderById(id);
     loading.value = false;
     if (success) {
       selectedKeys.value = [];
-      message.success('文件夹已删除');
+      message.success('删除成功');
     } else {
       message.error('删除失败');
     }
   }
 }
 
-onMounted(() => {
-  store.loadFolders();
+// 弹窗打开时，切换树节点实时同步父文件夹
+watch(selectedKeys, (newKeys) => {
+  if (!showModal.value) return;
+  if (!newKeys.length) {
+    selectedParentId.value = null;
+    return;
+  }
+  const num = Number(newKeys[0]);
+  if (!Number.isNaN(num)) {
+    selectedParentId.value = num;
+  }
+}, { flush: 'post' });
+
+// 关闭弹窗清空脏数据
+watch(showModal, (isOpen) => {
+  if (!isOpen) {
+    selectedParentId.value = null;
+    folderName.value = '';
+  }
 });
 
+// 切换项目关闭弹窗防错乱
 watch(() => store.projectId, () => {
+  showModal.value = false;
   selectedKeys.value = [];
-  store.setSelectedFolderId(null);
+});
+
+onMounted(() => {
+  store.loadFolders();
 });
 </script>
 
@@ -155,7 +239,7 @@ watch(() => store.projectId, () => {
     <div class="p-4 border-b border-border flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-foreground">文件夹</h2>
-        <Button type="text" size="small" @click="onCreateFolder">
+        <Button type="text" size="small" @click="onCreateFolder()">
           <IconifyIcon icon="mdi:plus" :size="16" />
         </Button>
       </div>
@@ -171,12 +255,12 @@ watch(() => store.projectId, () => {
     </div>
     <div class="p-4 border-t border-border flex items-center gap-2">
       <Tooltip title="新建文件夹">
-        <Button type="text" size="small" @click="onCreateFolder">
+        <Button type="text" size="small" @click="onCreateFolder()">
           <IconifyIcon icon="mdi:folder-plus" :size="16" />
         </Button>
       </Tooltip>
       <Tooltip title="重命名">
-        <Button type="text" size="small" :disabled="!selectedKeys.length" @click="onRenameFolder">
+        <Button type="text" size="small" :disabled="!selectedKeys.length" @click="onRenameFolder()">
           <IconifyIcon icon="mdi:pencil" :size="16" />
         </Button>
       </Tooltip>
@@ -222,13 +306,9 @@ watch(() => store.projectId, () => {
           >
             <Select.Option :value="null" key="root">根文件夹</Select.Option>
             <template v-for="folder in store.folders" :key="'folder-' + folder.id">
-              <Select.Option :value="folder.id" :label="folder.name">
-                {{ folder.name }}
-              </Select.Option>
+              <Select.Option :value="folder.id">{{ folder.name }}</Select.Option>
               <template v-for="child in folder.children" :key="'child-' + child.id">
-                <Select.Option :value="child.id" :label="'├── ' + child.name">
-                  ├── {{ child.name }}
-                </Select.Option>
+                <Select.Option :value="child.id">├── {{ child.name }}</Select.Option>
               </template>
             </template>
           </Select>
