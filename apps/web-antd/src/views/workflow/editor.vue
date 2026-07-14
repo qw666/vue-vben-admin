@@ -24,6 +24,111 @@ const nodeConfigForm = ref<any>({});
 const isConfigPanelOpen = ref(false);
 const isMetaLoading = ref(false);
 
+const showNodeSelectModal = ref(false);
+const currentArrayFieldKey = ref('');
+const currentArrayIndex = ref(-1);
+const selectedChildNodeType = ref('');
+const selectedChildNodeMeta = ref<any>(null);
+const childNodeConfigForm = ref<any>({});
+const isChildNodeConfigPanelOpen = ref(false);
+const selectedChildNodeLabel = ref('');
+
+function isTaskRef(itemsSchema: any): boolean {
+  return itemsSchema && itemsSchema.$ref && 
+    (itemsSchema.$ref === '#/$defs/idp_core_models_tasks_Task' || 
+     itemsSchema.$ref.includes('idp_core_models_tasks_Task'));
+}
+
+function openNodeSelectModal(fieldKey: string) {
+  currentArrayFieldKey.value = fieldKey;
+  currentArrayIndex.value = -1;
+  selectedChildNodeType.value = '';
+  selectedChildNodeMeta.value = null;
+  childNodeConfigForm.value = {};
+  showNodeSelectModal.value = true;
+}
+
+function closeNodeSelectModal() {
+  showNodeSelectModal.value = false;
+  currentArrayFieldKey.value = '';
+  currentArrayIndex.value = -1;
+  selectedChildNodeType.value = '';
+  selectedChildNodeMeta.value = null;
+  childNodeConfigForm.value = {};
+}
+
+async function selectChildNode(nodeType: string) {
+  selectedChildNodeType.value = nodeType;
+  const template = pluginGroups.value.flatMap(g => g.pluginList).find(p => p.type === nodeType);
+  selectedChildNodeLabel.value = template?.nodeName || '';
+  
+  const meta = await loadPluginMeta(nodeType);
+  if (meta && meta.formProperties) {
+    selectedChildNodeMeta.value = meta;
+    childNodeConfigForm.value = {};
+    Object.keys(meta.formProperties).forEach(key => {
+      if (key !== '$schema') {
+        if (meta.formProperties[key].default !== undefined) {
+          childNodeConfigForm.value[key] = meta.formProperties[key].default;
+        } else if (meta.formProperties[key].type === 'boolean') {
+          childNodeConfigForm.value[key] = false;
+        }
+      }
+    });
+  }
+}
+
+function confirmAddChildNode() {
+  if (!selectedChildNodeType.value) {
+    message.error('请选择一个节点');
+    return;
+  }
+  
+  const currentValue = nodeConfigForm.value[currentArrayFieldKey.value] || [];
+  const newItem = {
+    type: selectedChildNodeType.value,
+    ...childNodeConfigForm.value,
+  };
+  
+  nodeConfigForm.value[currentArrayFieldKey.value] = [...currentValue, newItem];
+  message.success(`已添加 ${selectedChildNodeLabel.value} 节点`);
+  closeNodeSelectModal();
+}
+
+function editChildNode(fieldKey: string, index: number) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  const item = currentValue[index];
+  if (!item || !item.type) return;
+  
+  currentArrayFieldKey.value = fieldKey;
+  currentArrayIndex.value = index;
+  selectedChildNodeType.value = item.type;
+  
+  const template = pluginGroups.value.flatMap(g => g.pluginList).find(p => p.type === item.type);
+  selectedChildNodeLabel.value = template?.nodeName || '';
+  
+  loadPluginMeta(item.type).then(meta => {
+    if (meta && meta.formProperties) {
+      selectedChildNodeMeta.value = meta;
+      childNodeConfigForm.value = { ...item };
+      showNodeSelectModal.value = true;
+    }
+  });
+}
+
+function confirmEditChildNode() {
+  if (!selectedChildNodeType.value || currentArrayIndex.value < 0) return;
+  
+  const currentValue = nodeConfigForm.value[currentArrayFieldKey.value] || [];
+  currentValue[currentArrayIndex.value] = {
+    type: selectedChildNodeType.value,
+    ...childNodeConfigForm.value,
+  };
+  nodeConfigForm.value[currentArrayFieldKey.value] = [...currentValue];
+  message.success('节点配置已更新');
+  closeNodeSelectModal();
+}
+
 const colorMap: Record<string, string> = {
   '基础': 'bg-green-500',
   'AI': 'bg-purple-500',
@@ -299,7 +404,18 @@ function renderFormField(properties: any, fieldKey: string, isRequired: boolean,
         },
       };
     case 'array':
-      if (fieldSchema.items && fieldSchema.items.$ref) {
+      if (fieldSchema.items && isTaskRef(fieldSchema.items)) {
+        return {
+          type: 'NodeArray',
+          props: {
+            ...renderProps,
+            modelValue: value || [],
+            itemsSchema: fieldSchema.items,
+            minItems: fieldSchema.minItems,
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          },
+        };
+      } else if (fieldSchema.items && fieldSchema.items.$ref) {
         const refSchema = resolveRef(fieldSchema.items.$ref, defs);
         if (refSchema && refSchema.properties) {
           return {
@@ -787,6 +903,36 @@ onMounted(() => {
                       </div>
                     </div>
                   </div>
+                  <div v-else-if="field.type === 'NodeArray'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">{{ field.props.label }} ({{ nodeConfigForm[field.key]?.length || 0 }})</span>
+                        <Button type="text" size="small" @click="openNodeSelectModal(field.key)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加节点
+                        </Button>
+                      </div>
+                      <div class="space-y-3">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="bg-white rounded-lg p-3 border border-gray-200">
+                          <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-medium text-gray-600">第 {{ index + 1 }} 项</span>
+                              <span class="text-sm text-blue-600">
+                                {{ pluginGroups.flatMap(g => g.pluginList).find(p => p.type === item.type)?.nodeName || item.type }}
+                              </span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                              <Button type="text" size="small" @click="editChildNode(field.key, index)">
+                                <IconifyIcon icon="mdi:pencil" :size="14" />
+                              </Button>
+                              <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
+                                <IconifyIcon icon="mdi:close" :size="14" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -916,6 +1062,36 @@ onMounted(() => {
                       </div>
                     </div>
                   </div>
+                  <div v-else-if="field.type === 'NodeArray'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">{{ field.props.label }} ({{ nodeConfigForm[field.key]?.length || 0 }})</span>
+                        <Button type="text" size="small" @click="openNodeSelectModal(field.key)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加节点
+                        </Button>
+                      </div>
+                      <div class="space-y-3">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="bg-white rounded-lg p-3 border border-gray-200">
+                          <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-medium text-gray-600">第 {{ index + 1 }} 项</span>
+                              <span class="text-sm text-blue-600">
+                                {{ pluginGroups.flatMap(g => g.pluginList).find(p => p.type === item.type)?.nodeName || item.type }}
+                              </span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                              <Button type="text" size="small" @click="editChildNode(field.key, index)">
+                                <IconifyIcon icon="mdi:pencil" :size="14" />
+                              </Button>
+                              <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
+                                <IconifyIcon icon="mdi:close" :size="14" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -927,6 +1103,143 @@ onMounted(() => {
         <div class="p-4 border-t border-gray-200">
           <Button type="primary" block @click="handleSaveConfig">保存配置</Button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="showNodeSelectModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl w-[900px] h-[600px] flex flex-col">
+      <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-gray-800">选择子节点</h2>
+        <Button type="text" @click="closeNodeSelectModal">
+          <IconifyIcon icon="mdi:close" :size="18" />
+        </Button>
+      </div>
+      <div class="flex-1 flex overflow-hidden">
+        <div class="w-1/2 border-r border-gray-200 overflow-y-auto p-4">
+          <div v-if="isPluginLoading" class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+          <div v-else>
+            <div v-for="group in pluginGroups" :key="group.groupKey">
+              <h3 class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full" :class="getCategoryColor(group.groupName)" />
+                {{ group.groupName }}
+              </h3>
+              <div class="space-y-2">
+                <div
+                  v-for="plugin in group.pluginList"
+                  :key="plugin.type"
+                  class="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border"
+                  :class="selectedChildNodeType === plugin.type ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'"
+                  @click="selectChildNode(plugin.type)"
+                >
+                  <div
+                    class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+                    :class="getCategoryColor(group.groupName)"
+                  >
+                    <IconifyIcon :icon="plugin.icon" :size="20" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-800">{{ plugin.nodeName }}</div>
+                    <div class="text-xs text-gray-500">{{ plugin.description }}</div>
+                  </div>
+                  <div v-if="selectedChildNodeType === plugin.type">
+                    <IconifyIcon icon="mdi:check-circle" :size="18" class="text-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="w-1/2 overflow-y-auto p-4">
+          <div v-if="!selectedChildNodeType" class="flex items-center justify-center h-full text-gray-500">
+            请从左侧选择一个节点
+          </div>
+          <div v-else-if="isMetaLoading" class="flex items-center justify-center h-full">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+          <div v-else>
+            <div class="p-4 bg-blue-50 rounded-lg mb-4">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+                  :class="getCategoryColor(pluginGroups.flatMap(g => g.pluginList).find(p => p.type === selectedChildNodeType)?.category || '基础')"
+                >
+                  <IconifyIcon :icon="pluginGroups.flatMap(g => g.pluginList).find(p => p.type === selectedChildNodeType)?.icon" :size="20" />
+                </div>
+                <div>
+                  <div class="text-base font-medium text-gray-800">{{ selectedChildNodeLabel }}</div>
+                  <div class="text-xs text-gray-500">{{ selectedChildNodeType }}</div>
+                </div>
+              </div>
+              <div v-if="selectedChildNodeMeta?.description" class="mt-2 text-sm text-blue-800">
+                {{ selectedChildNodeMeta.description }}
+              </div>
+            </div>
+            <div v-if="selectedChildNodeMeta?.parsedSchema?.description" class="p-4 bg-gray-50 rounded-lg mb-4">
+              <div class="text-sm text-gray-600 font-medium mb-1">配置说明</div>
+              <div class="text-sm text-gray-800">{{ selectedChildNodeMeta.parsedSchema.description }}</div>
+            </div>
+            <div v-if="selectedChildNodeMeta?.formProperties">
+              <div v-if="Object.keys(selectedChildNodeMeta.formProperties).filter(k => k !== '$schema').length === 0" class="text-center text-gray-500 py-4">
+                该节点暂无配置项
+              </div>
+              <div v-else>
+                <div class="space-y-4">
+                  <div v-for="(prop, propKey) in selectedChildNodeMeta.formProperties" :key="propKey" v-show="propKey !== '$schema'">
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="text-sm font-medium text-gray-700">
+                        {{ prop.title || propKey }}
+                        <span v-if="prop.$required" class="text-red-500 ml-1">*</span>
+                      </label>
+                      <div class="flex items-center gap-2">
+                        <span v-if="prop.$dynamic === true" class="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded">动态</span>
+                        <Tooltip v-if="prop.description" :title="prop.description">
+                          <IconifyIcon icon="mdi:help-circle" :size="14" class="text-gray-400" />
+                        </Tooltip>
+                      </div>
+                    </div>
+                    <Input
+                      v-if="prop.type === 'string' || prop.anyOf"
+                      v-model:value="childNodeConfigForm[propKey]"
+                      :placeholder="prop.$dynamic === true ? '支持动态表达式，如 {{ variable }}' : prop.description || '请输入'"
+                      class="w-full"
+                      size="small"
+                    />
+                    <InputNumber
+                      v-else-if="prop.type === 'number' || prop.type === 'integer'"
+                      v-model:value="childNodeConfigForm[propKey]"
+                      :min="prop.minimum"
+                      class="w-full"
+                      size="small"
+                    />
+                    <Switch
+                      v-else-if="prop.type === 'boolean'"
+                      :checked="childNodeConfigForm[propKey]"
+                      @change="(val) => { childNodeConfigForm[propKey] = val; }"
+                    />
+                    <Textarea
+                      v-else-if="prop.type === 'object' || prop.type === 'array'"
+                      :value="typeof childNodeConfigForm[propKey] === 'string' ? childNodeConfigForm[propKey] : JSON.stringify(childNodeConfigForm[propKey], null, 2)"
+                      @input="(e: any) => { childNodeConfigForm[propKey] = e.target.value; }"
+                      :placeholder="prop.description || '请输入JSON格式数据'"
+                      rows="3"
+                      class="w-full"
+                      size="small"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="p-4 border-t border-gray-200 flex items-center justify-end gap-2">
+        <Button @click="closeNodeSelectModal">取消</Button>
+        <Button type="primary" @click="currentArrayIndex >= 0 ? confirmEditChildNode() : confirmAddChildNode()">
+          {{ currentArrayIndex >= 0 ? '确定修改' : '确定添加' }}
+        </Button>
       </div>
     </div>
   </div>
