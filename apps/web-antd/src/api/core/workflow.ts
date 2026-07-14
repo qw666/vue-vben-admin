@@ -108,3 +108,19 @@ export async function getPluginTree(nodeCategory?: string): Promise<ApiResponse<
     headers: getHeaders(),
   });
 }
+
+export interface PluginMetaDetailDTO {
+  type: string;
+  nodeName: string;
+  nodeDesc: string;
+  nodeCategory: string;
+  icon: string;
+  description: string;
+  formSchema: string;
+}
+
+export async function getPluginMetaBatch(nodeTypes: string[]): Promise<ApiResponse<Record<string, PluginMetaDetailDTO>>> {
+  return requestClient.post(`${BASE_URL}/plugin/batch/meta`, nodeTypes, {
+    headers: getHeaders(),
+  });
+}
