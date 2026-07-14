@@ -2,11 +2,11 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
-import { Button, message, Tooltip, Drawer, Input } from 'ant-design-vue';
+import { Button, message, Tooltip, Input, Textarea, Select, Switch, Slider, InputNumber } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
-import { getPluginTree } from '#/api';
+import { getPluginTree, getPluginMetaBatch } from '#/api';
 
 const router = useRouter();
 const route = useRoute();
@@ -14,12 +14,15 @@ const store = useWorkflowStore();
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
-const isConfigOpen = ref(false);
-const selectedNode = ref<any>(null);
-const nodeLabel = ref('');
 
 const pluginGroups = ref<any[]>([]);
 const isPluginLoading = ref(false);
+const pluginMetaCache = ref<Record<string, any>>({});
+
+const selectedNode = ref<any>(null);
+const nodeConfigForm = ref<any>({});
+const isConfigPanelOpen = ref(false);
+const isMetaLoading = ref(false);
 
 const colorMap: Record<string, string> = {
   '基础': 'bg-green-500',
@@ -27,25 +30,17 @@ const colorMap: Record<string, string> = {
   '工具': 'bg-orange-500',
   '控制': 'bg-yellow-500',
   '数据': 'bg-indigo-500',
+  'task': 'bg-blue-500',
 };
 
 function getCategoryColor(category: string): string {
   return colorMap[category] || 'bg-gray-500';
 }
 
-const categories = computed(() => {
-  return pluginGroups.value.map(g => g.groupName);
-});
-
-function nodesByCategory(category: string) {
-  const group = pluginGroups.value.find(g => g.groupName === category);
-  return group ? group.pluginList : [];
-}
-
 async function loadPlugins() {
   isPluginLoading.value = true;
   try {
-    const response = await getPluginTree('task');
+    const response = await getPluginTree();
     if (response) {
       pluginGroups.value = response;
     }
@@ -57,10 +52,62 @@ async function loadPlugins() {
   }
 }
 
+async function loadPluginMeta(nodeType: string) {
+  if (pluginMetaCache.value[nodeType]) {
+    
+    return pluginMetaCache.value[nodeType];
+  }
+  isMetaLoading.value = true;
+  try {
+    const response = await getPluginMetaBatch([nodeType]);
+    if (response && response[nodeType]) {
+      const meta = response[nodeType];
+      if (meta.formSchema) {
+        let schema = meta.formSchema;
+        try {
+          schema = JSON.parse(meta.formSchema);
+        } catch {
+        }
+        if (typeof schema === 'string') {
+          try {
+            schema = JSON.parse(schema);
+          } catch {
+          }
+        }
+        if (typeof schema === 'object' && schema.properties && schema.properties.properties) {
+          meta.parsedSchema = schema;
+          meta.formProperties = schema.properties.properties;
+          meta.formRequired = schema.properties.required || schema.required || [];
+          meta.formDefs = schema.$defs || schema.definitions || {};
+        } else if (typeof schema === 'object' && schema.properties) {
+          meta.parsedSchema = schema;
+          meta.formProperties = schema.properties;
+          meta.formRequired = schema.required || [];
+          meta.formDefs = schema.$defs || schema.definitions || {};
+        } else {
+          meta.parsedSchema = null;
+          meta.formProperties = {};
+          meta.formRequired = [];
+          meta.formDefs = {};
+        }
+      }
+      pluginMetaCache.value[nodeType] = meta;
+      return meta;
+    }
+  } catch (error) {
+    console.error('Failed to load plugin meta:', error);
+    message.error('加载节点元数据失败');
+  } finally {
+    isMetaLoading.value = false;
+  }
+  return null;
+}
+
 function onDragStart(e: DragEvent, nodeType: string) {
   if (e.dataTransfer) {
     e.dataTransfer.setData('application/json', JSON.stringify({ nodeType }));
     e.dataTransfer.effectAllowed = 'move';
+    loadPluginMeta(nodeType);
   }
 }
 
@@ -73,6 +120,10 @@ function onDragOver(e: DragEvent) {
 
 function onDrop(e: DragEvent) {
   e.preventDefault();
+  if (!store.currentWorkflow) {
+    message.error('请先创建或选择一个流程');
+    return;
+  }
   const canvas = e.currentTarget as HTMLElement;
   const rect = canvas.getBoundingClientRect();
   const position = {
@@ -93,6 +144,7 @@ function onDrop(e: DragEvent) {
         }
       }
       if (template && store.currentWorkflow) {
+        const meta = pluginMetaCache.value[nodeType];
         const newNode = {
           id: `node-${Date.now()}`,
           type: 'custom',
@@ -102,6 +154,7 @@ function onDrop(e: DragEvent) {
             type: template.type,
             icon: template.icon,
             description: template.nodeCategory,
+            config: meta && meta.parsedSchema ? {} : {},
           },
         };
         store.currentWorkflow.nodes.push(newNode);
@@ -111,23 +164,283 @@ function onDrop(e: DragEvent) {
   }
 }
 
-function handleNodeClick(node: any) {
+async function handleNodeDoubleClick(node: any) {
   selectedNode.value = node;
-  nodeLabel.value = node.data.label;
-  isConfigOpen.value = true;
+  isConfigPanelOpen.value = true;
+  
+  const meta = await loadPluginMeta(node.data.type);
+  if (meta && meta.formProperties) {
+    const savedConfig = node.data.config || {};
+    const properties = meta.formProperties || {};
+    nodeConfigForm.value = {};
+    Object.keys(properties).forEach(key => {
+      if (key !== '$schema') {
+        if (savedConfig[key] !== undefined) {
+          nodeConfigForm.value[key] = savedConfig[key];
+        } else if (properties[key].default !== undefined) {
+          nodeConfigForm.value[key] = properties[key].default;
+        } else if (properties[key].type === 'boolean') {
+          nodeConfigForm.value[key] = false;
+        }
+      }
+    });
+  }
 }
 
 function handleConfigClose() {
-  isConfigOpen.value = false;
+  isConfigPanelOpen.value = false;
   selectedNode.value = null;
+  nodeConfigForm.value = {};
 }
 
 function handleSaveConfig() {
-  if (selectedNode.value) {
-    selectedNode.value.data.label = nodeLabel.value;
-    message.success('节点配置已更新');
+  if (!selectedNode.value) return;
+
+  const requiredKeys = requiredFields.value.map(f => f.props.key);
+  const missingFields: string[] = [];
+  
+  requiredKeys.forEach(key => {
+    const value = nodeConfigForm.value[key];
+    if (value === undefined || value === null || value === '') {
+      const field = requiredFields.value.find(f => f.props.key === key);
+      if (field) {
+        missingFields.push(field.props.label);
+      }
+    }
+  });
+
+  if (missingFields.length > 0) {
+    message.error(`请填写必填项：${missingFields.join('、')}`);
+    return;
+  }
+
+  selectedNode.value.data.config = { ...nodeConfigForm.value };
+  message.success('节点配置已更新');
+}
+
+const defaultDefs: Record<string, any> = {
+  idp_core_models_tasks_Task: {
+    type: 'object',
+    title: '通用任务节点',
+    properties: {
+      type: { type: 'string', title: '任务类型', $required: true },
+      name: { type: 'string', title: '任务名称', $required: false },
+      description: { type: 'string', title: '任务描述', $required: false },
+    },
+  },
+};
+
+function resolveRef(ref: string, defs: any): any {
+  if (!ref) return null;
+  const refName = ref.replace('#/$defs/', '').replace('#/definitions/', '');
+  const resolved = defs && defs[refName] ? defs[refName] : defaultDefs[refName];
+  if (resolved && !resolved.properties && defaultDefs[refName]) {
+    return defaultDefs[refName];
+  }
+  return resolved || null;
+}
+
+function renderFormField(properties: any, fieldKey: string, isRequired: boolean, defs: any = {}) {
+  const fieldSchema = properties[fieldKey];
+  const title = fieldSchema.title || fieldKey;
+  const description = fieldSchema.description || '';
+  const value = nodeConfigForm.value[fieldKey];
+  const isDynamic = fieldSchema.$dynamic === true;
+
+  const renderProps = {
+    key: fieldKey,
+    label: title,
+    tooltip: description,
+    required: isRequired,
+    dynamic: isDynamic,
+  };
+
+  if (fieldSchema.anyOf) {
+    return {
+      type: 'Input',
+      props: {
+        ...renderProps,
+        modelValue: value,
+        'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+        placeholder: isDynamic ? '支持动态表达式，如 {{ variable }}' : description || '请输入',
+      },
+    };
+  }
+
+  switch (fieldSchema.type) {
+    case 'string':
+      return {
+        type: 'Input',
+        props: {
+          ...renderProps,
+          modelValue: value,
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          placeholder: isDynamic ? '支持动态表达式，如 {{ variable }}' : description || '请输入',
+        },
+      };
+    case 'number':
+    case 'integer':
+      return {
+        type: 'InputNumber',
+        props: {
+          ...renderProps,
+          modelValue: value,
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          min: fieldSchema.minimum,
+        },
+      };
+    case 'boolean':
+      return {
+        type: 'Switch',
+        props: {
+          ...renderProps,
+          checked: value,
+          'onChange': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+        },
+      };
+    case 'array':
+      if (fieldSchema.items && fieldSchema.items.$ref) {
+        const refSchema = resolveRef(fieldSchema.items.$ref, defs);
+        if (refSchema && refSchema.properties) {
+          return {
+            type: 'ArrayTable',
+            props: {
+              ...renderProps,
+              modelValue: value || [],
+              itemsSchema: refSchema,
+              minItems: fieldSchema.minItems,
+              'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            },
+          };
+        }
+      } else if (fieldSchema.items && fieldSchema.items.type === 'object') {
+        return {
+          type: 'ArrayTable',
+          props: {
+            ...renderProps,
+            modelValue: value || [],
+            itemsSchema: fieldSchema.items,
+            minItems: fieldSchema.minItems,
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          },
+        };
+      } else if (fieldSchema.items && fieldSchema.items.type === 'string') {
+        return {
+          type: 'StringArray',
+          props: {
+            ...renderProps,
+            modelValue: value || [],
+            minItems: fieldSchema.minItems,
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          },
+        };
+      }
+      return {
+        type: 'Textarea',
+        props: {
+          ...renderProps,
+          modelValue: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          placeholder: fieldSchema.minItems && fieldSchema.minItems > 0 ? `至少${fieldSchema.minItems}项，JSON数组格式` : description || '请输入JSON数组',
+          rows: 4,
+        },
+      };
+    case 'object':
+      return {
+        type: 'Textarea',
+        props: {
+          ...renderProps,
+          modelValue: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          placeholder: '请输入JSON格式数据',
+          rows: 4,
+        },
+      };
+    default:
+      return {
+        type: 'Input',
+        props: {
+          ...renderProps,
+          modelValue: value,
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          placeholder: description || '请输入',
+        },
+      };
   }
 }
+
+function addArrayItem(fieldKey: string, itemsSchema: any) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  const newItem: any = {};
+  if (itemsSchema.properties) {
+    Object.keys(itemsSchema.properties).forEach(key => {
+      const prop = itemsSchema.properties[key];
+      if (prop.default !== undefined) {
+        newItem[key] = prop.default;
+      } else if (prop.type === 'boolean') {
+        newItem[key] = false;
+      }
+    });
+  }
+  nodeConfigForm.value[fieldKey] = [...currentValue, newItem];
+}
+
+function removeArrayItem(fieldKey: string, index: number) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  nodeConfigForm.value[fieldKey] = currentValue.filter((_, i) => i !== index);
+}
+
+function addStringArrayItem(fieldKey: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  nodeConfigForm.value[fieldKey] = [...currentValue, ''];
+}
+
+function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  currentValue[index][itemKey] = value;
+  nodeConfigForm.value[fieldKey] = [...currentValue];
+}
+
+const currentNodeMeta = computed(() => {
+  if (!selectedNode.value) return null;
+  return pluginMetaCache.value[selectedNode.value.data.type] || null;
+});
+
+const requiredFields = computed(() => {
+  if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
+  const properties = currentNodeMeta.value.formProperties;
+  const formRequired = currentNodeMeta.value.formRequired || [];
+  const formDefs = currentNodeMeta.value.formDefs || {};
+  return Object.keys(properties)
+    .filter(key => key !== '$schema')
+    .filter(key => {
+      const prop = properties[key];
+      if (!prop.type && !prop.$ref && !prop.anyOf) return false;
+      return prop.$required === true || formRequired.includes(key);
+    })
+    .map(key => {
+      const isRequired = properties[key].$required === true || formRequired.includes(key);
+      return renderFormField(properties, key, isRequired, formDefs);
+    });
+});
+
+const optionalFields = computed(() => {
+  if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
+  const properties = currentNodeMeta.value.formProperties;
+  const formRequired = currentNodeMeta.value.formRequired || [];
+  const formDefs = currentNodeMeta.value.formDefs || {};
+  return Object.keys(properties)
+    .filter(key => key !== '$schema')
+    .filter(key => {
+      const prop = properties[key];
+      if (!prop.type && !prop.$ref && !prop.anyOf) return false;
+      return prop.$required !== true && !formRequired.includes(key);
+    })
+    .map(key => {
+      const isRequired = properties[key].$required === true || formRequired.includes(key);
+      return renderFormField(properties, key, isRequired, formDefs);
+    });
+});
 
 async function handleSave() {
   isLoading.value = true;
@@ -267,13 +580,13 @@ onMounted(() => {
           </svg>
         </div>
 
-        <div v-if="store.currentWorkflow?.nodes.length === 0" class="absolute inset-0 flex items-center justify-center">
+        <div v-if="store.currentWorkflow?.nodes.length === 0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div class="text-center">
             <div class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
               <IconifyIcon icon="mdi:mouse-pointer-click" :size="48" class="text-gray-400" />
             </div>
             <h3 class="text-xl font-medium text-gray-600 mb-2">从左侧拖拽节点到这里</h3>
-            <p class="text-gray-400">开始构建你的工作流</p>
+            <p class="text-gray-400">双击节点可编辑配置</p>
           </div>
         </div>
 
@@ -282,7 +595,7 @@ onMounted(() => {
           :key="node.id"
           class="absolute cursor-pointer select-none"
           :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
-          @click="handleNodeClick(node)"
+          @dblclick="handleNodeDoubleClick(node)"
         >
           <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow">
             <div class="flex items-center gap-2 mb-1">
@@ -300,32 +613,321 @@ onMounted(() => {
           </div>
         </div>
       </div>
-    </div>
 
-    <Drawer
-      v-model:open="isConfigOpen"
-      title="节点属性"
-      :width="400"
-      @close="handleConfigClose"
-    >
-      <div v-if="selectedNode" class="space-y-4">
-        <div class="p-4 bg-gray-50 rounded-lg">
-          <div class="text-sm text-gray-500">节点ID</div>
-          <div class="text-base font-mono text-gray-800">{{ selectedNode.id }}</div>
+      <div
+        v-if="isConfigPanelOpen"
+        class="w-80 bg-white border-l border-gray-200 flex flex-col"
+      >
+        <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-800">节点配置</h2>
+          <Button type="text" @click="handleConfigClose">
+            <IconifyIcon icon="mdi:close" :size="18" />
+          </Button>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">节点名称</label>
-          <Input v-model="nodeLabel" />
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+          <div v-if="isMetaLoading" class="flex items-center justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+          <div v-else-if="!selectedNode" class="text-center text-gray-500 py-12">
+            请选择一个节点
+          </div>
+          <div v-else>
+            <div class="p-4 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-500">节点ID</div>
+              <Input
+                v-model:value="selectedNode.id"
+                class="mt-1"
+                size="small"
+                placeholder="请输入节点ID"
+              />
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-500">节点名称</div>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="text-base font-medium text-gray-800">{{ selectedNode.data.label }}</span>
+                <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
+                  <IconifyIcon icon="mdi:help-circle" :size="16" class="text-gray-400 cursor-help" />
+                </Tooltip>
+              </div>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-500">节点类型</div>
+              <div class="text-base text-gray-800">{{ selectedNode.data.type }}</div>
+            </div>
+            <div v-if="currentNodeMeta?.parsedSchema?.description" class="p-4 bg-blue-50 rounded-lg">
+              <div class="text-sm text-blue-600 font-medium mb-1">配置说明</div>
+              <div class="text-sm text-blue-800">{{ currentNodeMeta.parsedSchema.description }}</div>
+            </div>
+            <div v-if="requiredFields.length > 0" class="mb-6">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                <span class="text-sm font-semibold text-gray-700">必填项</span>
+              </div>
+              <div class="space-y-4">
+                <div v-for="field in requiredFields" :key="field.key" class="border-l-2 border-red-400 pl-3">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-sm font-medium text-gray-700">
+                      {{ field.props.label }}
+                      <span class="text-red-500 ml-1">*</span>
+                    </label>
+                    <div class="flex items-center gap-2">
+                      <span v-if="field.props.dynamic" class="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded">动态</span>
+                      <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
+                        <IconifyIcon icon="mdi:help-circle" :size="14" class="text-gray-400" />
+                      </Tooltip>
+                    </div>
+                  </div>
+                  <Input
+                    v-if="field.type === 'Input'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :placeholder="field.props.placeholder"
+                    class="w-full"
+                  />
+                  <Textarea
+                    v-else-if="field.type === 'Textarea'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :placeholder="field.props.placeholder"
+                    :rows="field.props.rows"
+                    class="w-full"
+                  />
+                  <InputNumber
+                    v-else-if="field.type === 'InputNumber'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :min="field.props.min"
+                    class="w-full"
+                  />
+                  <Switch
+                    v-else-if="field.type === 'Switch'"
+                    :checked="nodeConfigForm[field.key]"
+                    @change="(val) => { nodeConfigForm[field.key] = val; }"
+                  />
+                  <Select
+                    v-else-if="field.type === 'Select'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :mode="'multiple'"
+                    :placeholder="field.props.placeholder"
+                    class="w-full"
+                  />
+                  <div v-else-if="field.type === 'StringArray'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">{{ field.props.label }} ({{ nodeConfigForm[field.key]?.length || 0 }})</span>
+                        <Button type="text" size="small" @click="addStringArrayItem(field.key)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+                        </Button>
+                      </div>
+                      <div class="space-y-2">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="flex items-center gap-2">
+                          <Input
+                            v-model:value="nodeConfigForm[field.key][index]"
+                            :placeholder="'请输入'"
+                            class="flex-1"
+                            size="small"
+                          />
+                          <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
+                            <IconifyIcon icon="mdi:close" :size="14" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="field.type === 'ArrayTable'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">{{ field.props.label }} ({{ nodeConfigForm[field.key]?.length || 0 }})</span>
+                        <Button type="text" size="small" @click="addArrayItem(field.key, field.props.itemsSchema)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+                        </Button>
+                      </div>
+                      <div class="space-y-3">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="bg-white rounded-lg p-3 border border-gray-200">
+                          <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-medium text-gray-600">第 {{ index + 1 }} 项</span>
+                            <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
+                              <IconifyIcon icon="mdi:close" :size="14" />
+                            </Button>
+                          </div>
+                          <div class="grid grid-cols-1 gap-2">
+                            <div v-for="(prop, propKey) in (field.props.itemsSchema?.properties || {})" :key="propKey">
+                              <label class="text-xs text-gray-500">{{ prop.title || propKey }}<span v-if="prop.$required" class="text-red-500 ml-1">*</span></label>
+                              <Input
+                                v-if="prop.type === 'string'"
+                                :value="nodeConfigForm[field.key][index][propKey]"
+                                @input="(e: any) => updateArrayItemValue(field.key, index, propKey, e.target.value)"
+                                :placeholder="prop.description || '请输入'"
+                                :disabled="prop.$dynamic === false"
+                                class="w-full"
+                                size="small"
+                              />
+                              <InputNumber
+                                v-else-if="prop.type === 'number' || prop.type === 'integer'"
+                                :value="nodeConfigForm[field.key][index][propKey]"
+                                @input="(val: any) => updateArrayItemValue(field.key, index, propKey, val)"
+                                :min="prop.minimum"
+                                class="w-full"
+                                size="small"
+                              />
+                              <Select
+                                v-else-if="prop.enum"
+                                :value="nodeConfigForm[field.key][index][propKey]"
+                                @change="(val: any) => updateArrayItemValue(field.key, index, propKey, val)"
+                                class="w-full"
+                                size="small"
+                              >
+                                <option v-for="opt in prop.enum" :key="opt" :value="opt">{{ opt }}</option>
+                              </Select>
+                              <Switch
+                                v-else-if="prop.type === 'boolean'"
+                                :checked="nodeConfigForm[field.key][index][propKey]"
+                                @change="(val: any) => updateArrayItemValue(field.key, index, propKey, val)"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="optionalFields.length > 0">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                <span class="text-sm font-semibold text-gray-700">选填项</span>
+              </div>
+              <div class="space-y-4">
+                <div v-for="field in optionalFields" :key="field.key" class="border-l-2 border-gray-200 pl-3">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-sm font-medium text-gray-600">{{ field.props.label }}</label>
+                    <div class="flex items-center gap-2">
+                      <span v-if="field.props.dynamic" class="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded">动态</span>
+                      <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
+                        <IconifyIcon icon="mdi:help-circle" :size="14" class="text-gray-400" />
+                      </Tooltip>
+                    </div>
+                  </div>
+                  <Input
+                    v-if="field.type === 'Input'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :placeholder="field.props.placeholder"
+                    class="w-full"
+                  />
+                  <Textarea
+                    v-else-if="field.type === 'Textarea'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :placeholder="field.props.placeholder"
+                    :rows="field.props.rows"
+                    class="w-full"
+                  />
+                  <InputNumber
+                    v-else-if="field.type === 'InputNumber'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :min="field.props.min"
+                    class="w-full"
+                  />
+                  <Switch
+                    v-else-if="field.type === 'Switch'"
+                    :checked="nodeConfigForm[field.key]"
+                    @change="(val) => { nodeConfigForm[field.key] = val; }"
+                  />
+                  <Select
+                    v-else-if="field.type === 'Select'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :mode="'multiple'"
+                    :placeholder="field.props.placeholder"
+                    class="w-full"
+                  />
+                  <div v-else-if="field.type === 'StringArray'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">{{ field.props.label }} ({{ nodeConfigForm[field.key]?.length || 0 }})</span>
+                        <Button type="text" size="small" @click="addStringArrayItem(field.key)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+                        </Button>
+                      </div>
+                      <div class="space-y-2">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="flex items-center gap-2">
+                          <Input
+                            v-model:value="nodeConfigForm[field.key][index]"
+                            :placeholder="'请输入'"
+                            class="flex-1"
+                            size="small"
+                          />
+                          <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
+                            <IconifyIcon icon="mdi:close" :size="14" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="field.type === 'ArrayTable'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-500">{{ field.props.label }} ({{ nodeConfigForm[field.key]?.length || 0 }})</span>
+                        <Button type="text" size="small" @click="addArrayItem(field.key, field.props.itemsSchema)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+                        </Button>
+                      </div>
+                      <div class="space-y-3">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="bg-white rounded-lg p-3 border border-gray-200">
+                          <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-medium text-gray-600">第 {{ index + 1 }} 项</span>
+                            <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
+                              <IconifyIcon icon="mdi:close" :size="14" />
+                            </Button>
+                          </div>
+                          <div class="grid grid-cols-1 gap-2">
+                            <div v-for="(prop, propKey) in (field.props.itemsSchema?.properties || {})" :key="propKey">
+                              <label class="text-xs text-gray-500">{{ prop.title || propKey }}<span v-if="prop.$required" class="text-red-500 ml-1">*</span></label>
+                              <Input
+                                v-if="prop.type === 'string'"
+                                :value="nodeConfigForm[field.key][index][propKey]"
+                                @input="(e: any) => updateArrayItemValue(field.key, index, propKey, e.target.value)"
+                                :placeholder="prop.description || '请输入'"
+                                :disabled="prop.$dynamic === false"
+                                class="w-full"
+                                size="small"
+                              />
+                              <InputNumber
+                                v-else-if="prop.type === 'number' || prop.type === 'integer'"
+                                :value="nodeConfigForm[field.key][index][propKey]"
+                                @input="(val: any) => updateArrayItemValue(field.key, index, propKey, val)"
+                                :min="prop.minimum"
+                                class="w-full"
+                                size="small"
+                              />
+                              <Select
+                                v-else-if="prop.enum"
+                                :value="nodeConfigForm[field.key][index][propKey]"
+                                @change="(val: any) => updateArrayItemValue(field.key, index, propKey, val)"
+                                class="w-full"
+                                size="small"
+                              >
+                                <option v-for="opt in prop.enum" :key="opt" :value="opt">{{ opt }}</option>
+                              </Select>
+                              <Switch
+                                v-else-if="prop.type === 'boolean'"
+                                :checked="nodeConfigForm[field.key][index][propKey]"
+                                @change="(val: any) => updateArrayItemValue(field.key, index, propKey, val)"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="requiredFields.length === 0 && optionalFields.length === 0" class="text-center text-gray-500 py-4">
+              该节点暂无配置项
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">节点类型</label>
-          <div class="text-gray-600 mt-1">{{ selectedNode.data.type }}</div>
+        <div class="p-4 border-t border-gray-200">
+          <Button type="primary" block @click="handleSaveConfig">保存配置</Button>
         </div>
-        <Button type="primary" block @click="handleSaveConfig">保存配置</Button>
       </div>
-      <div v-else class="text-center text-gray-500 py-12">
-        请选择一个节点以编辑属性
-      </div>
-    </Drawer>
+    </div>
   </div>
 </template>
