@@ -23,6 +23,8 @@ const selectedNode = ref<any>(null);
 const nodeConfigForm = ref<any>({});
 const isConfigPanelOpen = ref(false);
 const isMetaLoading = ref(false);
+const configPanelWidth = ref(350);
+const isResizing = ref(false);
 
 const showNodeSelectModal = ref(false);
 const currentArrayFieldKey = ref('');
@@ -296,6 +298,28 @@ function handleConfigClose() {
   isConfigPanelOpen.value = false;
   selectedNode.value = null;
   nodeConfigForm.value = {};
+}
+
+function startResize(e: MouseEvent) {
+  isResizing.value = true;
+  const startX = e.clientX;
+  const startWidth = configPanelWidth.value;
+
+  function onMouseMove(event: MouseEvent) {
+    if (!isResizing.value) return;
+    const deltaX = startX - event.clientX;
+    const newWidth = Math.max(200, Math.min(600, startWidth + deltaX));
+    configPanelWidth.value = newWidth;
+  }
+
+  function onMouseUp() {
+    isResizing.value = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
 }
 
 function handleSaveConfig() {
@@ -611,7 +635,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-gray-100">
+  <div class="h-full flex flex-col bg-gray-100 min-h-0">
     <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div class="flex items-center gap-4">
         <Button type="text" @click="handleBack">
@@ -680,60 +704,70 @@ onMounted(() => {
         </div>
       </div>
 
-      <div
-        class="flex-1 relative bg-gray-50"
-        @drop="onDrop"
-        @dragover="onDragOver"
-      >
-        <div class="absolute inset-0 pointer-events-none">
-          <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="0.5" opacity="0.3" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+      <div class="flex-1 flex overflow-hidden">
+        <div
+          class="flex-1 relative bg-gray-50"
+          @drop="onDrop"
+          @dragover="onDragOver"
+        >
+          <div class="absolute inset-0 pointer-events-none">
+            <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="0.5" opacity="0.3" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
 
-        <div v-if="store.currentWorkflow?.nodes.length === 0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div class="text-center">
-            <div class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-              <IconifyIcon icon="mdi:mouse-pointer-click" :size="48" class="text-gray-400" />
+          <div v-if="store.currentWorkflow?.nodes.length === 0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="text-center">
+              <div class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
+                <IconifyIcon icon="mdi:mouse-pointer-click" :size="48" class="text-gray-400" />
+              </div>
+              <h3 class="text-xl font-medium text-gray-600 mb-2">从左侧拖拽节点到这里</h3>
+              <p class="text-gray-400">双击节点可编辑配置</p>
             </div>
-            <h3 class="text-xl font-medium text-gray-600 mb-2">从左侧拖拽节点到这里</h3>
-            <p class="text-gray-400">双击节点可编辑配置</p>
+          </div>
+
+          <div
+            v-for="node in store.currentWorkflow?.nodes"
+            :key="node.id"
+            class="absolute cursor-pointer select-none"
+            :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
+            @dblclick="handleNodeDoubleClick(node)"
+          >
+            <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow">
+              <div class="flex items-center gap-2 mb-1">
+                <div
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-white"
+                  :class="getCategoryColor(node.data.description || '基础')"
+                >
+                  <IconifyIcon :icon="node.data.icon" :size="16" />
+                </div>
+                <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
+              </div>
+              <div class="flex gap-1 mt-2">
+                <div class="w-2 h-2 rounded-full bg-gray-400" />
+              </div>
+            </div>
           </div>
         </div>
 
         <div
-          v-for="node in store.currentWorkflow?.nodes"
-          :key="node.id"
-          class="absolute cursor-pointer select-none"
-          :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
-          @dblclick="handleNodeDoubleClick(node)"
+          v-if="isConfigPanelOpen"
+          class="w-1.5 flex-shrink-0 cursor-col-resize flex items-center justify-center bg-gray-200 hover:bg-gray-300 transition-colors group"
+          @mousedown="startResize"
         >
-          <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow">
-            <div class="flex items-center gap-2 mb-1">
-              <div
-                class="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                :class="getCategoryColor(node.data.description || '基础')"
-              >
-                <IconifyIcon :icon="node.data.icon" :size="16" />
-              </div>
-              <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
-            </div>
-            <div class="flex gap-1 mt-2">
-              <div class="w-2 h-2 rounded-full bg-gray-400" />
-            </div>
-          </div>
+          <div class="w-0.5 h-8 bg-gray-400 rounded-full group-hover:bg-gray-500 transition-colors"></div>
         </div>
-      </div>
 
-      <div
-        v-if="isConfigPanelOpen"
-        class="w-80 bg-white border-l border-gray-200 flex flex-col"
-      >
+        <div
+          v-if="isConfigPanelOpen"
+          class="bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden"
+          :style="{ width: configPanelWidth + 'px' }"
+        >
         <div class="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-gray-800">节点配置</h2>
           <Button type="text" @click="handleConfigClose">
@@ -1104,6 +1138,7 @@ onMounted(() => {
           <Button type="primary" block @click="handleSaveConfig">保存配置</Button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 
