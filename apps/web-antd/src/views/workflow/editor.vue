@@ -26,6 +26,17 @@ const isMetaLoading = ref(false);
 const configPanelWidth = ref(350);
 const isResizing = ref(false);
 
+const isDraggingNode = ref(false);
+const draggingNodeId = ref<string | null>(null);
+const dragOffset = ref({ x: 0, y: 0 });
+
+const isConnecting = ref(false);
+const connectingFrom = ref<string | null>(null);
+const tempLine = ref({ x1: 0, y1: 0, x2: 0, y2: 0 });
+const connections = ref<{ id: string; source: string; target: string; sourcePort?: string; targetPort?: string }[]>([]);
+const selectedConnectionId = ref<string | null>(null);
+const contextMenu = ref({ show: false, x: 0, y: 0, type: 'node' | 'connection' | null, targetId: null });
+
 const showNodeSelectModal = ref(false);
 const currentArrayFieldKey = ref('');
 const currentArrayIndex = ref(-1);
@@ -320,6 +331,232 @@ function startResize(e: MouseEvent) {
 
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
+}
+
+function startNodeDrag(e: MouseEvent, nodeId: string) {
+  const target = e.target as HTMLElement;
+  if (target.closest('.node-port')) {
+    return;
+  }
+
+  e.preventDefault();
+  isDraggingNode.value = true;
+  draggingNodeId.value = nodeId;
+
+  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+  if (node) {
+    dragOffset.value = {
+      x: e.clientX - node.position.x,
+      y: e.clientY - node.position.y
+    };
+  }
+
+  function onMouseMove(event: MouseEvent) {
+    if (!isDraggingNode.value || !draggingNodeId.value) return;
+
+    const newX = Math.max(0, event.clientX - dragOffset.value.x);
+    const newY = Math.max(0, event.clientY - dragOffset.value.y);
+
+    store.updateNode(draggingNodeId.value, {
+      position: { x: newX, y: newY }
+    });
+  }
+
+  function onMouseUp() {
+    isDraggingNode.value = false;
+    draggingNodeId.value = null;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function startConnection(e: MouseEvent, nodeId: string, portType: 'input' | 'output') {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  console.log('startConnection called:', nodeId, portType);
+  
+  isConnecting.value = true;
+  connectingFrom.value = nodeId;
+
+  const canvas = document.querySelector('.workflow-canvas');
+  if (!canvas) {
+    console.log('canvas not found');
+    return;
+  }
+  
+  const canvasRect = canvas.getBoundingClientRect();
+  const portElement = e.target as HTMLElement;
+  const portRect = portElement.getBoundingClientRect();
+  
+  tempLine.value = {
+    x1: portRect.left - canvasRect.left + portRect.width / 2,
+    y1: portRect.top - canvasRect.top + portRect.height / 2,
+    x2: e.clientX - canvasRect.left,
+    y2: e.clientY - canvasRect.top
+  };
+  
+  console.log('tempLine initialized:', tempLine.value);
+
+  function onMouseMove(event: MouseEvent) {
+    if (!isConnecting.value) return;
+    const rect = canvas.getBoundingClientRect();
+    tempLine.value.x2 = event.clientX - rect.left;
+    tempLine.value.y2 = event.clientY - rect.top;
+  }
+
+  function onMouseUp(event: MouseEvent) {
+    isConnecting.value = false;
+    
+    const targetElement = event.target as HTMLElement;
+    const targetPort = targetElement.closest('.node-port');
+    
+    console.log('onMouseUp called, targetPort:', targetPort);
+    
+    if (targetPort && connectingFrom.value) {
+      const targetNodeId = targetPort.dataset.nodeId;
+      const targetPortType = targetPort.dataset.portType;
+      
+      console.log('targetNodeId:', targetNodeId, 'targetPortType:', targetPortType);
+      
+      if (targetNodeId && targetNodeId !== connectingFrom.value && targetPortType === 'input') {
+        connections.value.push({
+          id: `conn-${Date.now()}`,
+          source: connectingFrom.value,
+          target: targetNodeId
+        });
+        console.log('connection added, total connections:', connections.value.length);
+      } else {
+        console.log('connection not added:', {
+          hasTargetNodeId: !!targetNodeId,
+          isDifferentNode: targetNodeId !== connectingFrom.value,
+          isInputPort: targetPortType === 'input'
+        });
+      }
+    }
+    
+    connectingFrom.value = null;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function deleteConnection(connId: string) {
+  connections.value = connections.value.filter(c => c.id !== connId);
+}
+
+function selectConnection(connId: string) {
+  selectedConnectionId.value = connId;
+}
+
+function showConnectionContextMenu(e: MouseEvent, connId: string) {
+  contextMenu.value = {
+    show: true,
+    x: e.clientX,
+    y: e.clientY,
+    type: 'connection',
+    targetId: connId
+  };
+}
+
+function showNodeContextMenu(e: MouseEvent, nodeId: string) {
+  e.preventDefault();
+  contextMenu.value = {
+    show: true,
+    x: e.clientX,
+    y: e.clientY,
+    type: 'node',
+    targetId: nodeId
+  };
+}
+
+function closeContextMenu() {
+  contextMenu.value = { show: false, x: 0, y: 0, type: null, targetId: null };
+}
+
+function deleteSelectedConnection() {
+  if (contextMenu.value.type === 'connection' && contextMenu.value.targetId) {
+    deleteConnection(contextMenu.value.targetId as string);
+  }
+  closeContextMenu();
+}
+
+function deleteSelectedNode() {
+  if (contextMenu.value.type === 'node' && contextMenu.value.targetId) {
+    const nodeId = contextMenu.value.targetId as string;
+    store.removeNode(nodeId);
+    connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
+  }
+  closeContextMenu();
+}
+
+function handleCanvasClick() {
+  closeContextMenu();
+}
+
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedConnectionId.value) {
+      deleteConnection(selectedConnectionId.value);
+      selectedConnectionId.value = null;
+    }
+  }
+}
+
+function handleCanvasMouseLeave() {
+  if (isConnecting.value) {
+    isConnecting.value = false;
+    connectingFrom.value = null;
+  }
+}
+
+function getNodeCenter(nodeId: string): { x: number; y: number } {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+  if (node) {
+    return {
+      x: node.position.x + 66,
+      y: node.position.y + 34
+    };
+  }
+  return { x: 0, y: 0 };
+}
+
+function getNodeTop(nodeId: string): number {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+  return node ? node.position.y : 0;
+}
+
+function getNodeBottom(nodeId: string): number {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+  return node ? node.position.y + 68 : 0;
+}
+
+function getConnectionPath(sourceId: string, targetId: string): string {
+  const sourceCenter = getNodeCenter(sourceId);
+  const sourceBottom = getNodeBottom(sourceId);
+  const targetCenter = getNodeCenter(targetId);
+  const targetTop = getNodeTop(targetId);
+  
+  const startX = sourceCenter.x;
+  const startY = sourceBottom;
+  const endX = targetCenter.x;
+  const endY = targetTop;
+  
+  const midY = (startY + endY) / 2;
+  
+  return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
+}
+
+function getTempLinePath(): string {
+  const { x1, y1, x2, y2 } = tempLine.value;
+  const midY = (y1 + y2) / 2;
+  return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
 }
 
 function handleSaveConfig() {
@@ -631,6 +868,7 @@ onMounted(() => {
     const newWorkflow = store.createWorkflow('未命名流程');
     store.setCurrentWorkflow(newWorkflow);
   }
+  window.addEventListener('keydown', handleKeyDown);
 });
 </script>
 
@@ -706,9 +944,11 @@ onMounted(() => {
 
       <div class="flex-1 flex overflow-hidden">
         <div
-          class="flex-1 relative bg-gray-50"
+          class="flex-1 relative bg-gray-50 workflow-canvas"
           @drop="onDrop"
           @dragover="onDragOver"
+          @mouseleave="handleCanvasMouseLeave"
+          @click="handleCanvasClick"
         >
           <div class="absolute inset-0 pointer-events-none">
             <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -718,6 +958,50 @@ onMounted(() => {
                 </pattern>
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
+
+          <div class="absolute inset-0" style="z-index: 5;">
+            <svg class="w-full h-full">
+              <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+                </marker>
+              </defs>
+              <g>
+                <path
+                  v-for="conn in connections"
+                  :key="conn.id"
+                  :d="getConnectionPath(conn.source, conn.target)"
+                  fill="none"
+                  stroke="transparent"
+                  stroke-width="6"
+                  stroke-linecap="round"
+                  class="cursor-pointer"
+                  @click="selectConnection(conn.id)"
+                  @contextmenu.prevent="showConnectionContextMenu($event, conn.id)"
+                  style="pointer-events: stroke;"
+                />
+                <path
+                  v-for="conn in connections"
+                  :key="'line-' + conn.id"
+                  :d="getConnectionPath(conn.source, conn.target)"
+                  fill="none"
+                  stroke="#64748b"
+                  stroke-width="1.5"
+                  marker-end="url(#arrowhead)"
+                  style="pointer-events: none;"
+                />
+              </g>
+              <path
+                v-if="isConnecting"
+                :d="getTempLinePath()"
+                fill="none"
+                stroke="#3b82f6"
+                stroke-width="2"
+                stroke-dasharray="5,5"
+                style="pointer-events: none;"
+              />
             </svg>
           </div>
 
@@ -731,28 +1015,44 @@ onMounted(() => {
             </div>
           </div>
 
-          <div
-            v-for="node in store.currentWorkflow?.nodes"
-            :key="node.id"
-            class="absolute cursor-pointer select-none"
-            :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
-            @dblclick="handleNodeDoubleClick(node)"
-          >
-            <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow">
-              <div class="flex items-center gap-2 mb-1">
-                <div
-                  class="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                  :class="getCategoryColor(node.data.description || '基础')"
-                >
-                  <IconifyIcon :icon="node.data.icon" :size="16" />
-                </div>
-                <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
+        <div
+          v-for="node in store.currentWorkflow?.nodes"
+          :key="node.id"
+          class="absolute cursor-move select-none z-10"
+          :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
+          :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
+          @mousedown="startNodeDrag($event, node.id)"
+          @dblclick="handleNodeDoubleClick(node)"
+          @contextmenu.prevent="showNodeContextMenu($event, node.id)"
+        >
+          <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative">
+            <div
+              class="node-port absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-green-500 border-2 border-white cursor-crosshair hover:bg-green-600 hover:scale-125 transition-all z-20 shadow-sm"
+              :data-node-id="node.id"
+              :data-port-type="'input'"
+              title="输入端口"
+            />
+            <div class="flex items-center gap-2 mb-1">
+              <div
+                class="w-8 h-8 rounded-full flex items-center justify-center text-white"
+                :class="getCategoryColor(node.data.description || '基础')"
+              >
+                <IconifyIcon :icon="node.data.icon" :size="16" />
               </div>
-              <div class="flex gap-1 mt-2">
-                <div class="w-2 h-2 rounded-full bg-gray-400" />
-              </div>
+              <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
             </div>
+            <div class="flex gap-1 mt-2">
+              <div class="w-2 h-2 rounded-full bg-gray-400" />
+            </div>
+            <div
+              class="node-port absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-500 border-2 border-white cursor-crosshair hover:bg-blue-600 hover:scale-125 transition-all z-20 shadow-sm"
+              :data-node-id="node.id"
+              :data-port-type="'output'"
+              @mousedown="startConnection($event, node.id, 'output')"
+              title="输出端口"
+            />
           </div>
+        </div>
         </div>
 
         <div
@@ -1276,6 +1576,28 @@ onMounted(() => {
           {{ currentArrayIndex >= 0 ? '确定修改' : '确定添加' }}
         </Button>
       </div>
+    </div>
+  </div>
+
+  <div
+    v-if="contextMenu.show"
+    class="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[120px]"
+    :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+    @click.stop
+  >
+    <div
+      v-if="contextMenu.type === 'node'"
+      class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+      @click="deleteSelectedNode"
+    >
+      删除节点
+    </div>
+    <div
+      v-if="contextMenu.type === 'connection'"
+      class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+      @click="deleteSelectedConnection"
+    >
+      删除连线
     </div>
   </div>
 </template>
