@@ -16,36 +16,52 @@ const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
 
-const pluginGroups = ref<any[]>([
-  {
-    groupKey: 'flow_control',
-    groupName: '流程控制',
-    pluginList: [
-      { type: 'start', nodeName: '开始', icon: 'mdi:play-circle', description: '流程开始节点' },
-      { type: 'end', nodeName: '结束', icon: 'mdi:stop-circle', description: '流程结束节点' },
-      { type: 'condition', nodeName: '条件判断', icon: 'mdi:decision', description: '条件分支判断' },
-      { type: 'loop', nodeName: '循环', icon: 'mdi:repeat', description: '循环执行' },
-    ]
-  },
-  {
-    groupKey: 'http',
-    groupName: 'HTTP操作',
-    pluginList: [
-      { type: 'http_get', nodeName: 'HTTP GET', icon: 'mdi:download', description: '发送GET请求' },
-      { type: 'http_post', nodeName: 'HTTP POST', icon: 'mdi:upload', description: '发送POST请求' },
-    ]
-  },
-  {
-    groupKey: 'output',
-    groupName: '输出操作',
-    pluginList: [
-      { type: 'log', nodeName: '日志输出', icon: 'mdi:file-document', description: '输出日志' },
-      { type: 'email', nodeName: '发送邮件', icon: 'mdi:email', description: '发送邮件通知' },
-    ]
-  }
-]);
+const activeTab = ref<'task' | 'trigger'>('task');
+const pluginGroupsCache = ref<Record<string, any[]>>({
+  task: [
+    {
+      groupKey: 'flow_control',
+      groupName: '流程控制',
+      pluginList: [
+        { type: 'start', nodeName: '开始', icon: 'mdi:play-circle', description: '流程开始节点' },
+        { type: 'end', nodeName: '结束', icon: 'mdi:stop-circle', description: '流程结束节点' },
+        { type: 'condition', nodeName: '条件判断', icon: 'mdi:decision', description: '条件分支判断' },
+        { type: 'loop', nodeName: '循环', icon: 'mdi:repeat', description: '循环执行' },
+      ]
+    },
+    {
+      groupKey: 'http',
+      groupName: 'HTTP操作',
+      pluginList: [
+        { type: 'http_get', nodeName: 'HTTP GET', icon: 'mdi:download', description: '发送GET请求' },
+        { type: 'http_post', nodeName: 'HTTP POST', icon: 'mdi:upload', description: '发送POST请求' },
+      ]
+    },
+    {
+      groupKey: 'output',
+      groupName: '输出操作',
+      pluginList: [
+        { type: 'log', nodeName: '日志输出', icon: 'mdi:file-document', description: '输出日志' },
+        { type: 'email', nodeName: '发送邮件', icon: 'mdi:email', description: '发送邮件通知' },
+      ]
+    }
+  ],
+  trigger: [
+    {
+      groupKey: 'trigger',
+      groupName: '触发器',
+      pluginList: [
+        { type: 'webhook', nodeName: 'Webhook触发器', icon: 'mdi:webhook', description: 'Webhook回调触发' },
+        { type: 'kafka', nodeName: 'Kafka触发器', icon: 'mdi:database', description: 'Kafka消息触发' },
+        { type: 'timer', nodeName: '定时触发器', icon: 'mdi:clock', description: '定时调度触发' },
+      ]
+    }
+  ]
+});
 const isPluginLoading = ref(false);
 const pluginMetaCache = ref<Record<string, any>>({});
+
+const pluginGroups = computed(() => pluginGroupsCache.value[activeTab.value] || []);
 
 const selectedNode = ref<any>(null);
 const nodeConfigForm = ref<any>({});
@@ -109,9 +125,7 @@ async function selectChildNode(nodeType: string) {
     childNodeConfigForm.value = {};
     Object.keys(meta.formProperties).forEach(key => {
       if (key !== '$schema') {
-        if (meta.formProperties[key].default !== undefined) {
-          childNodeConfigForm.value[key] = meta.formProperties[key].default;
-        } else if (meta.formProperties[key].type === 'boolean') {
+        if (meta.formProperties[key].type === 'boolean') {
           childNodeConfigForm.value[key] = false;
         }
       }
@@ -183,18 +197,25 @@ function getCategoryColor(category: string): string {
   return colorMap[category] || 'bg-gray-500';
 }
 
-async function loadPlugins() {
+async function loadPlugins(category: string = 'task') {
   isPluginLoading.value = true;
   try {
-    const response = await getPluginTree();
-    if (response) {
-      pluginGroups.value = response;
+    const response = await getPluginTree(category);
+    if (response && Array.isArray(response)) {
+      pluginGroupsCache.value[category] = response;
     }
   } catch (error) {
     console.error('Failed to load plugins:', error);
     message.error('加载节点列表失败');
   } finally {
     isPluginLoading.value = false;
+  }
+}
+
+function switchTab(tab: 'task' | 'trigger') {
+  activeTab.value = tab;
+  if (!pluginGroupsCache.value[tab] || pluginGroupsCache.value[tab].length === 0) {
+    loadPlugins(tab);
   }
 }
 
@@ -323,8 +344,6 @@ async function handleNodeDoubleClick(node: any) {
       if (key !== '$schema') {
         if (savedConfig[key] !== undefined) {
           nodeConfigForm.value[key] = savedConfig[key];
-        } else if (properties[key].default !== undefined) {
-          nodeConfigForm.value[key] = properties[key].default;
         } else if (properties[key].type === 'boolean') {
           nodeConfigForm.value[key] = false;
         }
@@ -647,29 +666,45 @@ function renderFormField(properties: any, fieldKey: string, isRequired: boolean,
     tooltip: description,
     required: isRequired,
     dynamic: isDynamic,
+    fieldType: fieldSchema.type,
   };
 
   if (fieldSchema.anyOf) {
     return {
-      type: 'Input',
+      type: 'AnyOfRadio',
       props: {
         ...renderProps,
         modelValue: value,
+        options: fieldSchema.anyOf.map((opt: any) => ({
+          value: opt.const !== undefined ? opt.const : opt.type,
+          label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type),
+        })),
         'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
-        placeholder: isDynamic ? '支持动态表达式，如 {{ variable }}' : description || '请输入',
       },
     };
   }
 
   switch (fieldSchema.type) {
     case 'string':
+      if (fieldSchema.enum) {
+        return {
+          type: 'EnumSelect',
+          props: {
+            ...renderProps,
+            modelValue: value,
+            options: fieldSchema.enum,
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            placeholder: description || '请选择',
+          },
+        };
+      }
       return {
         type: 'Input',
         props: {
           ...renderProps,
           modelValue: value,
           'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
-          placeholder: isDynamic ? '支持动态表达式，如 {{ variable }}' : description || '请输入',
+          placeholder: description || '请输入',
         },
       };
     case 'number':
@@ -752,13 +787,12 @@ function renderFormField(properties: any, fieldKey: string, isRequired: boolean,
       };
     case 'object':
       return {
-        type: 'Textarea',
+        type: 'ObjectInput',
         props: {
           ...renderProps,
-          modelValue: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+          modelValue: value || {},
           'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
-          placeholder: '请输入JSON格式数据',
-          rows: 4,
+          placeholder: '请添加键值对',
         },
       };
     default:
@@ -780,9 +814,7 @@ function addArrayItem(fieldKey: string, itemsSchema: any) {
   if (itemsSchema.properties) {
     Object.keys(itemsSchema.properties).forEach(key => {
       const prop = itemsSchema.properties[key];
-      if (prop.default !== undefined) {
-        newItem[key] = prop.default;
-      } else if (prop.type === 'boolean') {
+      if (prop.type === 'boolean') {
         newItem[key] = false;
       }
     });
@@ -798,6 +830,35 @@ function removeArrayItem(fieldKey: string, index: number) {
 function addStringArrayItem(fieldKey: string) {
   const currentValue = nodeConfigForm.value[fieldKey] || [];
   nodeConfigForm.value[fieldKey] = [...currentValue, ''];
+}
+
+function addObjectItem(fieldKey: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || {};
+  const newKey = `key${Date.now()}`;
+  nodeConfigForm.value[fieldKey] = { ...currentValue, [newKey]: '' };
+}
+
+function updateObjectKey(fieldKey: string, oldKey: string, newKey: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || {};
+  if (oldKey === newKey) return;
+  const newValue = { ...currentValue };
+  if (newKey) {
+    newValue[newKey] = currentValue[oldKey];
+  }
+  delete newValue[oldKey];
+  nodeConfigForm.value[fieldKey] = newValue;
+}
+
+function updateObjectValue(fieldKey: string, key: string, value: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || {};
+  nodeConfigForm.value[fieldKey] = { ...currentValue, [key]: value };
+}
+
+function removeObjectItem(fieldKey: string, key: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || {};
+  const newValue = { ...currentValue };
+  delete newValue[key];
+  nodeConfigForm.value[fieldKey] = newValue;
 }
 
 function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
@@ -933,11 +994,28 @@ onMounted(() => {
       </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
-      <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div class="p-4 border-b border-gray-200">
-          <h2 class="text-lg font-semibold text-gray-800">节点列表</h2>
-          <p class="text-sm text-gray-500 mt-1">拖拽节点到画布</p>
+    <div class="flex-1 flex overflow-hidden" style="height: 100%;">
+      <div class="w-64 bg-white border-r border-gray-200 flex flex-col" style="height: 100%;">
+        <div class="border-b border-gray-200 flex-shrink-0">
+          <div class="flex">
+            <button
+              class="flex-1 py-3 text-sm font-medium transition-colors relative"
+              :class="activeTab === 'task' ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+              @click="switchTab('task')"
+            >
+              节点
+              <span v-if="activeTab === 'task'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></span>
+            </button>
+            <button
+              class="flex-1 py-3 text-sm font-medium transition-colors relative"
+              :class="activeTab === 'trigger' ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+              @click="switchTab('trigger')"
+            >
+              触发器
+              <span v-if="activeTab === 'trigger'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></span>
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 px-4 py-2">拖拽{{ activeTab === 'task' ? '节点' : '触发器' }}到画布</p>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-4">
           <div v-if="isPluginLoading" class="flex items-center justify-center py-8">
@@ -973,9 +1051,9 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="flex-1 flex overflow-hidden">
+      <div class="flex-1 flex overflow-hidden min-h-0">
         <div
-          class="flex-1 relative bg-gray-50 workflow-canvas"
+          class="flex-1 relative bg-gray-50 workflow-canvas overflow-auto"
           @drop="onDrop"
           @dragover="onDragOver"
           @mouseleave="handleCanvasMouseLeave"
@@ -1156,7 +1234,7 @@ onMounted(() => {
                       <span class="text-red-500 ml-1">*</span>
                     </label>
                     <div class="flex items-center gap-2">
-                      <span v-if="field.props.dynamic" class="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded">动态</span>
+                      <span v-if="field.props.fieldType" class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">{{ field.props.fieldType }}</span>
                       <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
                         <IconifyIcon icon="mdi:help-circle" :size="14" class="text-gray-400" />
                       </Tooltip>
@@ -1186,6 +1264,29 @@ onMounted(() => {
                     :checked="nodeConfigForm[field.key]"
                     @change="(val) => { nodeConfigForm[field.key] = val; }"
                   />
+                  <div v-else-if="field.type === 'AnyOfRadio'" class="flex flex-wrap gap-4">
+                    <label
+                      v-for="option in field.props.options"
+                      :key="option.value"
+                      class="flex items-center gap-2 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        :value="option.value"
+                        v-model="nodeConfigForm[field.key]"
+                        class="w-4 h-4 text-blue-600"
+                      />
+                      <span class="text-sm text-gray-700">{{ option.label }}</span>
+                    </label>
+                  </div>
+                  <Select
+                    v-else-if="field.type === 'EnumSelect'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :placeholder="field.props.placeholder"
+                    class="w-full"
+                  >
+                    <option v-for="opt in field.props.options" :key="opt" :value="opt">{{ opt }}</option>
+                  </Select>
                   <Select
                     v-else-if="field.type === 'Select'"
                     v-model:value="nodeConfigForm[field.key]"
@@ -1212,6 +1313,39 @@ onMounted(() => {
                           <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
                             <IconifyIcon icon="mdi:close" :size="14" />
                           </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="field.type === 'ObjectInput'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-end mb-2">
+                        <Button type="text" size="small" @click="addObjectItem(field.key)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+                        </Button>
+                      </div>
+                      <div class="space-y-2">
+                        <div v-for="(entry, index) in Object.entries(nodeConfigForm[field.key] || {})" :key="index" class="flex items-center gap-2">
+                          <Input
+                            :value="entry[0]"
+                            @input="(e: any) => updateObjectKey(field.key, entry[0], e.target.value)"
+                            :placeholder="'Key'"
+                            class="w-20"
+                            size="small"
+                          />
+                          <Input
+                            :value="entry[1]"
+                            @input="(e: any) => updateObjectValue(field.key, entry[0], e.target.value)"
+                            :placeholder="'Value'"
+                            class="flex-1 min-w-0"
+                            size="small"
+                          />
+                          <Button type="text" size="small" @click="removeObjectItem(field.key, entry[0])" danger>
+                            <IconifyIcon icon="mdi:close" :size="14" />
+                          </Button>
+                        </div>
+                        <div v-if="Object.keys(nodeConfigForm[field.key] || {}).length === 0" class="text-xs text-gray-400 py-2">
+                          {{ field.props.placeholder }}
                         </div>
                       </div>
                     </div>
@@ -1315,7 +1449,7 @@ onMounted(() => {
                   <div class="flex items-center justify-between mb-1">
                     <label class="text-sm font-medium text-gray-600">{{ field.props.label }}</label>
                     <div class="flex items-center gap-2">
-                      <span v-if="field.props.dynamic" class="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded">动态</span>
+                      <span v-if="field.props.fieldType" class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">{{ field.props.fieldType }}</span>
                       <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
                         <IconifyIcon icon="mdi:help-circle" :size="14" class="text-gray-400" />
                       </Tooltip>
@@ -1345,6 +1479,29 @@ onMounted(() => {
                     :checked="nodeConfigForm[field.key]"
                     @change="(val) => { nodeConfigForm[field.key] = val; }"
                   />
+                  <div v-else-if="field.type === 'AnyOfRadio'" class="flex flex-wrap gap-4">
+                    <label
+                      v-for="option in field.props.options"
+                      :key="option.value"
+                      class="flex items-center gap-2 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        :value="option.value"
+                        v-model="nodeConfigForm[field.key]"
+                        class="w-4 h-4 text-blue-600"
+                      />
+                      <span class="text-sm text-gray-700">{{ option.label }}</span>
+                    </label>
+                  </div>
+                  <Select
+                    v-else-if="field.type === 'EnumSelect'"
+                    v-model:value="nodeConfigForm[field.key]"
+                    :placeholder="field.props.placeholder"
+                    class="w-full"
+                  >
+                    <option v-for="opt in field.props.options" :key="opt" :value="opt">{{ opt }}</option>
+                  </Select>
                   <Select
                     v-else-if="field.type === 'Select'"
                     v-model:value="nodeConfigForm[field.key]"
@@ -1371,6 +1528,39 @@ onMounted(() => {
                           <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
                             <IconifyIcon icon="mdi:close" :size="14" />
                           </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="field.type === 'ObjectInput'" class="mt-2">
+                    <div class="bg-gray-50 rounded-lg p-3">
+                      <div class="flex items-center justify-end mb-2">
+                        <Button type="text" size="small" @click="addObjectItem(field.key)">
+                          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+                        </Button>
+                      </div>
+                      <div class="space-y-2">
+                        <div v-for="(entry, index) in Object.entries(nodeConfigForm[field.key] || {})" :key="index" class="flex items-center gap-2">
+                          <Input
+                            :value="entry[0]"
+                            @input="(e: any) => updateObjectKey(field.key, entry[0], e.target.value)"
+                            :placeholder="'Key'"
+                            class="w-20"
+                            size="small"
+                          />
+                          <Input
+                            :value="entry[1]"
+                            @input="(e: any) => updateObjectValue(field.key, entry[0], e.target.value)"
+                            :placeholder="'Value'"
+                            class="flex-1 min-w-0"
+                            size="small"
+                          />
+                          <Button type="text" size="small" @click="removeObjectItem(field.key, entry[0])" danger>
+                            <IconifyIcon icon="mdi:close" :size="14" />
+                          </Button>
+                        </div>
+                        <div v-if="Object.keys(nodeConfigForm[field.key] || {}).length === 0" class="text-xs text-gray-400 py-2">
+                          {{ field.props.placeholder }}
                         </div>
                       </div>
                     </div>
