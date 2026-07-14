@@ -1,11 +1,11 @@
-import { ref, computed } from 'vue';
+import { ref, computed, reactive } from 'vue';
 import { message } from 'ant-design-vue';
 
 export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskRef: any, resolveRef: any, pluginGroups: any) {
   const selectedNode = ref<any>(null);
-  const nodeConfigForm = ref<any>({});
+  const nodeConfigForm = reactive<any>({});
   const isConfigPanelOpen = ref(false);
-  const configPanelWidth = ref(350);
+  const configPanelWidth = ref(500);
   const isResizing = ref(false);
 
   const showNodeSelectModal = ref(false);
@@ -13,7 +13,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   const currentArrayIndex = ref(-1);
   const selectedChildNodeType = ref('');
   const selectedChildNodeMeta = ref<any>(null);
-  const childNodeConfigForm = ref<any>({});
+  const childNodeConfigForm = reactive<any>({});
   const selectedChildNodeLabel = ref('');
 
   async function handleNodeDoubleClick(node: any) {
@@ -24,24 +24,24 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     if (meta && meta.formProperties) {
       const savedConfig = node.data.config || {};
       const properties = meta.formProperties || {};
-      nodeConfigForm.value = {};
+      Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
       Object.keys(properties).forEach(key => {
         if (key !== '$schema') {
           if (savedConfig[key] !== undefined) {
             if (properties[key].type === 'object') {
               const savedValue = savedConfig[key];
               if (Array.isArray(savedValue)) {
-                nodeConfigForm.value[key] = savedValue;
+                nodeConfigForm[key] = savedValue;
               } else {
-                nodeConfigForm.value[key] = Object.entries(savedValue || {}).map(([k, v]: [string, any]) => ({ key: k, value: v }));
+                nodeConfigForm[key] = Object.entries(savedValue || {}).map(([k, v]: [string, any]) => ({ key: k, value: v }));
               }
             } else {
-              nodeConfigForm.value[key] = savedConfig[key];
+              nodeConfigForm[key] = savedConfig[key];
             }
           } else if (properties[key].type === 'boolean') {
-            nodeConfigForm.value[key] = false;
+            nodeConfigForm[key] = false;
           } else if (properties[key].type === 'object') {
-            nodeConfigForm.value[key] = [];
+            nodeConfigForm[key] = [];
           }
         }
       });
@@ -51,7 +51,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   function handleConfigClose() {
     isConfigPanelOpen.value = false;
     selectedNode.value = null;
-    nodeConfigForm.value = {};
+    Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
   }
 
   function startResize(e: MouseEvent) {
@@ -80,7 +80,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     const fieldSchema = properties[fieldKey];
     const title = fieldSchema.title || fieldKey;
     const description = fieldSchema.description || '';
-    const value = nodeConfigForm.value[fieldKey];
+    const value = nodeConfigForm[fieldKey];
     const isDynamic = fieldSchema.$dynamic === true;
 
     const renderProps = {
@@ -102,7 +102,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
             value: opt.const !== undefined ? opt.const : opt.type,
             label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type),
           })),
-          'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
         },
       };
     }
@@ -116,7 +116,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
               ...renderProps,
               modelValue: value,
               options: fieldSchema.enum,
-              'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+              'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
               placeholder: description || '请选择',
             },
           };
@@ -126,7 +126,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
           props: {
             ...renderProps,
             modelValue: value,
-            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             placeholder: description || '请输入',
           },
         };
@@ -137,7 +137,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
           props: {
             ...renderProps,
             modelValue: value,
-            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             min: fieldSchema.minimum,
           },
         };
@@ -147,7 +147,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
           props: {
             ...renderProps,
             checked: value,
-            'onChange': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            'onChange': (val: any) => { nodeConfigForm[fieldKey] = val; },
           },
         };
       case 'array':
@@ -159,7 +159,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
               modelValue: value || [],
               itemsSchema: fieldSchema.items,
               minItems: fieldSchema.minItems,
-              'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+              'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             },
           };
         } else if (fieldSchema.items && fieldSchema.items.$ref) {
@@ -172,7 +172,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
                 modelValue: value || [],
                 itemsSchema: refSchema,
                 minItems: fieldSchema.minItems,
-                'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+                'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
               },
             };
           }
@@ -184,7 +184,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
               modelValue: value || [],
               itemsSchema: fieldSchema.items,
               minItems: fieldSchema.minItems,
-              'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+              'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             },
           };
         } else if (fieldSchema.items && fieldSchema.items.type === 'string') {
@@ -194,7 +194,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
               ...renderProps,
               modelValue: value || [],
               minItems: fieldSchema.minItems,
-              'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+              'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             },
           };
         }
@@ -203,7 +203,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
           props: {
             ...renderProps,
             modelValue: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
-            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             placeholder: fieldSchema.minItems && fieldSchema.minItems > 0 ? `至少${fieldSchema.minItems}项，JSON数组格式` : description || '请输入JSON数组',
             rows: 4,
           },
@@ -213,8 +213,8 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
           type: 'ObjectInput',
           props: {
             ...renderProps,
-            modelValue: value || {},
-            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            modelValue: value || [],
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             placeholder: '请添加键值对',
           },
         };
@@ -224,7 +224,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
           props: {
             ...renderProps,
             modelValue: value,
-            'onUpdate:modelValue': (val: any) => { nodeConfigForm.value[fieldKey] = val; },
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
             placeholder: description || '请输入',
           },
         };
@@ -232,7 +232,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   }
 
   function addArrayItem(fieldKey: string, itemsSchema: any) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
+    const currentValue = nodeConfigForm[fieldKey] || [];
     const newItem: any = {};
     if (itemsSchema.properties) {
       Object.keys(itemsSchema.properties).forEach(key => {
@@ -242,45 +242,45 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
         }
       });
     }
-    nodeConfigForm.value[fieldKey] = [...currentValue, newItem];
+    nodeConfigForm[fieldKey] = [...currentValue, newItem];
   }
 
   function removeArrayItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
-    nodeConfigForm.value[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
   }
 
   function addStringArrayItem(fieldKey: string) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
-    nodeConfigForm.value[fieldKey] = [...currentValue, ''];
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = [...currentValue, ''];
   }
 
   function addObjectItem(fieldKey: string) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
-    nodeConfigForm.value[fieldKey] = [...currentValue, { key: '', value: '' }];
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = [...currentValue, { key: '', value: '' }];
   }
 
   function updateObjectKey(fieldKey: string, index: number, newKey: string) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
+    const currentValue = nodeConfigForm[fieldKey] || [];
     currentValue[index].key = newKey;
-    nodeConfigForm.value[fieldKey] = [...currentValue];
+    nodeConfigForm[fieldKey] = [...currentValue];
   }
 
   function updateObjectValue(fieldKey: string, index: number, value: string) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
+    const currentValue = nodeConfigForm[fieldKey] || [];
     currentValue[index].value = value;
-    nodeConfigForm.value[fieldKey] = [...currentValue];
+    nodeConfigForm[fieldKey] = [...currentValue];
   }
 
   function removeObjectItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
-    nodeConfigForm.value[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
   }
 
   function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
+    const currentValue = nodeConfigForm[fieldKey] || [];
     currentValue[index][itemKey] = value;
-    nodeConfigForm.value[fieldKey] = [...currentValue];
+    nodeConfigForm[fieldKey] = [...currentValue];
   }
 
   const currentNodeMeta = computed(() => {
@@ -330,7 +330,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     const missingFields: string[] = [];
     
     requiredFields.value.forEach(field => {
-      const value = nodeConfigForm.value[field.props.key];
+      const value = nodeConfigForm[field.props.key];
       if (value === undefined || value === null || value === '') {
         missingFields.push(field.props.label);
       }
@@ -341,7 +341,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
       return;
     }
 
-    const config = { ...nodeConfigForm.value };
+    const config = { ...nodeConfigForm };
     if (currentNodeMeta.value && currentNodeMeta.value.formProperties) {
       Object.keys(currentNodeMeta.value.formProperties).forEach(key => {
         if (key !== '$schema' && currentNodeMeta.value.formProperties[key].type === 'object') {
@@ -367,7 +367,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     currentArrayIndex.value = -1;
     selectedChildNodeType.value = '';
     selectedChildNodeMeta.value = null;
-    childNodeConfigForm.value = {};
+    Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
     showNodeSelectModal.value = true;
   }
 
@@ -377,7 +377,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     currentArrayIndex.value = -1;
     selectedChildNodeType.value = '';
     selectedChildNodeMeta.value = null;
-    childNodeConfigForm.value = {};
+    Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
   }
 
   async function selectChildNode(nodeType: string) {
@@ -388,13 +388,13 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     const meta = await loadPluginMeta(nodeType);
     if (meta && meta.formProperties) {
       selectedChildNodeMeta.value = meta;
-      childNodeConfigForm.value = {};
+      Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
       Object.keys(meta.formProperties).forEach(key => {
         if (key !== '$schema') {
           if (meta.formProperties[key].type === 'boolean') {
-            childNodeConfigForm.value[key] = false;
+            childNodeConfigForm[key] = false;
           } else if (meta.formProperties[key].type === 'object') {
-            childNodeConfigForm.value[key] = [];
+            childNodeConfigForm[key] = [];
           }
         }
       });
@@ -407,19 +407,19 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
       return;
     }
     
-    const currentValue = nodeConfigForm.value[currentArrayFieldKey.value] || [];
+    const currentValue = nodeConfigForm[currentArrayFieldKey.value] || [];
     const newItem = {
       type: selectedChildNodeType.value,
-      ...childNodeConfigForm.value,
+      ...childNodeConfigForm,
     };
     
-    nodeConfigForm.value[currentArrayFieldKey.value] = [...currentValue, newItem];
+    nodeConfigForm[currentArrayFieldKey.value] = [...currentValue, newItem];
     message.success(`已添加 ${selectedChildNodeLabel.value} 节点`);
     closeNodeSelectModal();
   }
 
   function editChildNode(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm.value[fieldKey] || [];
+    const currentValue = nodeConfigForm[fieldKey] || [];
     const item = currentValue[index];
     if (!item || !item.type) return;
     
@@ -433,7 +433,8 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     loadPluginMeta(item.type).then((meta: any) => {
       if (meta && meta.formProperties) {
         selectedChildNodeMeta.value = meta;
-        childNodeConfigForm.value = { ...item };
+        Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
+        Object.assign(childNodeConfigForm, item);
         showNodeSelectModal.value = true;
       }
     });
@@ -442,12 +443,12 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   function confirmEditChildNode() {
     if (!selectedChildNodeType.value || currentArrayIndex.value < 0) return;
     
-    const currentValue = nodeConfigForm.value[currentArrayFieldKey.value] || [];
+    const currentValue = nodeConfigForm[currentArrayFieldKey.value] || [];
     currentValue[currentArrayIndex.value] = {
       type: selectedChildNodeType.value,
-      ...childNodeConfigForm.value,
+      ...childNodeConfigForm,
     };
-    nodeConfigForm.value[currentArrayFieldKey.value] = [...currentValue];
+    nodeConfigForm[currentArrayFieldKey.value] = [...currentValue];
     message.success('节点配置已更新');
     closeNodeSelectModal();
   }
