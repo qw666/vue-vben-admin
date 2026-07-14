@@ -382,7 +382,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
 
   async function selectChildNode(nodeType: string) {
     selectedChildNodeType.value = nodeType;
-    const template = pluginGroups.value.flatMap((g: any) => g.pluginList).find((p: any) => p.type === nodeType);
+    const template = pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === nodeType);
     selectedChildNodeLabel.value = template?.nodeName || '';
     
     const meta = await loadPluginMeta(nodeType);
@@ -427,7 +427,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     currentArrayIndex.value = index;
     selectedChildNodeType.value = item.type;
     
-    const template = pluginGroups.value.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type);
+    const template = pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type);
     selectedChildNodeLabel.value = template?.nodeName || '';
     
     loadPluginMeta(item.type).then((meta: any) => {
