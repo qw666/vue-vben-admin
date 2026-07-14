@@ -14,8 +14,36 @@ const store = useWorkflowStore();
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
+const isPageReady = ref(false);
 
-const pluginGroups = ref<any[]>([]);
+const pluginGroups = ref<any[]>([
+  {
+    groupKey: 'flow_control',
+    groupName: '流程控制',
+    pluginList: [
+      { type: 'start', nodeName: '开始', icon: 'mdi:play-circle', description: '流程开始节点' },
+      { type: 'end', nodeName: '结束', icon: 'mdi:stop-circle', description: '流程结束节点' },
+      { type: 'condition', nodeName: '条件判断', icon: 'mdi:decision', description: '条件分支判断' },
+      { type: 'loop', nodeName: '循环', icon: 'mdi:repeat', description: '循环执行' },
+    ]
+  },
+  {
+    groupKey: 'http',
+    groupName: 'HTTP操作',
+    pluginList: [
+      { type: 'http_get', nodeName: 'HTTP GET', icon: 'mdi:download', description: '发送GET请求' },
+      { type: 'http_post', nodeName: 'HTTP POST', icon: 'mdi:upload', description: '发送POST请求' },
+    ]
+  },
+  {
+    groupKey: 'output',
+    groupName: '输出操作',
+    pluginList: [
+      { type: 'log', nodeName: '日志输出', icon: 'mdi:file-document', description: '输出日志' },
+      { type: 'email', nodeName: '发送邮件', icon: 'mdi:email', description: '发送邮件通知' },
+    ]
+  }
+]);
 const isPluginLoading = ref(false);
 const pluginMetaCache = ref<Record<string, any>>({});
 
@@ -869,6 +897,9 @@ onMounted(() => {
     store.setCurrentWorkflow(newWorkflow);
   }
   window.addEventListener('keydown', handleKeyDown);
+  setTimeout(() => {
+    isPageReady.value = true;
+  }, 0);
 });
 </script>
 
@@ -1055,14 +1086,18 @@ onMounted(() => {
         </div>
         </div>
 
+
+
         <div
-          v-if="isConfigPanelOpen"
-          class="w-1.5 flex-shrink-0 cursor-col-resize flex items-center justify-center bg-gray-200 hover:bg-gray-300 transition-colors group"
+          class="w-2 flex-shrink-0 cursor-col-resize flex items-center justify-center hover:bg-gray-100 transition-colors relative"
           @mousedown="startResize"
         >
-          <div class="w-0.5 h-8 bg-gray-400 rounded-full group-hover:bg-gray-500 transition-colors"></div>
+          <div class="flex flex-col gap-1.5">
+            <div class="w-1 h-1 rounded-full bg-gray-400"></div>
+            <div class="w-1 h-1 rounded-full bg-gray-400"></div>
+            <div class="w-1 h-1 rounded-full bg-gray-400"></div>
+          </div>
         </div>
-
         <div
           v-if="isConfigPanelOpen"
           class="bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden"

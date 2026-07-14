@@ -11,12 +11,14 @@ import WorkflowList from './components/WorkflowList.vue';
 const store = useWorkflowStore();
 
 onMounted(async () => {
-  await store.loadProjects();
+  store.initMockData();
+  await store.loadProjects().catch(() => {});
+  await store.loadFolders().catch(() => {});
 });
 
 watch(() => store.projectId, async (newId) => {
   if (newId) {
-    await store.loadFolders();
+    await store.loadFolders().catch(() => {});
   }
 });
 </script>
