@@ -343,9 +343,20 @@ async function handleNodeDoubleClick(node: any) {
     Object.keys(properties).forEach(key => {
       if (key !== '$schema') {
         if (savedConfig[key] !== undefined) {
-          nodeConfigForm.value[key] = savedConfig[key];
+          if (properties[key].type === 'object') {
+            const savedValue = savedConfig[key];
+            if (Array.isArray(savedValue)) {
+              nodeConfigForm.value[key] = savedValue;
+            } else {
+              nodeConfigForm.value[key] = Object.entries(savedValue || {}).map(([k, v]) => ({ key: k, value: v }));
+            }
+          } else {
+            nodeConfigForm.value[key] = savedConfig[key];
+          }
         } else if (properties[key].type === 'boolean') {
           nodeConfigForm.value[key] = false;
+        } else if (properties[key].type === 'object') {
+          nodeConfigForm.value[key] = [];
         }
       }
     });
@@ -627,7 +638,24 @@ function handleSaveConfig() {
     return;
   }
 
-  selectedNode.value.data.config = { ...nodeConfigForm.value };
+  const config = { ...nodeConfigForm.value };
+  if (currentNodeMeta.value && currentNodeMeta.value.formProperties) {
+    Object.keys(currentNodeMeta.value.formProperties).forEach(key => {
+      if (key !== '$schema' && currentNodeMeta.value.formProperties[key].type === 'object') {
+        const value = config[key];
+        if (Array.isArray(value)) {
+          const obj: Record<string, any> = {};
+          value.forEach(item => {
+            if (item.key) {
+              obj[item.key] = item.value;
+            }
+          });
+          config[key] = obj;
+        }
+      }
+    });
+  }
+  selectedNode.value.data.config = config;
   message.success('节点配置已更新');
 }
 
@@ -833,32 +861,25 @@ function addStringArrayItem(fieldKey: string) {
 }
 
 function addObjectItem(fieldKey: string) {
-  const currentValue = nodeConfigForm.value[fieldKey] || {};
-  const newKey = `key${Date.now()}`;
-  nodeConfigForm.value[fieldKey] = { ...currentValue, [newKey]: '' };
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  nodeConfigForm.value[fieldKey] = [...currentValue, { key: '', value: '' }];
 }
 
-function updateObjectKey(fieldKey: string, oldKey: string, newKey: string) {
-  const currentValue = nodeConfigForm.value[fieldKey] || {};
-  if (oldKey === newKey) return;
-  const newValue = { ...currentValue };
-  if (newKey) {
-    newValue[newKey] = currentValue[oldKey];
-  }
-  delete newValue[oldKey];
-  nodeConfigForm.value[fieldKey] = newValue;
+function updateObjectKey(fieldKey: string, index: number, newKey: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  currentValue[index].key = newKey;
+  nodeConfigForm.value[fieldKey] = [...currentValue];
 }
 
-function updateObjectValue(fieldKey: string, key: string, value: string) {
-  const currentValue = nodeConfigForm.value[fieldKey] || {};
-  nodeConfigForm.value[fieldKey] = { ...currentValue, [key]: value };
+function updateObjectValue(fieldKey: string, index: number, value: string) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  currentValue[index].value = value;
+  nodeConfigForm.value[fieldKey] = [...currentValue];
 }
 
-function removeObjectItem(fieldKey: string, key: string) {
-  const currentValue = nodeConfigForm.value[fieldKey] || {};
-  const newValue = { ...currentValue };
-  delete newValue[key];
-  nodeConfigForm.value[fieldKey] = newValue;
+function removeObjectItem(fieldKey: string, index: number) {
+  const currentValue = nodeConfigForm.value[fieldKey] || [];
+  nodeConfigForm.value[fieldKey] = currentValue.filter((_, i) => i !== index);
 }
 
 function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
@@ -1325,26 +1346,26 @@ onMounted(() => {
                         </Button>
                       </div>
                       <div class="space-y-2">
-                        <div v-for="(entry, index) in Object.entries(nodeConfigForm[field.key] || {})" :key="index" class="flex items-center gap-2">
+                        <div v-for="(entry, index) in (nodeConfigForm[field.key] || [])" :key="field.key + '-obj-' + index" class="flex items-center gap-2">
                           <Input
-                            :value="entry[0]"
-                            @input="(e: any) => updateObjectKey(field.key, entry[0], e.target.value)"
+                            :value="entry.key"
+                            @input="(e: any) => updateObjectKey(field.key, index, e.target.value)"
                             :placeholder="'Key'"
                             class="w-20"
                             size="small"
                           />
                           <Input
-                            :value="entry[1]"
-                            @input="(e: any) => updateObjectValue(field.key, entry[0], e.target.value)"
+                            :value="entry.value"
+                            @input="(e: any) => updateObjectValue(field.key, index, e.target.value)"
                             :placeholder="'Value'"
                             class="flex-1 min-w-0"
                             size="small"
                           />
-                          <Button type="text" size="small" @click="removeObjectItem(field.key, entry[0])" danger>
+                          <Button type="text" size="small" @click="removeObjectItem(field.key, index)" danger>
                             <IconifyIcon icon="mdi:close" :size="14" />
                           </Button>
                         </div>
-                        <div v-if="Object.keys(nodeConfigForm[field.key] || {}).length === 0" class="text-xs text-gray-400 py-2">
+                        <div v-if="(nodeConfigForm[field.key] || []).length === 0" class="text-xs text-gray-400 py-2">
                           {{ field.props.placeholder }}
                         </div>
                       </div>
@@ -1359,7 +1380,7 @@ onMounted(() => {
                         </Button>
                       </div>
                       <div class="space-y-3">
-                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="bg-white rounded-lg p-3 border border-gray-200">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="field.key + '-array-' + index" class="bg-white rounded-lg p-3 border border-gray-200">
                           <div class="flex items-center justify-between mb-2">
                             <span class="text-xs font-medium text-gray-600">第 {{ index + 1 }} 项</span>
                             <Button type="text" size="small" @click="removeArrayItem(field.key, index)" danger>
@@ -1415,7 +1436,7 @@ onMounted(() => {
                         </Button>
                       </div>
                       <div class="space-y-3">
-                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="bg-white rounded-lg p-3 border border-gray-200">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="field.key + '-node-' + index" class="bg-white rounded-lg p-3 border border-gray-200">
                           <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center gap-2">
                               <span class="text-xs font-medium text-gray-600">第 {{ index + 1 }} 项</span>
@@ -1518,7 +1539,7 @@ onMounted(() => {
                         </Button>
                       </div>
                       <div class="space-y-2">
-                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="index" class="flex items-center gap-2">
+                        <div v-for="(item, index) in (nodeConfigForm[field.key] || [])" :key="field.key + '-string-' + index" class="flex items-center gap-2">
                           <Input
                             v-model:value="nodeConfigForm[field.key][index]"
                             :placeholder="'请输入'"
@@ -1540,26 +1561,26 @@ onMounted(() => {
                         </Button>
                       </div>
                       <div class="space-y-2">
-                        <div v-for="(entry, index) in Object.entries(nodeConfigForm[field.key] || {})" :key="index" class="flex items-center gap-2">
+                        <div v-for="(entry, index) in (nodeConfigForm[field.key] || [])" :key="field.key + '-obj-' + index" class="flex items-center gap-2">
                           <Input
-                            :value="entry[0]"
-                            @input="(e: any) => updateObjectKey(field.key, entry[0], e.target.value)"
+                            :value="entry.key"
+                            @input="(e: any) => updateObjectKey(field.key, index, e.target.value)"
                             :placeholder="'Key'"
                             class="w-20"
                             size="small"
                           />
                           <Input
-                            :value="entry[1]"
-                            @input="(e: any) => updateObjectValue(field.key, entry[0], e.target.value)"
+                            :value="entry.value"
+                            @input="(e: any) => updateObjectValue(field.key, index, e.target.value)"
                             :placeholder="'Value'"
                             class="flex-1 min-w-0"
                             size="small"
                           />
-                          <Button type="text" size="small" @click="removeObjectItem(field.key, entry[0])" danger>
+                          <Button type="text" size="small" @click="removeObjectItem(field.key, index)" danger>
                             <IconifyIcon icon="mdi:close" :size="14" />
                           </Button>
                         </div>
-                        <div v-if="Object.keys(nodeConfigForm[field.key] || {}).length === 0" class="text-xs text-gray-400 py-2">
+                        <div v-if="(nodeConfigForm[field.key] || []).length === 0" class="text-xs text-gray-400 py-2">
                           {{ field.props.placeholder }}
                         </div>
                       </div>
