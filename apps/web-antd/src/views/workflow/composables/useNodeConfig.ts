@@ -27,8 +27,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
       Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
       Object.keys(properties).forEach(key => {
         if (key !== '$schema') {
+          const prop = properties[key];
           if (savedConfig[key] !== undefined) {
-            if (properties[key].type === 'object') {
+            if (prop.type === 'object') {
               const savedValue = savedConfig[key];
               if (Array.isArray(savedValue)) {
                 nodeConfigForm[key] = savedValue;
@@ -38,9 +39,14 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
             } else {
               nodeConfigForm[key] = savedConfig[key];
             }
-          } else if (properties[key].type === 'boolean') {
+          } else if (prop.$ref) {
+            // $ref 引用类型，初始化为空对象
+            nodeConfigForm[key] = {};
+          } else if (prop.type === 'boolean') {
             nodeConfigForm[key] = false;
-          } else if (properties[key].type === 'object') {
+          } else if (prop.type === 'object') {
+            nodeConfigForm[key] = [];
+          } else if (prop.type === 'array') {
             nodeConfigForm[key] = [];
           }
         }
@@ -76,13 +82,12 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     document.addEventListener('mouseup', onMouseUp);
   }
 
-  function renderFormField(properties: any, fieldKey: string, isRequired: boolean, defs: any = {}) {
+  function renderFormField(properties: any, fieldKey: string, isRequired: boolean, defs: any = {}): any {
     const fieldSchema = properties[fieldKey];
     const title = fieldSchema.title || fieldKey;
     const description = fieldSchema.description || '';
     const value = nodeConfigForm[fieldKey];
     const isDynamic = fieldSchema.$dynamic === true;
-    console.log('renderFormField - fieldKey:', fieldKey, 'type:', fieldSchema.type, 'anyOf:', !!fieldSchema.anyOf);
 
     const renderProps = {
       key: fieldKey,
@@ -94,16 +99,104 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     };
 
     if (fieldSchema.anyOf) {
+      const options = fieldSchema.anyOf.map((opt: any) => {
+        if (opt.$ref) {
+          const refSchema = resolveRef(opt.$ref, defs);
+          const refTitle = refSchema?.title || opt.title || '未命名';
+          const subFields = refSchema?.properties ? Object.keys(refSchema.properties)
+            .filter(key => key !== '$schema')
+            .map(subKey => {
+              const subIsRequired = (refSchema.required || []).includes(subKey);
+              const subDefs = { ...defs, ...(refSchema.$defs || {}) };
+              return renderFormField(refSchema.properties, subKey, subIsRequired, subDefs);
+            }) : [];
+          return {
+            value: refSchema?.type || opt.$ref,
+            label: refTitle,
+            schema: refSchema,
+            subFields,
+          };
+        }
+        const subFields = opt.properties ? Object.keys(opt.properties)
+          .filter(key => key !== '$schema')
+          .map(subKey => {
+            const subIsRequired = (opt.required || []).includes(subKey);
+            return renderFormField(opt.properties, subKey, subIsRequired, defs);
+          }) : [];
+        return {
+          value: opt.const !== undefined ? opt.const : opt.type,
+          label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type),
+          schema: opt,
+          subFields,
+        };
+      });
       return {
         type: 'AnyOfRadio',
         props: {
           ...renderProps,
           modelValue: value,
-          options: fieldSchema.anyOf.map((opt: any) => ({
-            value: opt.const !== undefined ? opt.const : opt.type,
-            label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type),
-          })),
+          options,
           'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
+        },
+      };
+    }
+
+    // 处理 $ref 引用
+    if (fieldSchema.$ref) {
+      // 如果是 Task 引用，渲染为节点选择器
+      if (isTaskRef(fieldSchema)) {
+        return {
+          type: 'NodeArray',
+          props: {
+            ...renderProps,
+            modelValue: value || [],
+            itemsSchema: fieldSchema,
+            minItems: 0,
+            'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
+          },
+        };
+      }
+
+      // 解析 $ref 引用
+      const refSchema = resolveRef(fieldSchema.$ref, defs);
+      if (refSchema) {
+        // 如果引用的是一个对象且有 properties，渲染为嵌套属性组
+        if (refSchema.properties) {
+          const refRequired = refSchema.required || [];
+          const refDefs = { ...defs, ...(refSchema.$defs || {}) };
+          const subFields = Object.keys(refSchema.properties)
+            .filter(key => key !== '$schema')
+            .map(subKey => {
+              const subIsRequired = refRequired.includes(subKey);
+              return renderFormField(refSchema.properties, subKey, subIsRequired, refDefs);
+            });
+          return {
+            type: 'RefObject',
+            props: {
+              ...renderProps,
+              subFields,
+              modelValue: value || {},
+              'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
+            },
+          };
+        }
+
+        // 如果引用的是简单类型，合并类型信息后继续渲染
+        if (refSchema.type) {
+          const mergedSchema = { ...refSchema, title: fieldSchema.title || refSchema.title, description: fieldSchema.description || refSchema.description, $dynamic: fieldSchema.$dynamic, $required: fieldSchema.$required };
+          const tempProperties = { [fieldKey]: mergedSchema };
+          return renderFormField(tempProperties, fieldKey, isRequired, defs);
+        }
+      }
+
+      // 无法解析的 $ref，回退为输入框
+      return {
+        type: 'Input',
+        props: {
+          ...renderProps,
+          modelValue: value,
+          'onUpdate:modelValue': (val: any) => { nodeConfigForm[fieldKey] = val; },
+          placeholder: description || `未解析的引用: ${fieldSchema.$ref}`,
         },
       };
     }
@@ -257,11 +350,8 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   }
 
   function addObjectItem(fieldKey: string) {
-    console.log('addObjectItem called with fieldKey:', fieldKey);
-    console.log('nodeConfigForm before:', JSON.stringify(nodeConfigForm));
     const currentValue = nodeConfigForm[fieldKey] || [];
     nodeConfigForm[fieldKey] = [...currentValue, { key: '', value: '' }];
-    console.log('nodeConfigForm after:', JSON.stringify(nodeConfigForm));
   }
 
   function updateObjectKey(fieldKey: string, index: number, newKey: string) {
@@ -271,12 +361,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   }
 
   function updateObjectValue(fieldKey: string, index: number, value: string) {
-    console.log('updateObjectValue called with fieldKey:', fieldKey, 'index:', index, 'value:', value);
-    console.log('nodeConfigForm before:', JSON.stringify(nodeConfigForm));
     const currentValue = nodeConfigForm[fieldKey] || [];
     currentValue[index].value = value;
     nodeConfigForm[fieldKey] = [...currentValue];
-    console.log('nodeConfigForm after:', JSON.stringify(nodeConfigForm));
   }
 
   function removeObjectItem(fieldKey: string, index: number) {
