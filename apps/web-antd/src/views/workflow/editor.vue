@@ -71,6 +71,7 @@ const {
   isConnecting,
   connections,
   selectedConnectionId,
+  selectedNodeId,
   contextMenu,
   onDragStart,
   onDragOver,
@@ -84,12 +85,17 @@ const {
   closeContextMenu,
   deleteSelectedConnection,
   deleteSelectedNode,
+  selectNode,
   handleCanvasClick,
   handleKeyDown,
   handleCanvasMouseLeave,
   getConnectionPath,
   getTempLinePath,
-} = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta);
+} = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
+  if (isConfigPanelOpen && selectedNode.value?.id === nodeId) {
+    handleConfigClose();
+  }
+});
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
@@ -350,10 +356,12 @@ onUnmounted(() => {
             :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
             :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
             @mousedown="startNodeDrag($event, node.id)"
-            @dblclick="handleNodeDoubleClick(node)"
-            @contextmenu.prevent="showNodeContextMenu($event, node.id)"
+      @click="selectNode(node.id)"
+      @dblclick="(e) => { selectNode(node.id); handleNodeDoubleClick(node); }"
+      @contextmenu.prevent="showNodeContextMenu($event, node.id)"
           >
-            <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative">
+            <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-44"
+                 :class="{ 'border-blue-500 ring-2 ring-blue-200': selectedNodeId === node.id }">
               <div
                 class="node-port absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-green-500 border-2 border-white cursor-crosshair hover:bg-green-600 hover:scale-125 transition-all z-20 shadow-sm"
                 :data-node-id="node.id"

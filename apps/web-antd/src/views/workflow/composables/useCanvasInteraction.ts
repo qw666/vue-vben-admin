@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
 
-export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: any, loadPluginMeta: any) {
+export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: any, loadPluginMeta: any, onNodeDeleted?: (nodeId: string) => void) {
   const store = useWorkflowStore();
 
   const isDraggingNode = ref(false);
@@ -14,6 +14,7 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
   const tempLine = ref({ x1: 0, y1: 0, x2: 0, y2: 0 });
   const connections = ref<{ id: string; source: string; target: string; sourcePort?: string; targetPort?: string }[]>([]);
   const selectedConnectionId = ref<string | null>(null);
+  const selectedNodeId = ref<string | null>(null);
   type ContextMenuType = { show: boolean; x: number; y: number; type: 'node' | 'connection' | null; targetId: string | null };
   const contextMenu = ref<ContextMenuType>({ show: false, x: 0, y: 0, type: null, targetId: null });
 
@@ -197,6 +198,12 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
 
   function selectConnection(connId: string) {
     selectedConnectionId.value = connId;
+    selectedNodeId.value = null;
+  }
+
+  function selectNode(nodeId: string) {
+    selectedNodeId.value = nodeId;
+    selectedConnectionId.value = null;
   }
 
   function showConnectionContextMenu(e: MouseEvent, connId: string) {
@@ -236,6 +243,10 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
       const nodeId = contextMenu.value.targetId as string;
       store.removeNode(nodeId);
       connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
+      if (selectedNodeId.value === nodeId) {
+        selectedNodeId.value = null;
+      }
+      onNodeDeleted?.(nodeId);
     }
     closeContextMenu();
   }
@@ -254,6 +265,12 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
       if (selectedConnectionId.value) {
         deleteConnection(selectedConnectionId.value);
         selectedConnectionId.value = null;
+      } else if (selectedNodeId.value) {
+        const nodeId = selectedNodeId.value;
+        store.removeNode(nodeId);
+        connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
+        selectedNodeId.value = null;
+        onNodeDeleted?.(nodeId);
       }
     }
   }
@@ -276,26 +293,39 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
     return { x: 0, y: 0 };
   }
 
-  function getNodeTop(nodeId: string): number {
+  function getInputPortPosition(nodeId: string): { x: number; y: number } {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
-    return node ? node.position.y : 0;
+    if (node) {
+      const nodeWidth = 176;
+      return {
+        x: node.position.x + nodeWidth / 2,
+        y: node.position.y - 2
+      };
+    }
+    return { x: 0, y: 0 };
   }
 
-  function getNodeBottom(nodeId: string): number {
+  function getOutputPortPosition(nodeId: string): { x: number; y: number } {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
-    return node ? node.position.y + 68 : 0;
+    if (node) {
+      const nodeWidth = 176;
+      const nodeHeight = 68;
+      return {
+        x: node.position.x + nodeWidth / 2,
+        y: node.position.y + nodeHeight + 2
+      };
+    }
+    return { x: 0, y: 0 };
   }
 
   function getConnectionPath(sourceId: string, targetId: string): string {
-    const sourceCenter = getNodeCenter(sourceId);
-    const sourceBottom = getNodeBottom(sourceId);
-    const targetCenter = getNodeCenter(targetId);
-    const targetTop = getNodeTop(targetId);
+    const sourcePort = getOutputPortPosition(sourceId);
+    const targetPort = getInputPortPosition(targetId);
     
-    const startX = sourceCenter.x;
-    const startY = sourceBottom;
-    const endX = targetCenter.x;
-    const endY = targetTop;
+    const startX = sourcePort.x;
+    const startY = sourcePort.y;
+    const endX = targetPort.x;
+    const endY = targetPort.y;
     
     const midY = (startY + endY) / 2;
     
@@ -317,6 +347,7 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
     tempLine,
     connections,
     selectedConnectionId,
+    selectedNodeId,
     contextMenu,
     onDragStart,
     onDragOver,
@@ -325,6 +356,7 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
     startConnection,
     deleteConnection,
     selectConnection,
+    selectNode,
     showConnectionContextMenu,
     showNodeContextMenu,
     closeContextMenu,
@@ -334,8 +366,8 @@ export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: an
     handleKeyDown,
     handleCanvasMouseLeave,
     getNodeCenter,
-    getNodeTop,
-    getNodeBottom,
+    getInputPortPosition,
+    getOutputPortPosition,
     getConnectionPath,
     getTempLinePath,
   };
