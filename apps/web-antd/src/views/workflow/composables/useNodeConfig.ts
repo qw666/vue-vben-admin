@@ -82,6 +82,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
     const description = fieldSchema.description || '';
     const value = nodeConfigForm[fieldKey];
     const isDynamic = fieldSchema.$dynamic === true;
+    console.log('renderFormField - fieldKey:', fieldKey, 'type:', fieldSchema.type, 'anyOf:', !!fieldSchema.anyOf);
 
     const renderProps = {
       key: fieldKey,
@@ -256,8 +257,11 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   }
 
   function addObjectItem(fieldKey: string) {
+    console.log('addObjectItem called with fieldKey:', fieldKey);
+    console.log('nodeConfigForm before:', JSON.stringify(nodeConfigForm));
     const currentValue = nodeConfigForm[fieldKey] || [];
     nodeConfigForm[fieldKey] = [...currentValue, { key: '', value: '' }];
+    console.log('nodeConfigForm after:', JSON.stringify(nodeConfigForm));
   }
 
   function updateObjectKey(fieldKey: string, index: number, newKey: string) {
@@ -267,9 +271,12 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, isTaskR
   }
 
   function updateObjectValue(fieldKey: string, index: number, value: string) {
+    console.log('updateObjectValue called with fieldKey:', fieldKey, 'index:', index, 'value:', value);
+    console.log('nodeConfigForm before:', JSON.stringify(nodeConfigForm));
     const currentValue = nodeConfigForm[fieldKey] || [];
     currentValue[index].value = value;
     nodeConfigForm[fieldKey] = [...currentValue];
+    console.log('nodeConfigForm after:', JSON.stringify(nodeConfigForm));
   }
 
   function removeObjectItem(fieldKey: string, index: number) {
