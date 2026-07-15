@@ -47,6 +47,7 @@ const {
   addArrayItem,
   removeArrayItem,
   addStringArrayItem,
+  addNumberArrayItem,
   addObjectItem,
   updateObjectKey,
   updateObjectValue,
@@ -88,7 +89,7 @@ const {
   handleCanvasMouseLeave,
   getConnectionPath,
   getTempLinePath,
-} = useCanvasInteraction(pluginGroups, pluginGroupsCache, pluginMetaCache, loadPluginMeta);
+} = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta);
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
@@ -439,6 +440,7 @@ onUnmounted(() => {
                       @update-object-value="updateObjectValue"
                       @remove-object-item="removeObjectItem"
                       @add-string-array-item="addStringArrayItem"
+                      @add-number-array-item="addNumberArrayItem"
                       @add-array-item="addArrayItem"
                       @remove-array-item="removeArrayItem"
                       @update-array-item-value="updateArrayItemValue"
@@ -464,6 +466,7 @@ onUnmounted(() => {
                       @update-object-value="updateObjectValue"
                       @remove-object-item="removeObjectItem"
                       @add-string-array-item="addStringArrayItem"
+                      @add-number-array-item="addNumberArrayItem"
                       @add-array-item="addArrayItem"
                       @remove-array-item="removeArrayItem"
                       @update-array-item-value="updateArrayItemValue"

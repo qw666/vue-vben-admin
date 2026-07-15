@@ -17,6 +17,7 @@ const emit = defineEmits<{
   (e: 'updateObjectValue', fieldKey: string, index: number, value: string): void;
   (e: 'removeObjectItem', fieldKey: string, index: number): void;
   (e: 'addStringArrayItem', fieldKey: string): void;
+  (e: 'addNumberArrayItem', fieldKey: string): void;
   (e: 'addArrayItem', fieldKey: string, itemsSchema: any): void;
   (e: 'removeArrayItem', fieldKey: string, index: number): void;
   (e: 'updateArrayItemValue', fieldKey: string, index: number, itemKey: string, value: any): void;
@@ -386,6 +387,29 @@ function buildField(prop: any, key: string): any {
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div v-for="(item, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-string-' + index" style="display: flex; align-items: center; gap: 8px;">
           <Input
+            v-model:value="nodeConfigForm[fieldKey][index]"
+            :placeholder="'请输入'"
+            style="flex: 1;"
+            size="small"
+          />
+          <Button type="text" size="small" @click="emit('removeArrayItem', fieldKey, index)" danger>
+            <IconifyIcon icon="mdi:close" :size="14" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div v-else-if="field.type === 'NumberArray'" style="margin-top: 8px;">
+    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ nodeConfigForm[fieldKey]?.length || 0 }})</span>
+        <Button type="text" size="small" @click="emit('addNumberArrayItem', fieldKey)">
+          <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+        </Button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div v-for="(item, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-number-' + index" style="display: flex; align-items: center; gap: 8px;">
+          <InputNumber
             v-model:value="nodeConfigForm[fieldKey][index]"
             :placeholder="'请输入'"
             style="flex: 1;"

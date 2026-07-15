@@ -2,7 +2,7 @@ import { ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
 
-export function useCanvasInteraction(pluginGroups: any, pluginGroupsCache: any, pluginMetaCache: any, loadPluginMeta: any) {
+export function useCanvasInteraction(pluginGroupsCache: any, pluginMetaCache: any, loadPluginMeta: any) {
   const store = useWorkflowStore();
 
   const isDraggingNode = ref(false);
@@ -63,25 +63,21 @@ export function useCanvasInteraction(pluginGroups: any, pluginGroupsCache: any, 
           if (template) break;
         }
         console.log('onDrop - template:', template);
-        if (template) {
-          const meta = pluginMetaCache.value[nodeType];
-          const newNode = {
-            id: `node-${Date.now()}`,
-            type: 'custom',
-            position,
-            data: {
-              label: template.nodeName,
-              type: template.type,
-              icon: template.icon,
-              description: template.category,
-              config: meta && meta.parsedSchema ? {} : {},
-            },
-          };
-          store.addNode(newNode);
-          message.success(`已添加 ${template.nodeName} 节点`);
-        } else {
-          message.error(`未找到节点类型: ${nodeType}`);
-        }
+        const meta = pluginMetaCache.value[nodeType];
+        const newNode = {
+          id: `node-${Date.now()}`,
+          type: 'custom',
+          position,
+          data: {
+            label: template?.nodeName || nodeType,
+            type: template?.type || nodeType,
+            icon: template?.icon || 'mdi:circle',
+            description: template?.category || '自定义节点',
+            config: meta && meta.parsedSchema ? {} : {},
+          },
+        };
+        store.addNode(newNode);
+        message.success(`已添加 ${template?.nodeName || nodeType} 节点`);
       } else {
         message.error('拖拽数据为空');
       }

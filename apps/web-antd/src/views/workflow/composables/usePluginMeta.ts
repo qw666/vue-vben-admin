@@ -2,47 +2,7 @@ import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
 import { getPluginTree, getPluginMetaBatch } from '#/api';
 
-const pluginGroupsCache = ref<Record<string, any[]>>({
-  task: [
-    {
-      groupKey: 'flow_control',
-      groupName: '流程控制',
-      pluginList: [
-        { type: 'start', nodeName: '开始', icon: 'mdi:play-circle', description: '流程开始节点' },
-        { type: 'end', nodeName: '结束', icon: 'mdi:stop-circle', description: '流程结束节点' },
-        { type: 'condition', nodeName: '条件判断', icon: 'mdi:decision', description: '条件分支判断' },
-        { type: 'loop', nodeName: '循环', icon: 'mdi:repeat', description: '循环执行' },
-      ]
-    },
-    {
-      groupKey: 'http',
-      groupName: 'HTTP操作',
-      pluginList: [
-        { type: 'http_get', nodeName: 'HTTP GET', icon: 'mdi:download', description: '发送GET请求' },
-        { type: 'http_post', nodeName: 'HTTP POST', icon: 'mdi:upload', description: '发送POST请求' },
-      ]
-    },
-    {
-      groupKey: 'output',
-      groupName: '输出操作',
-      pluginList: [
-        { type: 'log', nodeName: '日志输出', icon: 'mdi:file-document', description: '输出日志' },
-        { type: 'email', nodeName: '发送邮件', icon: 'mdi:email', description: '发送邮件通知' },
-      ]
-    }
-  ],
-  trigger: [
-    {
-      groupKey: 'trigger',
-      groupName: '触发器',
-      pluginList: [
-        { type: 'webhook', nodeName: 'Webhook触发器', icon: 'mdi:webhook', description: 'Webhook回调触发' },
-        { type: 'kafka', nodeName: 'Kafka触发器', icon: 'mdi:database', description: 'Kafka消息触发' },
-        { type: 'timer', nodeName: '定时触发器', icon: 'mdi:clock', description: '定时调度触发' },
-      ]
-    }
-  ]
-});
+const pluginGroupsCache = ref<Record<string, any[]>>({});
 
 const pluginMetaCache = ref<Record<string, any>>({});
 const isPluginLoading = ref(false);
@@ -127,12 +87,12 @@ async function loadPluginMeta(nodeType: string) {
           meta.parsedSchema = schema;
           meta.formProperties = schema.properties.properties;
           meta.formRequired = schema.properties.required || schema.required || [];
-          meta.formDefs = { ...schema.$defs, ...schema.definitions } || {};
+          meta.formDefs = { ...schema.$defs, ...schema.definitions };
         } else if (typeof schema === 'object' && schema.properties) {
           meta.parsedSchema = schema;
           meta.formProperties = schema.properties;
           meta.formRequired = schema.required || [];
-          meta.formDefs = { ...schema.$defs, ...schema.definitions } || {};
+          meta.formDefs = { ...schema.$defs, ...schema.definitions };
         } else {
           meta.parsedSchema = null;
           meta.formProperties = {};
