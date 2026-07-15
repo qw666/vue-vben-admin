@@ -127,12 +127,12 @@ async function loadPluginMeta(nodeType: string) {
           meta.parsedSchema = schema;
           meta.formProperties = schema.properties.properties;
           meta.formRequired = schema.properties.required || schema.required || [];
-          meta.formDefs = schema.$defs || schema.definitions || {};
+          meta.formDefs = { ...schema.$defs, ...schema.definitions } || {};
         } else if (typeof schema === 'object' && schema.properties) {
           meta.parsedSchema = schema;
           meta.formProperties = schema.properties;
           meta.formRequired = schema.required || [];
-          meta.formDefs = schema.$defs || schema.definitions || {};
+          meta.formDefs = { ...schema.$defs, ...schema.definitions } || {};
         } else {
           meta.parsedSchema = null;
           meta.formProperties = {};

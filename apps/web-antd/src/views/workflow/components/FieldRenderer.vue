@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import { Button, Tooltip, Input, Textarea, Select, Switch, InputNumber } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
@@ -10,10 +10,6 @@ const props = defineProps<{
 }>();
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
-
-watch(() => props.nodeConfigForm[fieldKey.value], (newVal) => {
-  console.log('FieldRenderer watch - fieldKey:', fieldKey.value, 'newVal:', JSON.stringify(newVal));
-}, { deep: true });
 
 const emit = defineEmits<{
   (e: 'addObjectItem', fieldKey: string): void;
@@ -27,6 +23,266 @@ const emit = defineEmits<{
   (e: 'openNodeSelectModal', fieldKey: string): void;
   (e: 'editChildNode', fieldKey: string, index: number): void;
 }>();
+
+// RefObject 嵌套属性辅助方法
+function getRefObject(parentKey: string): Record<string, any> {
+  if (!props.nodeConfigForm[parentKey]) {
+    props.nodeConfigForm[parentKey] = {};
+  }
+  return props.nodeConfigForm[parentKey];
+}
+
+function addObjectItemTo(parentKey: string, subKey: string) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = [...cur, { key: '', value: '' }];
+}
+
+function updateObjectKeyAt(parentKey: string, subKey: string, index: number, val: string) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  if (cur[index]) cur[index].key = val;
+  obj[subKey] = [...cur];
+}
+
+function updateObjectValueAt(parentKey: string, subKey: string, index: number, val: string) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  if (cur[index]) cur[index].value = val;
+  obj[subKey] = [...cur];
+}
+
+function removeObjectItemAt(parentKey: string, subKey: string, index: number) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = cur.filter((_: any, i: number) => i !== index);
+}
+
+function addStringArrayItemTo(parentKey: string, subKey: string) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = [...cur, ''];
+}
+
+function addArrayItemTo(parentKey: string, subKey: string, itemsSchema: any) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  if (itemsSchema && itemsSchema.$ref) {
+    obj[subKey] = [...cur, { type: '' }];
+  } else if (itemsSchema && itemsSchema.properties) {
+    const newItem: Record<string, any> = {};
+    Object.keys(itemsSchema.properties).forEach((pk: string) => {
+      newItem[pk] = itemsSchema.properties[pk].type === 'boolean' ? false : '';
+    });
+    obj[subKey] = [...cur, newItem];
+  } else {
+    obj[subKey] = [...cur, {}];
+  }
+}
+
+function removeArrayItemAt(parentKey: string, subKey: string, index: number) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = cur.filter((_: any, i: number) => i !== index);
+}
+
+function updateArrayItemValueAt(parentKey: string, subKey: string, index: number, itemKey: string, val: any) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  if (cur[index]) cur[index][itemKey] = val;
+  obj[subKey] = [...cur];
+}
+
+// AnyOf 相关辅助方法
+const selectedAnyOfOption = computed(() => {
+  if (!props.field.props.options || !props.nodeConfigForm[fieldKey.value]) return null;
+  return props.field.props.options.find((opt: any) => opt.value === props.nodeConfigForm[fieldKey.value]);
+});
+
+function getAnyOfValue(parentKey: string): Record<string, any> {
+  if (!props.nodeConfigForm[parentKey]) {
+    props.nodeConfigForm[parentKey] = {};
+  }
+  return props.nodeConfigForm[parentKey];
+}
+
+function addObjectItemToAnyOf(parentKey: string, subKey: string) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = [...cur, { key: '', value: '' }];
+}
+
+function updateObjectKeyAtAnyOf(parentKey: string, subKey: string, index: number, val: string) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  if (cur[index]) cur[index].key = val;
+  obj[subKey] = [...cur];
+}
+
+function updateObjectValueAtAnyOf(parentKey: string, subKey: string, index: number, val: string) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  if (cur[index]) cur[index].value = val;
+  obj[subKey] = [...cur];
+}
+
+function removeObjectItemAtAnyOf(parentKey: string, subKey: string, index: number) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = cur.filter((_: any, i: number) => i !== index);
+}
+
+function addStringArrayItemToAnyOf(parentKey: string, subKey: string) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = [...cur, ''];
+}
+
+function addArrayItemToAnyOf(parentKey: string, subKey: string, itemsSchema: any) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  if (itemsSchema && itemsSchema.$ref) {
+    obj[subKey] = [...cur, { type: '' }];
+  } else if (itemsSchema && itemsSchema.properties) {
+    const newItem: Record<string, any> = {};
+    Object.keys(itemsSchema.properties).forEach((pk: string) => {
+      newItem[pk] = itemsSchema.properties[pk].type === 'boolean' ? false : '';
+    });
+    obj[subKey] = [...cur, newItem];
+  } else {
+    obj[subKey] = [...cur, {}];
+  }
+}
+
+function removeArrayItemAtAnyOf(parentKey: string, subKey: string, index: number) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = cur.filter((_: any, i: number) => i !== index);
+}
+
+function updateArrayItemValueAtAnyOf(parentKey: string, subKey: string, index: number, itemKey: string, val: any) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  if (cur[index]) cur[index][itemKey] = val;
+  obj[subKey] = [...cur];
+}
+
+function buildField(prop: any, key: string): any {
+  const baseProps = {
+    key,
+    label: prop.title || key,
+    placeholder: prop.description || '',
+    required: prop.$required || false,
+    tooltip: prop.description || '',
+    dynamic: prop.$dynamic !== false,
+    fieldType: prop.type,
+  };
+
+  if (prop.anyOf) {
+    return {
+      type: 'AnyOfRadio',
+      props: {
+        ...baseProps,
+        modelValue: '',
+        options: prop.anyOf.map((opt: any) => ({
+          value: opt.const !== undefined ? opt.const : opt.type || opt.$ref,
+          label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || '未命名'),
+          schema: opt,
+        })),
+      },
+    };
+  }
+
+  if (prop.$ref) {
+    return {
+      type: 'RefObject',
+      props: {
+        ...baseProps,
+        subFields: [],
+        modelValue: {},
+      },
+    };
+  }
+
+  if (prop.type === 'string') {
+    if (prop.enum) {
+      return {
+        type: 'EnumSelect',
+        props: {
+          ...baseProps,
+          modelValue: '',
+          options: prop.enum,
+        },
+      };
+    }
+    return {
+      type: 'Input',
+      props: {
+        ...baseProps,
+        modelValue: '',
+      },
+    };
+  }
+
+  if (prop.type === 'number' || prop.type === 'integer') {
+    return {
+      type: 'InputNumber',
+      props: {
+        ...baseProps,
+        modelValue: 0,
+        min: prop.minimum,
+      },
+    };
+  }
+
+  if (prop.type === 'boolean') {
+    return {
+      type: 'Switch',
+      props: {
+        ...baseProps,
+        checked: false,
+      },
+    };
+  }
+
+  if (prop.type === 'array') {
+    if (prop.items?.type === 'string') {
+      return {
+        type: 'StringArray',
+        props: {
+          ...baseProps,
+          modelValue: [],
+        },
+      };
+    }
+    return {
+      type: 'ArrayTable',
+      props: {
+        ...baseProps,
+        modelValue: [],
+        itemsSchema: prop.items,
+      },
+    };
+  }
+
+  if (prop.type === 'object') {
+    return {
+      type: 'ObjectInput',
+      props: {
+        ...baseProps,
+        modelValue: [],
+      },
+    };
+  }
+
+  return {
+    type: 'Input',
+    props: {
+      ...baseProps,
+      modelValue: '',
+    },
+  };
+}
 </script>
 
 <template>
@@ -66,20 +322,43 @@ const emit = defineEmits<{
     :checked="nodeConfigForm[fieldKey]"
     @change="(val: any) => { nodeConfigForm[fieldKey] = val; }"
   />
-  <div v-else-if="field.type === 'AnyOfRadio'" style="display: flex; flex-wrap: wrap; gap: 16px;">
-    <label
-      v-for="option in field.props.options"
-      :key="option.value"
-      style="display: flex; align-items: center; gap: 8px; cursor: pointer;"
-    >
-      <input
-        type="radio"
-        :value="option.value"
-        v-model="nodeConfigForm[fieldKey]"
-        style="width: 16px; height: 16px; color: #2563eb;"
-      />
-      <span style="font-size: 14px; color: #374151;">{{ option.label }}</span>
-    </label>
+  <div v-else-if="field.type === 'AnyOfRadio'" style="margin-top: 8px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px;">
+      <label
+        v-for="option in field.props.options"
+        :key="option.value"
+        style="display: flex; align-items: center; gap: 8px; cursor: pointer;"
+      >
+        <input
+          type="radio"
+          :value="option.value"
+          v-model="nodeConfigForm[fieldKey]"
+          style="width: 16px; height: 16px; color: #2563eb;"
+        />
+        <span style="font-size: 14px; color: #374151;">{{ option.label }}</span>
+      </label>
+    </div>
+    <div v-if="selectedAnyOfOption?.subFields?.length" style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div v-for="subField in selectedAnyOfOption.subFields" :key="subField.props.key" style="border-left: 2px solid #d1d5db; padding-left: 12px;">
+          <FieldRenderer
+            :field="subField"
+            :node-config-form="getAnyOfValue(fieldKey)"
+            :plugin-groups="pluginGroups"
+            @add-object-item="(fk: string) => addObjectItemToAnyOf(fieldKey, fk)"
+            @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAtAnyOf(fieldKey, fk, idx, val)"
+            @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAtAnyOf(fieldKey, fk, idx, val)"
+            @remove-object-item="(fk: string, idx: number) => removeObjectItemAtAnyOf(fieldKey, fk, idx)"
+            @add-string-array-item="(fk: string) => addStringArrayItemToAnyOf(fieldKey, fk)"
+            @add-array-item="(fk: string, schema: any) => addArrayItemToAnyOf(fieldKey, fk, schema)"
+            @remove-array-item="(fk: string, idx: number) => removeArrayItemAtAnyOf(fieldKey, fk, idx)"
+            @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAtAnyOf(fieldKey, fk, idx, pk, val)"
+            @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fieldKey + '.' + fk)"
+            @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fieldKey + '.' + fk, idx)"
+          />
+        </div>
+      </div>
+    </div>
   </div>
   <Select
     v-else-if="field.type === 'EnumSelect'"
@@ -234,6 +513,29 @@ const emit = defineEmits<{
               </Button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div v-else-if="field.type === 'RefObject'" style="margin-top: 8px;">
+    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div v-for="subField in field.props.subFields" :key="subField.props.key" style="border-left: 2px solid #d1d5db; padding-left: 12px;">
+          <FieldRenderer
+            :field="subField"
+            :node-config-form="getRefObject(fieldKey)"
+            :plugin-groups="pluginGroups"
+            @add-object-item="(fk: string) => addObjectItemTo(fieldKey, fk)"
+            @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAt(fieldKey, fk, idx, val)"
+            @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAt(fieldKey, fk, idx, val)"
+            @remove-object-item="(fk: string, idx: number) => removeObjectItemAt(fieldKey, fk, idx)"
+            @add-string-array-item="(fk: string) => addStringArrayItemTo(fieldKey, fk)"
+            @add-array-item="(fk: string, schema: any) => addArrayItemTo(fieldKey, fk, schema)"
+            @remove-array-item="(fk: string, idx: number) => removeArrayItemAt(fieldKey, fk, idx)"
+            @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAt(fieldKey, fk, idx, pk, val)"
+            @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fieldKey + '.' + fk)"
+            @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fieldKey + '.' + fk, idx)"
+          />
         </div>
       </div>
     </div>
