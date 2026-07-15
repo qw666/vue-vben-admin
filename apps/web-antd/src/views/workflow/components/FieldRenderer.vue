@@ -65,6 +65,12 @@ function addStringArrayItemTo(parentKey: string, subKey: string) {
   obj[subKey] = [...cur, ''];
 }
 
+function addNumberArrayItemTo(parentKey: string, subKey: string) {
+  const obj = getRefObject(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = [...cur, 0];
+}
+
 function addArrayItemTo(parentKey: string, subKey: string, itemsSchema: any) {
   const obj = getRefObject(parentKey);
   const cur = obj[subKey] || [];
@@ -139,6 +145,12 @@ function addStringArrayItemToAnyOf(parentKey: string, subKey: string) {
   obj[subKey] = [...cur, ''];
 }
 
+function addNumberArrayItemToAnyOf(parentKey: string, subKey: string) {
+  const obj = getAnyOfValue(parentKey);
+  const cur = obj[subKey] || [];
+  obj[subKey] = [...cur, 0];
+}
+
 function addArrayItemToAnyOf(parentKey: string, subKey: string, itemsSchema: any) {
   const obj = getAnyOfValue(parentKey);
   const cur = obj[subKey] || [];
@@ -185,9 +197,9 @@ function buildField(prop: any, key: string): any {
       props: {
         ...baseProps,
         modelValue: '',
-        options: prop.anyOf.map((opt: any) => ({
-          value: opt.const !== undefined ? opt.const : opt.type || opt.$ref,
-          label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || '未命名'),
+        options: prop.anyOf.map((opt: any, index: number) => ({
+          value: opt.const !== undefined ? opt.const : (opt.$ref || opt.default !== undefined ? opt.default : opt.title || `option_${index}`),
+          label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || `选项 ${index + 1}`),
           schema: opt,
         })),
       },
@@ -316,6 +328,10 @@ function buildField(prop: any, key: string): any {
     v-else-if="field.type === 'InputNumber'"
     v-model:value="nodeConfigForm[fieldKey]"
     :min="field.props.min"
+    :max="field.props.max"
+    :step="field.props.step || 1"
+    :controls="true"
+    :controls-position="'both'"
     style="width: 100%;"
   />
   <Switch
@@ -351,6 +367,7 @@ function buildField(prop: any, key: string): any {
             @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAtAnyOf(fieldKey, fk, idx, val)"
             @remove-object-item="(fk: string, idx: number) => removeObjectItemAtAnyOf(fieldKey, fk, idx)"
             @add-string-array-item="(fk: string) => addStringArrayItemToAnyOf(fieldKey, fk)"
+            @add-number-array-item="(fk: string) => addNumberArrayItemToAnyOf(fieldKey, fk)"
             @add-array-item="(fk: string, schema: any) => addArrayItemToAnyOf(fieldKey, fk, schema)"
             @remove-array-item="(fk: string, idx: number) => removeArrayItemAtAnyOf(fieldKey, fk, idx)"
             @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAtAnyOf(fieldKey, fk, idx, pk, val)"
@@ -414,6 +431,8 @@ function buildField(prop: any, key: string): any {
             :placeholder="'请输入'"
             style="flex: 1;"
             size="small"
+            :controls="true"
+            :controls-position="'both'"
           />
           <Button type="text" size="small" @click="emit('removeArrayItem', fieldKey, index)" danger>
             <IconifyIcon icon="mdi:close" :size="14" />
@@ -554,6 +573,7 @@ function buildField(prop: any, key: string): any {
             @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAt(fieldKey, fk, idx, val)"
             @remove-object-item="(fk: string, idx: number) => removeObjectItemAt(fieldKey, fk, idx)"
             @add-string-array-item="(fk: string) => addStringArrayItemTo(fieldKey, fk)"
+            @add-number-array-item="(fk: string) => addNumberArrayItemTo(fieldKey, fk)"
             @add-array-item="(fk: string, schema: any) => addArrayItemTo(fieldKey, fk, schema)"
             @remove-array-item="(fk: string, idx: number) => removeArrayItemAt(fieldKey, fk, idx)"
             @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAt(fieldKey, fk, idx, pk, val)"

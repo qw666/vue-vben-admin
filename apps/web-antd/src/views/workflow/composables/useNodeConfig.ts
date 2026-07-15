@@ -14,9 +14,12 @@ export interface SchemaNode {
   items?: SchemaNode;
   minItems?: number;
   minimum?: number;
+  maximum?: number;
+  step?: number;
   $dynamic?: boolean;
   $required?: boolean;
   const?: any;
+  default?: any;
 }
 
 export interface FormMeta {
@@ -335,7 +338,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         };
       }
       return {
-        value: opt.const !== undefined ? opt.const : (opt.$ref || opt.type || `option_${index}`),
+        value: opt.const !== undefined ? opt.const : (opt.$ref || opt.default !== undefined ? opt.default : opt.title || `option_${index}`),
         label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || `选项 ${index + 1}`),
         schema: opt,
         subFields: extractSubFields(opt, defs),
