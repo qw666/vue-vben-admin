@@ -116,7 +116,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     }
 
     if (schema.anyOf) {
-      return undefined;
+      return null;
     }
 
     switch (schema.type) {
@@ -145,14 +145,27 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
       return value;
     }
 
-    if (schema.type === 'object' && Array.isArray(value)) {
-      const obj: Record<string, any> = {};
-      value.forEach((item: any) => {
-        if (item.key) {
-          obj[item.key] = item.value;
-        }
-      });
-      return obj;
+    if (schema.type === 'object') {
+      if (Array.isArray(value)) {
+        const obj: Record<string, any> = {};
+        value.forEach((item: any) => {
+          if (item.key) {
+            obj[item.key] = item.value;
+          }
+        });
+        return obj;
+      }
+      if (typeof value === 'object' && value !== null) {
+        const result: Record<string, any> = {};
+        Object.keys(value).forEach(key => {
+          if (schema.properties && schema.properties[key]) {
+            result[key] = serializeFieldValue(schema.properties[key], value[key], defs);
+          } else {
+            result[key] = value[key];
+          }
+        });
+        return result;
+      }
     }
 
     if (schema.type === 'array' && value && Array.isArray(value)) {
@@ -331,14 +344,14 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         const refSchema = internalResolveRef(opt.$ref, defs);
         const refTitle = refSchema?.title || opt.title || '未命名';
         return {
-          value: opt.$ref,
+          value: index,
           label: refTitle,
           schema: refSchema,
           subFields: refSchema ? extractSubFields(refSchema, { ...defs, ...(refSchema.$defs || {}) }) : [],
         };
       }
       return {
-        value: opt.const !== undefined ? opt.const : (opt.$ref || opt.default !== undefined ? opt.default : opt.title || `option_${index}`),
+        value: index,
         label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || `选项 ${index + 1}`),
         schema: opt,
         subFields: extractSubFields(opt, defs),
@@ -489,7 +502,28 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         if (key !== '$schema') {
           const prop = properties[key];
           if (savedConfig[key] !== undefined) {
-            if (prop.type === 'object') {
+            if (prop.anyOf) {
+              const savedValue = savedConfig[key];
+              let selectedIndex = 0;
+              for (let i = 0; i < prop.anyOf.length; i++) {
+                const option = prop.anyOf[i];
+                if (option.type && option.type === typeof savedValue) {
+                  selectedIndex = i;
+                  break;
+                }
+                if (option.$ref) {
+                  const refSchema = internalResolveRef(option.$ref, formDefs);
+                  if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object') {
+                    selectedIndex = i;
+                    break;
+                  }
+                }
+              }
+              nodeConfigForm[key] = selectedIndex;
+              if (typeof savedValue === 'object' && savedValue !== null) {
+                nodeConfigForm[key + '_values'] = savedValue;
+              }
+            } else if (prop.type === 'object') {
               const savedValue = savedConfig[key];
               nodeConfigForm[key] = Array.isArray(savedValue) ? savedValue : Object.entries(savedValue || {}).map(([k, v]: [string, any]) => ({ key: k, value: v }));
             } else {
@@ -655,7 +689,19 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     if (meta && meta.formProperties) {
       Object.keys(meta.formProperties).forEach(key => {
         if (key !== '$schema') {
-          config[key] = serializeFieldValue(meta.formProperties[key], nodeConfigForm[key], meta.formDefs || {});
+          const schema = meta.formProperties[key];
+          if (schema.anyOf) {
+            const selectedIndex = nodeConfigForm[key];
+            if (selectedIndex !== undefined && selectedIndex !== null) {
+              const selectedOption = schema.anyOf[selectedIndex];
+              if (selectedOption) {
+                const values = nodeConfigForm[key + '_values'] || {};
+                config[key] = serializeFieldValue(selectedOption, values, meta.formDefs || {});
+              }
+            }
+          } else {
+            config[key] = serializeFieldValue(schema, nodeConfigForm[key], meta.formDefs || {});
+          }
         }
       });
     }

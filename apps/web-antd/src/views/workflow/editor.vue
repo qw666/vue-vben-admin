@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { Button, message, Tooltip, Input, Textarea, Select, Switch, InputNumber } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
@@ -94,6 +94,20 @@ const {
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
+
+const fieldRendererEvents = computed(() => ({
+  addObjectItem,
+  updateObjectKey,
+  updateObjectValue,
+  removeObjectItem,
+  addStringArrayItem,
+  addNumberArrayItem,
+  addArrayItem,
+  removeArrayItem,
+  updateArrayItemValue,
+  openNodeSelectModal,
+  editChildNode,
+}));
 
 function getCategoryColor(category: string): string {
   const colors: Record<string, string> = {
@@ -435,17 +449,7 @@ onUnmounted(() => {
                       :field="field"
                       :node-config-form="nodeConfigForm"
                       :plugin-groups="pluginGroups"
-                      @add-object-item="addObjectItem"
-                      @update-object-key="updateObjectKey"
-                      @update-object-value="updateObjectValue"
-                      @remove-object-item="removeObjectItem"
-                      @add-string-array-item="addStringArrayItem"
-                      @add-number-array-item="addNumberArrayItem"
-                      @add-array-item="addArrayItem"
-                      @remove-array-item="removeArrayItem"
-                      @update-array-item-value="updateArrayItemValue"
-                      @open-node-select-modal="openNodeSelectModal"
-                      @edit-child-node="editChildNode"
+                      v-on="fieldRendererEvents"
                     />
                   </div>
                 </div>
@@ -461,17 +465,7 @@ onUnmounted(() => {
                       :field="field"
                       :node-config-form="nodeConfigForm"
                       :plugin-groups="pluginGroups"
-                      @add-object-item="addObjectItem"
-                      @update-object-key="updateObjectKey"
-                      @update-object-value="updateObjectValue"
-                      @remove-object-item="removeObjectItem"
-                      @add-string-array-item="addStringArrayItem"
-                      @add-number-array-item="addNumberArrayItem"
-                      @add-array-item="addArrayItem"
-                      @remove-array-item="removeArrayItem"
-                      @update-array-item-value="updateArrayItemValue"
-                      @open-node-select-modal="openNodeSelectModal"
-                      @edit-child-node="editChildNode"
+                      v-on="fieldRendererEvents"
                     />
                   </div>
                 </div>

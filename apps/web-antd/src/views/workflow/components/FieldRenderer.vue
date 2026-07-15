@@ -3,6 +3,10 @@ import { computed } from 'vue';
 import { Button, Tooltip, Input, Textarea, Select, Switch, InputNumber } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
+defineOptions({
+  inheritAttrs: false,
+});
+
 const props = defineProps<{
   field: any;
   nodeConfigForm: Record<string, any>;
@@ -25,54 +29,58 @@ const emit = defineEmits<{
   (e: 'editChildNode', fieldKey: string, index: number): void;
 }>();
 
-// RefObject 嵌套属性辅助方法
-function getRefObject(parentKey: string): Record<string, any> {
+function getNestedValue(parentKey: string): Record<string, any> {
   if (!props.nodeConfigForm[parentKey]) {
     props.nodeConfigForm[parentKey] = {};
   }
   return props.nodeConfigForm[parentKey];
 }
 
+const selectedAnyOfOption = computed(() => {
+  if (!props.field.props.options || props.nodeConfigForm[fieldKey.value] === undefined || props.nodeConfigForm[fieldKey.value] === null) return null;
+  return props.field.props.options.find((opt: any) => opt.value === props.nodeConfigForm[fieldKey.value]);
+});
+
 function addObjectItemTo(parentKey: string, subKey: string) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   obj[subKey] = [...cur, { key: '', value: '' }];
 }
 
 function updateObjectKeyAt(parentKey: string, subKey: string, index: number, val: string) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   if (cur[index]) cur[index].key = val;
   obj[subKey] = [...cur];
 }
 
 function updateObjectValueAt(parentKey: string, subKey: string, index: number, val: string) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   if (cur[index]) cur[index].value = val;
   obj[subKey] = [...cur];
 }
 
 function removeObjectItemAt(parentKey: string, subKey: string, index: number) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   obj[subKey] = cur.filter((_: any, i: number) => i !== index);
 }
 
 function addStringArrayItemTo(parentKey: string, subKey: string) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   obj[subKey] = [...cur, ''];
 }
 
 function addNumberArrayItemTo(parentKey: string, subKey: string) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   obj[subKey] = [...cur, 0];
 }
 
 function addArrayItemTo(parentKey: string, subKey: string, itemsSchema: any) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   if (itemsSchema && itemsSchema.$ref) {
     obj[subKey] = [...cur, { type: '' }];
@@ -88,93 +96,13 @@ function addArrayItemTo(parentKey: string, subKey: string, itemsSchema: any) {
 }
 
 function removeArrayItemAt(parentKey: string, subKey: string, index: number) {
-  const obj = getRefObject(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   obj[subKey] = cur.filter((_: any, i: number) => i !== index);
 }
 
 function updateArrayItemValueAt(parentKey: string, subKey: string, index: number, itemKey: string, val: any) {
-  const obj = getRefObject(parentKey);
-  const cur = obj[subKey] || [];
-  if (cur[index]) cur[index][itemKey] = val;
-  obj[subKey] = [...cur];
-}
-
-// AnyOf 相关辅助方法
-const selectedAnyOfOption = computed(() => {
-  if (!props.field.props.options || !props.nodeConfigForm[fieldKey.value]) return null;
-  return props.field.props.options.find((opt: any) => opt.value === props.nodeConfigForm[fieldKey.value]);
-});
-
-function getAnyOfValue(parentKey: string): Record<string, any> {
-  if (!props.nodeConfigForm[parentKey]) {
-    props.nodeConfigForm[parentKey] = {};
-  }
-  return props.nodeConfigForm[parentKey];
-}
-
-function addObjectItemToAnyOf(parentKey: string, subKey: string) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  obj[subKey] = [...cur, { key: '', value: '' }];
-}
-
-function updateObjectKeyAtAnyOf(parentKey: string, subKey: string, index: number, val: string) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  if (cur[index]) cur[index].key = val;
-  obj[subKey] = [...cur];
-}
-
-function updateObjectValueAtAnyOf(parentKey: string, subKey: string, index: number, val: string) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  if (cur[index]) cur[index].value = val;
-  obj[subKey] = [...cur];
-}
-
-function removeObjectItemAtAnyOf(parentKey: string, subKey: string, index: number) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  obj[subKey] = cur.filter((_: any, i: number) => i !== index);
-}
-
-function addStringArrayItemToAnyOf(parentKey: string, subKey: string) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  obj[subKey] = [...cur, ''];
-}
-
-function addNumberArrayItemToAnyOf(parentKey: string, subKey: string) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  obj[subKey] = [...cur, 0];
-}
-
-function addArrayItemToAnyOf(parentKey: string, subKey: string, itemsSchema: any) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  if (itemsSchema && itemsSchema.$ref) {
-    obj[subKey] = [...cur, { type: '' }];
-  } else if (itemsSchema && itemsSchema.properties) {
-    const newItem: Record<string, any> = {};
-    Object.keys(itemsSchema.properties).forEach((pk: string) => {
-      newItem[pk] = itemsSchema.properties[pk].type === 'boolean' ? false : '';
-    });
-    obj[subKey] = [...cur, newItem];
-  } else {
-    obj[subKey] = [...cur, {}];
-  }
-}
-
-function removeArrayItemAtAnyOf(parentKey: string, subKey: string, index: number) {
-  const obj = getAnyOfValue(parentKey);
-  const cur = obj[subKey] || [];
-  obj[subKey] = cur.filter((_: any, i: number) => i !== index);
-}
-
-function updateArrayItemValueAtAnyOf(parentKey: string, subKey: string, index: number, itemKey: string, val: any) {
-  const obj = getAnyOfValue(parentKey);
+  const obj = getNestedValue(parentKey);
   const cur = obj[subKey] || [];
   if (cur[index]) cur[index][itemKey] = val;
   obj[subKey] = [...cur];
@@ -198,7 +126,7 @@ function buildField(prop: any, key: string): any {
         ...baseProps,
         modelValue: '',
         options: prop.anyOf.map((opt: any, index: number) => ({
-          value: opt.const !== undefined ? opt.const : (opt.$ref || opt.default !== undefined ? opt.default : opt.title || `option_${index}`),
+          value: index,
           label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || `选项 ${index + 1}`),
           schema: opt,
         })),
@@ -299,19 +227,20 @@ function buildField(prop: any, key: string): any {
 </script>
 
 <template>
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-    <label style="font-size: 14px; font-weight: 500; color: #374151;">
-      {{ field.props.label }}
-      <span v-if="field.props.required" style="color: #ef4444; margin-left: 4px;">*</span>
-    </label>
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <span v-if="field.props.fieldType" style="font-size: 12px; padding: 2px 8px; background: #f3f4f6; color: #4b5563; border-radius: 4px;">{{ field.props.fieldType }}</span>
-      <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
-        <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af;" />
-      </Tooltip>
+  <div class="field-renderer">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+      <label style="font-size: 14px; font-weight: 500; color: #374151;">
+        {{ field.props.label }}
+        <span v-if="field.props.required" style="color: #ef4444; margin-left: 4px;">*</span>
+      </label>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span v-if="field.props.fieldType" style="font-size: 12px; padding: 2px 8px; background: #f3f4f6; color: #4b5563; border-radius: 4px;">{{ field.props.fieldType }}</span>
+        <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
+          <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af;" />
+        </Tooltip>
+      </div>
     </div>
-  </div>
-  <Input
+    <Input
     v-if="field.type === 'Input'"
     v-model:value="nodeConfigForm[fieldKey]"
     :placeholder="field.props.placeholder"
@@ -360,19 +289,19 @@ function buildField(prop: any, key: string): any {
         <div v-for="subField in selectedAnyOfOption.subFields" :key="subField.props.key" style="border-left: 2px solid #d1d5db; padding-left: 12px;">
           <FieldRenderer
             :field="subField"
-            :node-config-form="getAnyOfValue(fieldKey)"
+            :node-config-form="getNestedValue(fieldKey + '_values')"
             :plugin-groups="pluginGroups"
-            @add-object-item="(fk: string) => addObjectItemToAnyOf(fieldKey, fk)"
-            @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAtAnyOf(fieldKey, fk, idx, val)"
-            @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAtAnyOf(fieldKey, fk, idx, val)"
-            @remove-object-item="(fk: string, idx: number) => removeObjectItemAtAnyOf(fieldKey, fk, idx)"
-            @add-string-array-item="(fk: string) => addStringArrayItemToAnyOf(fieldKey, fk)"
-            @add-number-array-item="(fk: string) => addNumberArrayItemToAnyOf(fieldKey, fk)"
-            @add-array-item="(fk: string, schema: any) => addArrayItemToAnyOf(fieldKey, fk, schema)"
-            @remove-array-item="(fk: string, idx: number) => removeArrayItemAtAnyOf(fieldKey, fk, idx)"
-            @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAtAnyOf(fieldKey, fk, idx, pk, val)"
-            @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fieldKey + '.' + fk)"
-            @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fieldKey + '.' + fk, idx)"
+            @add-object-item="(fk: string) => addObjectItemTo(fieldKey + '_values', fk)"
+            @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAt(fieldKey + '_values', fk, idx, val)"
+            @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAt(fieldKey + '_values', fk, idx, val)"
+            @remove-object-item="(fk: string, idx: number) => removeObjectItemAt(fieldKey + '_values', fk, idx)"
+            @add-string-array-item="(fk: string) => addStringArrayItemTo(fieldKey + '_values', fk)"
+            @add-number-array-item="(fk: string) => addNumberArrayItemTo(fieldKey + '_values', fk)"
+            @add-array-item="(fk: string, schema: any) => addArrayItemTo(fieldKey + '_values', fk, schema)"
+            @remove-array-item="(fk: string, idx: number) => removeArrayItemAt(fieldKey + '_values', fk, idx)"
+            @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAt(fieldKey + '_values', fk, idx, pk, val)"
+            @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fieldKey + '_values.' + fk)"
+            @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fieldKey + '_values.' + fk, idx)"
           />
         </div>
       </div>
@@ -566,7 +495,7 @@ function buildField(prop: any, key: string): any {
         <div v-for="subField in field.props.subFields" :key="subField.props.key" style="border-left: 2px solid #d1d5db; padding-left: 12px;">
           <FieldRenderer
             :field="subField"
-            :node-config-form="getRefObject(fieldKey)"
+            :node-config-form="getNestedValue(fieldKey)"
             :plugin-groups="pluginGroups"
             @add-object-item="(fk: string) => addObjectItemTo(fieldKey, fk)"
             @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAt(fieldKey, fk, idx, val)"
@@ -584,4 +513,5 @@ function buildField(prop: any, key: string): any {
       </div>
     </div>
   </div>
+</div>
 </template>
