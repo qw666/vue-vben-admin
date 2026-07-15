@@ -45,7 +45,7 @@ export interface RenderedField {
 }
 
 export interface AnyOfOption {
-  value: string;
+  value: number;
   label: string;
   schema?: SchemaNode;
   subFields?: RenderedField[];
@@ -142,6 +142,10 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
       if (refSchema) {
         return serializeFieldValue(refSchema, value, { ...defs, ...(refSchema.$defs || {}) });
       }
+      return value;
+    }
+
+    if (schema.anyOf) {
       return value;
     }
 
@@ -407,7 +411,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
           $required: fieldSchema.$required,
         };
         const tempProperties: Record<string, SchemaNode> = { [fieldKey]: mergedSchema };
-        return renderFormField(tempProperties, fieldKey, isRequired, defs);
+        return renderFormField(tempProperties, fieldKey, isRequired, { ...defs, ...(refSchema.$defs || {}) });
       }
     }
 
@@ -507,6 +511,14 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
               let selectedIndex = 0;
               for (let i = 0; i < prop.anyOf.length; i++) {
                 const option = prop.anyOf[i];
+                if (option.const !== undefined && option.const === savedValue) {
+                  selectedIndex = i;
+                  break;
+                }
+                if (option.default !== undefined && option.default === savedValue) {
+                  selectedIndex = i;
+                  break;
+                }
                 if (option.type && option.type === typeof savedValue) {
                   selectedIndex = i;
                   break;
