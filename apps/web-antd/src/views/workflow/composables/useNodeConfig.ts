@@ -1,5 +1,6 @@
 import { ref, computed, reactive } from 'vue';
 import { message } from 'ant-design-vue';
+import { getFlowControlTaskFields, getFlowControlConfig } from '../config/workflow-node-config';
 
 export interface SchemaNode {
   type?: string;
@@ -20,6 +21,7 @@ export interface SchemaNode {
   $required?: boolean;
   const?: any;
   default?: any;
+  additionalProperties?: SchemaNode;
 }
 
 export interface FormMeta {
@@ -254,14 +256,26 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     const itemsSchema = fieldSchema.items;
 
     if (itemsSchema && internalIsTaskRef(itemsSchema)) {
-      return {
-        type: 'ConnectionStatus',
-        props: {
-          ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-          itemsSchema,
-          minItems: fieldSchema.minItems,
-        },
-      };
+      const taskFields = getFlowControlTaskFields(selectedNode.value?.data?.type || '');
+      if (taskFields.includes(fieldKey)) {
+        return {
+          type: 'ConnectionStatus',
+          props: {
+            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
+            itemsSchema,
+            minItems: fieldSchema.minItems,
+          },
+        };
+      } else {
+        return {
+          type: 'NodeArray',
+          props: {
+            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
+            itemsSchema,
+            minItems: fieldSchema.minItems,
+          },
+        };
+      }
     }
 
     if (itemsSchema && itemsSchema.$ref) {
@@ -326,6 +340,20 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     value: any,
     onUpdate: (val: any) => void
   ): RenderedField {
+    const additionalProps = fieldSchema.additionalProperties;
+    if (additionalProps && additionalProps.type === 'array') {
+      const itemsSchema = additionalProps.items;
+      if (itemsSchema && internalIsTaskRef(itemsSchema)) {
+        return {
+          type: 'SwitchCases',
+          props: {
+            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || {}, onUpdate),
+            additionalProps,
+          },
+        };
+      }
+    }
+
     return {
       type: 'ObjectInput',
       props: {
@@ -494,58 +522,107 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     selectedNode.value = node;
     isConfigPanelOpen.value = true;
 
-    const meta = await loadPluginMeta(node.data.type);
-    if (meta && meta.formProperties) {
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    if (flowControlConfig) {
       const savedConfig = node.data.config || {};
-      const properties = meta.formProperties || {};
-      const formDefs = meta.formDefs || {};
+      
+      let newConfig: any = {};
+      if (node.data.type === 'idp_core_flow_If') {
+        newConfig = {
+          condition: savedConfig.condition || '',
+          then: savedConfig.then || [],
+          else: savedConfig.else || [],
+          errors: savedConfig.errors || [],
+          finally: savedConfig.finally || [],
+        };
+      } else if (node.data.type === 'idp_core_flow_Switch') {
+        newConfig = {
+          value: savedConfig.value || '',
+          cases: savedConfig.cases ? JSON.parse(JSON.stringify(savedConfig.cases)) : {},
+          defaults: savedConfig.defaults ? [...savedConfig.defaults] : [],
+          errors: savedConfig.errors ? [...savedConfig.errors] : [],
+          finally: savedConfig.finally ? [...savedConfig.finally] : [],
+        };
+      } else if (node.data.type === 'idp_core_flow_ForEach') {
+        newConfig = {
+          value: savedConfig.value || '',
+          do: savedConfig.do || [],
+        };
+      } else if (node.data.type === 'idp_core_flow_Parallel') {
+        newConfig = {
+          tasks: savedConfig.tasks || [],
+        };
+      } else if (node.data.type === 'idp_core_flow_Subflow') {
+        newConfig = {
+          tasks: savedConfig.tasks || [],
+        };
+      } else if (node.data.type === 'idp_core_flow_Pause') {
+        newConfig = {
+          duration: savedConfig.duration || '',
+          durationUnit: savedConfig.durationUnit || 'seconds',
+        };
+      }
 
       Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
+      Object.assign(nodeConfigForm, newConfig);
+    } else {
+      const meta = await loadPluginMeta(node.data.type);
+      if (meta && meta.formProperties) {
+        const savedConfig = node.data.config || {};
+        const properties = meta.formProperties || {};
+        const formDefs = meta.formDefs || {};
 
-      Object.keys(properties).forEach(key => {
-        if (key !== '$schema') {
-          const prop = properties[key];
-          if (savedConfig[key] !== undefined) {
-            if (prop.anyOf) {
-              const savedValue = savedConfig[key];
-              let selectedIndex = 0;
-              for (let i = 0; i < prop.anyOf.length; i++) {
-                const option = prop.anyOf[i];
-                if (option.const !== undefined && option.const === savedValue) {
-                  selectedIndex = i;
-                  break;
-                }
-                if (option.default !== undefined && option.default === savedValue) {
-                  selectedIndex = i;
-                  break;
-                }
-                if (option.type && option.type === typeof savedValue) {
-                  selectedIndex = i;
-                  break;
-                }
-                if (option.$ref) {
-                  const refSchema = internalResolveRef(option.$ref, formDefs);
-                  if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object') {
+        Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
+
+        Object.keys(properties).forEach(key => {
+          if (key !== '$schema') {
+            const prop = properties[key];
+            if (savedConfig[key] !== undefined) {
+              if (prop.anyOf) {
+                const savedValue = savedConfig[key];
+                let selectedIndex = 0;
+                for (let i = 0; i < prop.anyOf.length; i++) {
+                  const option = prop.anyOf[i];
+                  if (option.const !== undefined && option.const === savedValue) {
                     selectedIndex = i;
                     break;
                   }
+                  if (option.default !== undefined && option.default === savedValue) {
+                    selectedIndex = i;
+                    break;
+                  }
+                  if (option.type && option.type === typeof savedValue) {
+                    selectedIndex = i;
+                    break;
+                  }
+                  if (option.$ref) {
+                    const refSchema = internalResolveRef(option.$ref, formDefs);
+                    if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object') {
+                      selectedIndex = i;
+                      break;
+                    }
+                  }
                 }
+                nodeConfigForm[key] = selectedIndex;
+                if (typeof savedValue === 'object' && savedValue !== null) {
+                  nodeConfigForm[key + '_values'] = savedValue;
+                }
+              } else if (prop.type === 'object') {
+                const savedValue = savedConfig[key];
+                if (prop.additionalProperties && prop.additionalProperties.type === 'array') {
+                  nodeConfigForm[key] = savedValue || {};
+                } else {
+                  nodeConfigForm[key] = Array.isArray(savedValue) ? savedValue : Object.entries(savedValue || {}).map(([k, v]: [string, any]) => ({ key: k, value: v }));
+                }
+              } else {
+                nodeConfigForm[key] = savedConfig[key];
               }
-              nodeConfigForm[key] = selectedIndex;
-              if (typeof savedValue === 'object' && savedValue !== null) {
-                nodeConfigForm[key + '_values'] = savedValue;
-              }
-            } else if (prop.type === 'object') {
-              const savedValue = savedConfig[key];
-              nodeConfigForm[key] = Array.isArray(savedValue) ? savedValue : Object.entries(savedValue || {}).map(([k, v]: [string, any]) => ({ key: k, value: v }));
             } else {
-              nodeConfigForm[key] = savedConfig[key];
+              nodeConfigForm[key] = initFormFieldValue(prop, formDefs);
             }
-          } else {
-            nodeConfigForm[key] = initFormFieldValue(prop, formDefs);
           }
-        }
-      });
+        });
+      }
     }
   }
 
@@ -643,6 +720,37 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
   });
 
   const requiredFields = computed(() => {
+    if (!selectedNode.value) return [];
+
+    const flowControlConfig = getFlowControlConfig(selectedNode.value.data.type);
+    if (flowControlConfig) {
+      const fields: RenderedField[] = [];
+
+      if (selectedNode.value.data.type === 'idp_core_flow_If') {
+        fields.push({
+          type: 'Input',
+          props: { key: 'condition', label: '条件表达式', required: true, description: 'If判断条件，可填写任意能解析为布尔值的表达式', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_Switch') {
+        fields.push({
+          type: 'Input',
+          props: { key: 'value', label: '匹配值', required: true, description: '用于分支匹配判断的表达式/值', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_ForEach') {
+        fields.push({
+          type: 'Input',
+          props: { key: 'value', label: '循环值', required: true, description: '要循环迭代的值', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_Pause') {
+        fields.push({
+          type: 'Input',
+          props: { key: 'duration', label: '暂停时长', required: true, description: '暂停的时间长度', tooltip: '', dynamic: false },
+        });
+      }
+
+      return fields;
+    }
+
     if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
     const properties = currentNodeMeta.value.formProperties;
     const formRequired = currentNodeMeta.value.formRequired || [];
@@ -661,6 +769,76 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
   });
 
   const optionalFields = computed(() => {
+    if (!selectedNode.value) return [];
+
+    const flowControlConfig = getFlowControlConfig(selectedNode.value.data.type);
+    if (flowControlConfig) {
+      const fields: RenderedField[] = [];
+
+      if (selectedNode.value.data.type === 'idp_core_flow_If') {
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'then', label: 'Then', required: false, description: '条件成立时执行的任务列表', tooltip: '', dynamic: false },
+        });
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'else', label: 'Else', required: false, description: '条件不成立时执行的任务列表', tooltip: '', dynamic: false },
+        });
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'errors', label: 'Errors', required: false, description: '子任务执行出错时执行的任务列表', tooltip: '', dynamic: false },
+        });
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'finally', label: 'Finally', required: false, description: '分支全部执行完成后执行的收尾任务', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_Switch') {
+        fields.push({
+          type: 'SwitchCases',
+          props: { key: 'cases', label: 'Cases', required: false, description: '匹配键与对应执行任务列表映射', tooltip: '', dynamic: false },
+        });
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'defaults', label: 'Default', required: false, description: '无任何case匹配时执行的默认任务列表', tooltip: '', dynamic: false },
+        });
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'errors', label: 'Errors', required: false, description: '当前分支任务出现异常时执行的任务列表', tooltip: '', dynamic: false },
+        });
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'finally', label: 'Finally', required: false, description: '所有分支执行完成后执行的收尾任务', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_ForEach') {
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'do', label: 'Do', required: false, description: '循环执行的任务列表', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_Parallel') {
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'tasks', label: 'Tasks', required: false, description: '并行执行的任务列表', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_Subflow') {
+        fields.push({
+          type: 'ConnectionStatus',
+          props: { key: 'tasks', label: 'Tasks', required: false, description: '子流程任务列表', tooltip: '', dynamic: false },
+        });
+      } else if (selectedNode.value.data.type === 'idp_core_flow_Pause') {
+        fields.push({
+          type: 'Select',
+          props: { key: 'durationUnit', label: '时间单位', required: false, description: '暂停时长的单位', tooltip: '', dynamic: false, options: [
+            { value: 'seconds', label: '秒' },
+            { value: 'minutes', label: '分钟' },
+            { value: 'hours', label: '小时' },
+            { value: 'days', label: '天' },
+          ]},
+        });
+      }
+
+      return fields;
+    }
+
     if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
     const properties = currentNodeMeta.value.formProperties;
     const formRequired = currentNodeMeta.value.formRequired || [];
@@ -680,6 +858,17 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
 
   function handleSaveConfig() {
     if (!selectedNode.value) return;
+
+    const flowControlConfig = getFlowControlConfig(selectedNode.value.data.type);
+    if (flowControlConfig) {
+      const config: Record<string, any> = {};
+      Object.keys(nodeConfigForm).forEach(key => {
+        config[key] = nodeConfigForm[key];
+      });
+      selectedNode.value.data.config = config;
+      message.success('节点配置已更新');
+      return;
+    }
 
     const missingFields: string[] = [];
 

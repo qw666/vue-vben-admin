@@ -27,6 +27,9 @@ const emit = defineEmits<{
   (e: 'updateArrayItemValue', fieldKey: string, index: number, itemKey: string, value: any): void;
   (e: 'openNodeSelectModal', fieldKey: string): void;
   (e: 'editChildNode', fieldKey: string, index: number): void;
+  (e: 'addCaseKey', fieldKey: string): void;
+  (e: 'updateCaseKey', fieldKey: string, oldKey: string, newKey: string): void;
+  (e: 'removeCaseKey', fieldKey: string, caseKey: string): void;
 }>();
 
 function getNestedValue(parentKey: string): Record<string, any> {
@@ -106,6 +109,21 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
   const cur = obj[subKey] || [];
   if (cur[index]) cur[index][itemKey] = val;
   obj[subKey] = [...cur];
+}
+
+function addCaseKey() {
+  emit('addCaseKey', fieldKey.value);
+}
+
+function updateCaseKey(oldKey: string, newKey: string) {
+  if (!oldKey || !newKey || oldKey === newKey) return;
+  const newKeyTrimmed = newKey.trim();
+  if (!newKeyTrimmed) return;
+  emit('updateCaseKey', fieldKey.value, oldKey, newKeyTrimmed);
+}
+
+function removeCaseKey(caseKey: string) {
+  emit('removeCaseKey', fieldKey.value, caseKey);
 }
 
 function buildField(prop: any, key: string): any {
@@ -508,6 +526,54 @@ function buildField(prop: any, key: string): any {
       </div>
       <div v-else style="text-align: center; padding: 8px; color: #9ca3af; font-size: 12px;">
         在画布上从此节点的端口拖线连接子节点
+      </div>
+    </div>
+  </div>
+  <div v-else-if="field.type === 'SwitchCases'" style="margin-top: 8px;">
+    <div style="background: #fef3c7; border-radius: 8px; padding: 12px; border: 1px dashed #fbbf24;">
+      <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
+        <IconifyIcon icon="mdi:git-branch" :size="16" class="text-amber-600" />
+        <span style="font-size: 13px; font-weight: 500; color: #92400e;">{{ field.props.label }}</span>
+        <span style="font-size: 12px; color: #6b7280;">({{ Object.keys(props.nodeConfigForm[fieldKey.value] || {}).length }} 个分支)</span>
+        <span style="font-size: 10px; color: #f59e0b;">[DEBUG: {{ JSON.stringify(props.nodeConfigForm[fieldKey.value] || {}).slice(0, 50) }}]</span>
+      </div>
+      
+      <div v-if="Object.keys(props.nodeConfigForm[fieldKey.value] || {}).length" style="display: flex; flex-direction: column; gap: 8px;">
+        <div v-for="(caseItems, caseKey) in (props.nodeConfigForm[fieldKey.value] || {})" :key="fieldKey.value + '-case-' + caseKey"
+             style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #fcd34d;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <IconifyIcon icon="mdi:tag" :size="14" class="text-amber-500" />
+              <Input
+                :value="caseKey"
+                @change="(e: any) => emit('updateCaseKey', fieldKey.value, caseKey, e.target.value)"
+                style="width: 120px;"
+                size="small"
+                placeholder="匹配值"
+              />
+              <span style="font-size: 11px; color: #9ca3af;">({{ caseItems?.length || 0 }} 个节点)</span>
+            </div>
+            <Button size="small" danger ghost @click="emit('removeCaseKey', fieldKey.value, caseKey)">
+              <IconifyIcon icon="mdi:trash-can" :size="14" /> 删除
+            </Button>
+          </div>
+          <div v-if="caseItems?.length" style="display: flex; flex-direction: column; gap: 4px; margin-left: 20px;">
+            <div v-for="(item, index) in caseItems" :key="fieldKey.value + '-case-' + caseKey + '-item-' + index"
+                 style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: #fffbeb; border-radius: 4px;">
+              <IconifyIcon icon="mdi:arrow-right-bottom" :size="12" class="text-green-500" />
+              <span style="font-size: 12px; color: #374151;">
+                {{ props.pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
+              </span>
+              <span v-if="item.nodeId" style="font-size: 10px; color: #9ca3af;">画布节点</span>
+            </div>
+          </div>
+          <div v-else style="margin-left: 20px; padding: 4px; color: #9ca3af; font-size: 11px;">
+            在画布上从 {{ caseKey }} 端口拖线连接子节点
+          </div>
+        </div>
+      </div>
+      <div v-else style="text-align: center; padding: 12px; color: #9ca3af; font-size: 12px;">
+        在画布上从 Switch 节点的端口拖线连接子节点，自动创建分支
       </div>
     </div>
   </div>

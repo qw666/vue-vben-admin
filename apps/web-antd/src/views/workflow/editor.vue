@@ -9,6 +9,7 @@ import { usePluginMeta } from './composables/usePluginMeta';
 import { useNodeConfig } from './composables/useNodeConfig';
 import { useCanvasInteraction } from './composables/useCanvasInteraction';
 import FieldRenderer from './components/FieldRenderer.vue';
+import { getFlowControlNodes, getFlowControlConfig } from './config/workflow-node-config';
 
 const router = useRouter();
 const route = useRoute();
@@ -93,12 +94,40 @@ const {
   getConnectionColor,
   getTempLinePath,
   getNodePorts,
-  isLogicNode,
+  updateSwitchCaseKey,
+  removeSwitchCaseKey,
+  addSwitchCaseKey,
 } = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
   if (isConfigPanelOpen && selectedNode.value?.id === nodeId) {
     handleConfigClose();
   }
-}, nodeConfigForm, selectedNode);
+}, nodeConfigForm, selectedNode, (node: any) => {
+  const flowControlConfig = getFlowControlConfig(node.data.type);
+  if (flowControlConfig) {
+    console.log('onNodeConnected - node.data.config:', node.data.config);
+    console.log('onNodeConnected - before: isConfigPanelOpen=', isConfigPanelOpen.value, 'selectedNode=', selectedNode.value?.id);
+    selectedNode.value = null;
+    isConfigPanelOpen.value = false;
+    Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
+    
+    setTimeout(() => {
+      selectedNode.value = node;
+      isConfigPanelOpen.value = true;
+      const config = node.data.config || {};
+      nodeConfigForm.cases = JSON.parse(JSON.stringify(config.cases || {}));
+      nodeConfigForm.value = config.value || '';
+      nodeConfigForm.defaults = [...(config.defaults || [])];
+      nodeConfigForm.errors = [...(config.errors || [])];
+      nodeConfigForm.finally = [...(config.finally || [])];
+      console.log('onNodeConnected - after: isConfigPanelOpen=', isConfigPanelOpen.value, 'selectedNode=', selectedNode.value?.id);
+      console.log('onNodeConnected - nodeConfigForm after update:', nodeConfigForm);
+      setTimeout(() => {
+        console.log('onNodeConnected - after timeout: requiredFields=', requiredFields.value.map(f => f.props.key));
+        console.log('onNodeConnected - after timeout: optionalFields=', optionalFields.value.map(f => f.props.key));
+      }, 100);
+    }, 50);
+  }
+});
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
@@ -116,6 +145,9 @@ const fieldRendererEvents = computed(() => ({
   updateArrayItemValue,
   openNodeSelectModal,
   editChildNode,
+  addCaseKey: (fieldKey: string) => addSwitchCaseKey(selectedNode.value?.id || '', fieldKey),
+  updateCaseKey: (fieldKey: string, oldKey: string, newKey: string) => updateSwitchCaseKey(selectedNode.value?.id || '', oldKey, newKey, fieldKey),
+  removeCaseKey: (fieldKey: string, caseKey: string) => removeSwitchCaseKey(selectedNode.value?.id || '', caseKey, fieldKey),
 }));
 
 function getCategoryColor(category: string): string {
@@ -250,6 +282,30 @@ onUnmounted(() => {
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
           <div v-else>
+            <div>
+              <h3 class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-500" />
+                流程控制
+              </h3>
+              <div class="space-y-2">
+                <div
+                  v-for="node in getFlowControlNodes()"
+                  :key="node.type"
+                  class="flex items-center gap-3 p-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 cursor-grab active:cursor-grabbing transition-colors border border-indigo-200"
+                  draggable="true"
+                  @dragstart="onDragStart($event, node.type)"
+                >
+                  <div
+                    class="w-10 h-10 rounded-lg flex items-center justify-center text-white bg-indigo-500"
+                  >
+                    <IconifyIcon :icon="node.icon" :size="20" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-800">{{ node.nodeName }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div v-for="group in pluginGroups" :key="group.groupKey">
               <h3 class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full" :class="getCategoryColor(group.groupName)" />

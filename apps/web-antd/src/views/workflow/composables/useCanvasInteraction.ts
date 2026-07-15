@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
+import { getFlowControlConfig } from '../config/workflow-node-config';
 
 export interface Port {
   id: string;
@@ -20,44 +21,6 @@ export interface Connection {
   targetHandle: string;
 }
 
-const LOGIC_NODE_CONFIG: Record<string, {
-  outputs: { field: string; label: string; color: string }[];
-}> = {
-  idp_core_flow_If: {
-    outputs: [
-      { field: 'then', label: 'Then', color: '#22c55e' },
-      { field: 'else', label: 'Else', color: '#ef4444' },
-      { field: 'errors', label: 'Errors', color: '#f59e0b' },
-      { field: 'finally', label: 'Finally', color: '#64748b' },
-    ],
-  },
-  idp_core_flow_Switch: {
-    outputs: [
-      { field: 'cases', label: 'Cases', color: '#3b82f6' },
-      { field: 'default', label: 'Default', color: '#64748b' },
-    ],
-  },
-  idp_core_flow_ForEach: {
-    outputs: [
-      { field: 'do', label: 'Do', color: '#3b82f6' },
-    ],
-  },
-  idp_core_flow_Parallel: {
-    outputs: [
-      { field: 'tasks', label: 'Tasks', color: '#06b6d4' },
-    ],
-  },
-  idp_core_flow_Subflow: {
-    outputs: [
-      { field: 'tasks', label: 'Tasks', color: '#8b5cf6' },
-    ],
-  },
-};
-
-function isLogicNode(nodeType: string): boolean {
-  return nodeType in LOGIC_NODE_CONFIG;
-}
-
 function getNodePorts(nodeId: string, nodeType: string): Port[] {
   const nodeWidth = 176;
   const nodeHeight = 68;
@@ -66,29 +29,72 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
 
   const ports: Port[] = [];
 
-  ports.push({
-    id: `${nodeId}-input`,
-    nodeId,
-    type: 'input',
-    label: '输入',
-    position: {
-      x: node.position.x + nodeWidth / 2,
-      y: node.position.y - 6
-    },
-    color: '#64748b'
-  });
+  const flowControlConfig = getFlowControlConfig(nodeType);
+  if (!flowControlConfig || flowControlConfig.ports.input !== 0) {
+    ports.push({
+      id: `${nodeId}-input`,
+      nodeId,
+      type: 'input',
+      label: '输入',
+      position: {
+        x: node.position.x + nodeWidth / 2,
+        y: node.position.y - 6
+      },
+      color: '#64748b'
+    });
+  }
 
-  const logicConfig = LOGIC_NODE_CONFIG[nodeType];
-  if (logicConfig) {
-    const outputCount = logicConfig.outputs.length;
-    if (outputCount === 1) {
-      const out = logicConfig.outputs[0]!;
+  if (flowControlConfig && flowControlConfig.ports.output) {
+    const allOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
+
+    flowControlConfig.ports.output.forEach(out => {
+      if (out.dynamic && node.data.config && node.data.config[out.field]) {
+        const cases = node.data.config[out.field];
+        if (typeof cases === 'object' && cases !== null) {
+          const caseKeys = Object.keys(cases);
+          if (caseKeys.length > 0) {
+            caseKeys.forEach(caseKey => {
+              allOutputs.push({
+                field: `${out.field}-${caseKey}`,
+                label: caseKey,
+                color: out.color,
+                portGroup: out.field,
+              });
+            });
+          } else {
+            allOutputs.push({
+              field: `${out.field}-add`,
+              label: '+',
+              color: out.color,
+              portGroup: out.field,
+            });
+          }
+        } else {
+          allOutputs.push({
+            field: `${out.field}-add`,
+            label: '+',
+            color: out.color,
+            portGroup: out.field,
+          });
+        }
+      } else {
+        allOutputs.push({
+          field: out.field,
+          label: out.label,
+          color: out.color,
+          portGroup: out.field,
+        });
+      }
+    });
+
+    if (allOutputs.length === 1) {
+      const out = allOutputs[0]!;
       ports.push({
         id: `${nodeId}-output-${out.field}`,
         nodeId,
         type: 'output',
         label: out.label,
-        portGroup: out.field,
+        portGroup: out.portGroup,
         position: {
           x: node.position.x + nodeWidth / 2,
           y: node.position.y + nodeHeight + 6
@@ -96,14 +102,14 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
         color: out.color
       });
     } else {
-      const spacing = nodeWidth / (outputCount + 1);
-      logicConfig.outputs.forEach((out, i) => {
+      const spacing = nodeWidth / (allOutputs.length + 1);
+      allOutputs.forEach((out, i) => {
         ports.push({
           id: `${nodeId}-output-${out.field}`,
           nodeId,
           type: 'output',
           label: out.label,
-          portGroup: out.field,
+          portGroup: out.portGroup,
           position: {
             x: node.position.x + spacing * (i + 1),
             y: node.position.y + nodeHeight + 6
@@ -135,7 +141,8 @@ export function useCanvasInteraction(
   loadPluginMeta: any, 
   onNodeDeleted?: (nodeId: string) => void,
   nodeConfigForm?: any,
-  selectedNode?: { value: any }
+  selectedNode?: { value: any },
+  onNodeConnected?: (node: any) => void
 ) {
   const store = useWorkflowStore();
 
@@ -187,16 +194,27 @@ export function useCanvasInteraction(
         const { nodeType } = JSON.parse(data);
         console.log('onDrop - nodeType:', nodeType);
         let template: any = null;
-        for (const tabKey of Object.keys(pluginGroupsCache.value)) {
-          const groups = pluginGroupsCache.value[tabKey];
-          for (const group of groups) {
-            template = group.pluginList.find((p: any) => p.type === nodeType);
-            if (template) {
-              template.category = group.groupName;
-              break;
+
+        const flowControlConfig = getFlowControlConfig(nodeType);
+        if (flowControlConfig) {
+          template = {
+            nodeName: flowControlConfig.nodeName,
+            type: nodeType,
+            icon: flowControlConfig.icon,
+            category: '流程控制',
+          };
+        } else {
+          for (const tabKey of Object.keys(pluginGroupsCache.value)) {
+            const groups = pluginGroupsCache.value[tabKey];
+            for (const group of groups) {
+              template = group.pluginList.find((p: any) => p.type === nodeType);
+              if (template) {
+                template.category = group.groupName;
+                break;
+              }
             }
+            if (template) break;
           }
-          if (template) break;
         }
         console.log('onDrop - template:', template);
         const meta = pluginMetaCache.value[nodeType];
@@ -322,6 +340,14 @@ export function useCanvasInteraction(
             }
 
             syncConnectionToNodeConfig(newConnection, true);
+
+            const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === connectingFrom.value);
+            console.log('onMouseUp - sourceNode after sync:', sourceNode?.data?.config);
+            console.log('onMouseUp - onNodeConnected callback exists:', !!onNodeConnected);
+            if (sourceNode && onNodeConnected) {
+              console.log('onMouseUp - calling onNodeConnected');
+              onNodeConnected(sourceNode);
+            }
           }
         }
       }
@@ -341,19 +367,32 @@ export function useCanvasInteraction(
     if (!sourceNode) return;
 
     const sourceNodeType = sourceNode.data.type;
-    const logicConfig = LOGIC_NODE_CONFIG[sourceNodeType];
-    if (!logicConfig) return;
+    const flowControlConfig = getFlowControlConfig(sourceNodeType);
+    if (!flowControlConfig) return;
 
     const field = conn.sourceHandle.replace(`${conn.source}-output-`, '');
-    const outputConfig = logicConfig.outputs.find(o => o.field === field);
+
+    let outputConfig = flowControlConfig.ports.output?.find(o => o.field === field);
+    let caseKey: string | undefined;
+    let isAddPort = false;
+
+    if (!outputConfig && flowControlConfig.ports.output) {
+      const dynamicOutput = flowControlConfig.ports.output.find(o => o.dynamic && field.startsWith(o.field + '-'));
+      if (dynamicOutput) {
+        outputConfig = dynamicOutput;
+        const remaining = field.replace(dynamicOutput.field + '-', '');
+        if (remaining === 'add') {
+          isAddPort = true;
+        } else {
+          caseKey = remaining;
+        }
+      }
+    }
+
     if (!outputConfig) return;
 
     if (!sourceNode.data.config) {
       sourceNode.data.config = {};
-    }
-
-    if (!sourceNode.data.config[field]) {
-      sourceNode.data.config[field] = [];
     }
 
     const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
@@ -366,32 +405,70 @@ export function useCanvasInteraction(
       ...targetNode.data.config,
     };
 
-    if (isAdd) {
-      const existing = (sourceNode.data.config[field] as any[]).find(
-        (item: any) => item.nodeId === conn.target
-      );
-      if (!existing) {
-        (sourceNode.data.config[field] as any[]).push(taskItem);
-        
-        if (nodeConfigForm && selectedNode?.value?.id === conn.source) {
-          if (!nodeConfigForm[field]) {
-            nodeConfigForm[field] = [];
-          }
-          const formExisting = nodeConfigForm[field].find((item: any) => item.nodeId === conn.target);
-          if (!formExisting) {
-            nodeConfigForm[field] = [...nodeConfigForm[field], taskItem];
-          }
+    if (isAddPort && isAdd) {
+      if (!sourceNode.data.config[outputConfig.field]) {
+        sourceNode.data.config[outputConfig.field] = {};
+      }
+
+      const cases = sourceNode.data.config[outputConfig.field];
+      const caseCount = Object.keys(cases).length + 1;
+      caseKey = `CASE_${caseCount}`;
+
+      sourceNode.data.config[outputConfig.field] = {
+        ...sourceNode.data.config[outputConfig.field],
+        [caseKey]: [taskItem]
+      };
+
+      conn.sourceHandle = `${conn.source}-output-${outputConfig.field}-${caseKey}`;
+    } else if (caseKey) {
+      if (!sourceNode.data.config[outputConfig.field]) {
+        sourceNode.data.config[outputConfig.field] = {};
+      }
+
+      if (isAdd) {
+        const existing = (sourceNode.data.config[outputConfig.field][caseKey] as any[] || []).find(
+          (item: any) => item.nodeId === conn.target
+        );
+        if (!existing) {
+          const currentItems = sourceNode.data.config[outputConfig.field][caseKey] || [];
+          sourceNode.data.config[outputConfig.field] = {
+            ...sourceNode.data.config[outputConfig.field],
+            [caseKey]: [...currentItems, taskItem]
+          };
         }
+      } else {
+        const currentItems = sourceNode.data.config[outputConfig.field][caseKey] || [];
+        sourceNode.data.config[outputConfig.field] = {
+          ...sourceNode.data.config[outputConfig.field],
+          [caseKey]: currentItems.filter((item: any) => item.nodeId !== conn.target)
+        };
       }
     } else {
-      sourceNode.data.config[field] = (sourceNode.data.config[field] as any[]).filter(
-        (item: any) => item.nodeId !== conn.target
-      );
+      if (!sourceNode.data.config[field]) {
+        sourceNode.data.config[field] = [];
+      }
 
-      if (nodeConfigForm && selectedNode?.value?.id === conn.source) {
-        nodeConfigForm[field] = (nodeConfigForm[field] || []).filter(
+      if (isAdd) {
+        const existing = (sourceNode.data.config[field] as any[]).find(
+          (item: any) => item.nodeId === conn.target
+        );
+        if (!existing) {
+          sourceNode.data.config[field] = [...sourceNode.data.config[field], taskItem];
+
+          if (nodeConfigForm && selectedNode?.value?.id === conn.source) {
+            nodeConfigForm[field] = [...(nodeConfigForm[field] || []), taskItem];
+          }
+        }
+      } else {
+        sourceNode.data.config[field] = (sourceNode.data.config[field] as any[]).filter(
           (item: any) => item.nodeId !== conn.target
         );
+
+        if (nodeConfigForm && selectedNode?.value?.id === conn.source) {
+          nodeConfigForm[field] = (nodeConfigForm[field] || []).filter(
+            (item: any) => item.nodeId !== conn.target
+          );
+        }
       }
     }
   }
@@ -529,18 +606,34 @@ export function useCanvasInteraction(
       };
     }
 
-    const logicConfig = LOGIC_NODE_CONFIG[node.data.type];
-    if (logicConfig && portId.startsWith(`${nodeId}-output-`)) {
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    if (flowControlConfig && flowControlConfig.ports.output && portId.startsWith(`${nodeId}-output-`)) {
       const field = portId.replace(`${nodeId}-output-`, '');
-      const outputIndex = logicConfig.outputs.findIndex(o => o.field === field);
-      if (outputIndex >= 0) {
-        if (logicConfig.outputs.length === 1) {
-          return {
-            x: node.position.x + nodeWidth / 2,
-            y: node.position.y + nodeHeight + 6
-          };
+
+      const allOutputs: { field: string; label: string }[] = [];
+      flowControlConfig.ports.output.forEach(out => {
+        if (out.dynamic && node.data.config && node.data.config[out.field]) {
+          const cases = node.data.config[out.field];
+          if (typeof cases === 'object' && cases !== null) {
+            const caseKeys = Object.keys(cases);
+            if (caseKeys.length > 0) {
+              caseKeys.forEach(caseKey => {
+                allOutputs.push({ field: `${out.field}-${caseKey}`, label: caseKey });
+              });
+            } else {
+              allOutputs.push({ field: `${out.field}-add`, label: '+' });
+            }
+          } else {
+            allOutputs.push({ field: `${out.field}-add`, label: '+' });
+          }
+        } else {
+          allOutputs.push({ field: out.field, label: out.label });
         }
-        const spacing = nodeWidth / (logicConfig.outputs.length + 1);
+      });
+
+      const outputIndex = allOutputs.findIndex(o => o.field === field);
+      if (outputIndex >= 0) {
+        const spacing = nodeWidth / (allOutputs.length + 1);
         return {
           x: node.position.x + spacing * (outputIndex + 1),
           y: node.position.y + nodeHeight + 6
@@ -579,14 +672,102 @@ export function useCanvasInteraction(
   function getConnectionColor(conn: Connection): string {
     const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === conn.source);
     if (sourceNode) {
-      const logicConfig = LOGIC_NODE_CONFIG[sourceNode.data.type];
-      if (logicConfig && conn.sourceHandle) {
+      const flowControlConfig = getFlowControlConfig(sourceNode.data.type);
+      if (flowControlConfig && flowControlConfig.ports.output && conn.sourceHandle) {
         const field = conn.sourceHandle.replace(`${conn.source}-output-`, '');
-        const output = logicConfig.outputs.find(o => o.field === field);
+        let output = flowControlConfig.ports.output.find(o => o.field === field);
+        if (!output) {
+          output = flowControlConfig.ports.output.find(o => o.dynamic && field.startsWith(o.field + '-'));
+        }
         if (output) return output.color;
       }
     }
     return '#64748b';
+  }
+
+  function updateSwitchCaseKey(nodeId: string, oldKey: string, newKey: string, fieldKey: string = 'cases') {
+    if (!oldKey || !newKey || oldKey === newKey) return;
+    const newKeyTrimmed = newKey.trim();
+    if (!newKeyTrimmed) return;
+
+    const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+    if (!node || !node.data.config?.[fieldKey]) return;
+
+    if (node.data.config[fieldKey][oldKey]) {
+      node.data.config[fieldKey] = {
+        ...node.data.config[fieldKey],
+        [newKeyTrimmed]: [...(node.data.config[fieldKey][oldKey] || [])]
+      };
+      delete node.data.config[fieldKey][oldKey];
+      node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
+    }
+
+    if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
+      if (nodeConfigForm[fieldKey] && nodeConfigForm[fieldKey][oldKey]) {
+        nodeConfigForm[fieldKey] = {
+          ...nodeConfigForm[fieldKey],
+          [newKeyTrimmed]: [...(nodeConfigForm[fieldKey][oldKey] || [])]
+        };
+        delete nodeConfigForm[fieldKey][oldKey];
+        nodeConfigForm[fieldKey] = { ...nodeConfigForm[fieldKey] };
+      }
+    }
+
+    const connections = store.currentWorkflow?.edges || [];
+    connections.forEach(conn => {
+      if (conn.source === nodeId && conn.sourceHandle === `${nodeId}-output-${fieldKey}-${oldKey}`) {
+        conn.sourceHandle = `${nodeId}-output-${fieldKey}-${newKeyTrimmed}`;
+      }
+    });
+  }
+
+  function removeSwitchCaseKey(nodeId: string, caseKey: string, fieldKey: string = 'cases') {
+    const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+    if (!node || !node.data.config?.[fieldKey]) return;
+
+    delete node.data.config[fieldKey][caseKey];
+    node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
+
+    if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
+      if (nodeConfigForm[fieldKey] && nodeConfigForm[fieldKey][caseKey]) {
+        delete nodeConfigForm[fieldKey][caseKey];
+        nodeConfigForm[fieldKey] = { ...nodeConfigForm[fieldKey] };
+      }
+    }
+
+    store.currentWorkflow!.edges = (store.currentWorkflow?.edges || []).filter(
+      conn => !(conn.source === nodeId && conn.sourceHandle === `${nodeId}-output-${fieldKey}-${caseKey}`)
+    );
+  }
+
+  function addSwitchCaseKey(nodeId: string, fieldKey: string = 'cases') {
+    const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    if (!node.data.config) {
+      node.data.config = {};
+    }
+    if (!node.data.config[fieldKey]) {
+      node.data.config[fieldKey] = {};
+    }
+
+    let newKey = `CASE_${Date.now()}`;
+    let counter = 1;
+    while (node.data.config[fieldKey][newKey]) {
+      newKey = `CASE_${Date.now()}_${counter++}`;
+    }
+
+    node.data.config[fieldKey] = {
+      ...node.data.config[fieldKey],
+      [newKey]: []
+    };
+
+    if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
+      nodeConfigForm[fieldKey] = {
+        ...(nodeConfigForm[fieldKey] || {}),
+        [newKey]: []
+      };
+    }
   }
 
   function getTempLinePath(): string {
@@ -629,7 +810,9 @@ export function useCanvasInteraction(
     getConnectionColor,
     getTempLinePath,
     getNodePorts,
-    isLogicNode,
     syncConnectionToNodeConfig,
+    updateSwitchCaseKey,
+    removeSwitchCaseKey,
+    addSwitchCaseKey,
   };
 }
