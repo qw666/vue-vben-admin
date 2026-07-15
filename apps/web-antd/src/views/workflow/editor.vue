@@ -90,12 +90,15 @@ const {
   handleKeyDown,
   handleCanvasMouseLeave,
   getConnectionPath,
+  getConnectionColor,
   getTempLinePath,
+  getNodePorts,
+  isLogicNode,
 } = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
   if (isConfigPanelOpen && selectedNode.value?.id === nodeId) {
     handleConfigClose();
   }
-});
+}, nodeConfigForm, selectedNode);
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
@@ -306,7 +309,7 @@ onUnmounted(() => {
                 <path
                   v-for="conn in connections"
                   :key="conn.id"
-                  :d="getConnectionPath(conn.source, conn.target)"
+                  :d="getConnectionPath(conn.source, conn.target, conn.sourceHandle, conn.targetHandle)"
                   fill="none"
                   stroke="transparent"
                   stroke-width="6"
@@ -319,9 +322,9 @@ onUnmounted(() => {
                 <path
                   v-for="conn in connections"
                   :key="'line-' + conn.id"
-                  :d="getConnectionPath(conn.source, conn.target)"
+                  :d="getConnectionPath(conn.source, conn.target, conn.sourceHandle, conn.targetHandle)"
                   fill="none"
-                  stroke="#64748b"
+                  :stroke="getConnectionColor(conn)"
                   stroke-width="1.5"
                   marker-end="url(#arrowhead)"
                   style="pointer-events: none;"
@@ -356,18 +359,27 @@ onUnmounted(() => {
             :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
             :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
             @mousedown="startNodeDrag($event, node.id)"
-      @click="selectNode(node.id)"
-      @dblclick="(e) => { selectNode(node.id); handleNodeDoubleClick(node); }"
-      @contextmenu.prevent="showNodeContextMenu($event, node.id)"
+            @click="selectNode(node.id)"
+            @dblclick="(e) => { selectNode(node.id); handleNodeDoubleClick(node); }"
+            @contextmenu.prevent="showNodeContextMenu($event, node.id)"
           >
             <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-44"
                  :class="{ 'border-blue-500 ring-2 ring-blue-200': selectedNodeId === node.id }">
-              <div
-                class="node-port absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-green-500 border-2 border-white cursor-crosshair hover:bg-green-600 hover:scale-125 transition-all z-20 shadow-sm"
-                :data-node-id="node.id"
-                :data-port-type="'input'"
-                title="输入端口"
-              />
+              <template v-for="port in getNodePorts(node.id, node.data.type)" :key="port.id">
+                <div
+                  class="node-port absolute w-4 h-4 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all z-20 shadow-sm flex items-center justify-center"
+                  :style="{
+                    left: (port.position.x - node.position.x - 8) + 'px',
+                    top: (port.position.y - node.position.y - 8) + 'px',
+                    backgroundColor: port.color || '#3b82f6'
+                  }"
+                  :data-node-id="node.id"
+                  :data-port-id="port.id"
+                  :data-port-type="port.type"
+                  @mousedown="port.type === 'output' ? startConnection($event, node.id, port.id) : null"
+                  :title="port.label"
+                />
+              </template>
               <div class="flex items-center gap-2 mb-1">
                 <div
                   class="w-8 h-8 rounded-full flex items-center justify-center text-white"
@@ -380,13 +392,6 @@ onUnmounted(() => {
               <div class="flex gap-1 mt-2">
                 <div class="w-2 h-2 rounded-full bg-gray-400" />
               </div>
-              <div
-                class="node-port absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-500 border-2 border-white cursor-crosshair hover:bg-blue-600 hover:scale-125 transition-all z-20 shadow-sm"
-                :data-node-id="node.id"
-                :data-port-type="'output'"
-                @mousedown="startConnection($event, node.id)"
-                title="输出端口"
-              />
             </div>
           </div>
         </div>

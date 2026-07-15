@@ -255,7 +255,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
 
     if (itemsSchema && internalIsTaskRef(itemsSchema)) {
       return {
-        type: 'NodeArray',
+        type: 'ConnectionStatus',
         props: {
           ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
           itemsSchema,
@@ -381,7 +381,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
   ): RenderedField {
     if (internalIsTaskRef(fieldSchema)) {
       return {
-        type: 'NodeArray',
+        type: 'ConnectionStatus',
         props: {
           ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
           itemsSchema: fieldSchema,
