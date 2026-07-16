@@ -25,9 +25,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex-1 flex overflow-hidden min-h-0">
+  <div v-if="isOpen" class="flex-shrink-0 flex overflow-hidden">
     <div
-      class="w-2 flex-shrink-0 cursor-col-resize flex items-center justify-center hover:bg-gray-100 transition-colors relative"
+      class="w-2 flex-shrink-0 cursor-col-resize flex items-center justify-center hover:bg-gray-100 transition-colors relative bg-gray-100 border-l border-gray-200"
       @mousedown="emit('startResize', $event)"
     >
       <div class="flex flex-col gap-1.5">
@@ -37,8 +37,7 @@ const emit = defineEmits<{
       </div>
     </div>
     <div
-      v-if="isOpen"
-      class="bg-white border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden"
+      class="bg-white border-l border-gray-200 flex flex-col overflow-hidden"
       :style="{ width: width + 'px' }"
     >
       <div class="p-4 border-b border-gray-200 flex items-center justify-between">

@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ref } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 
 defineProps<{
@@ -43,6 +44,21 @@ const categoryColors: Record<string, string> = {
 
 function getCategoryColor(category: string): string {
   return categoryColors[category] || 'bg-gray-500';
+}
+
+const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
+
+function showTooltip(event: MouseEvent, text: string) {
+  tooltip.value = {
+    show: true,
+    x: event.clientX + 10,
+    y: event.clientY + 10,
+    text,
+  };
+}
+
+function hideTooltip() {
+  tooltip.value.show = false;
 }
 </script>
 
@@ -144,7 +160,8 @@ function getCategoryColor(category: string): string {
             :data-port-id="port.id"
             :data-port-type="port.type"
             @mousedown="port.type === 'output' ? emit('startConnection', $event, node.id, port.id) : null"
-            :title="port.label"
+            @mouseenter="showTooltip($event, port.label)"
+            @mouseleave="hideTooltip"
           />
         </template>
         <div class="flex items-center gap-2 mb-1">
@@ -155,9 +172,6 @@ function getCategoryColor(category: string): string {
             <IconifyIcon :icon="node.data.icon" :size="16" />
           </div>
           <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
-        </div>
-        <div class="flex gap-1 mt-2">
-          <div class="w-2 h-2 rounded-full bg-gray-400" />
         </div>
       </div>
     </div>
@@ -183,5 +197,13 @@ function getCategoryColor(category: string): string {
     >
       删除连线
     </div>
+  </div>
+
+  <div
+    v-if="tooltip.show"
+    class="fixed z-50 bg-gray-900 text-white text-sm px-3 py-1.5 rounded-lg shadow-lg pointer-events-none"
+    :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
+  >
+    {{ tooltip.text }}
   </div>
 </template>

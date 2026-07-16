@@ -45,14 +45,15 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
   }
 
   if (flowControlConfig && flowControlConfig.ports.output) {
-    const allOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
+    const bottomOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
+    const rightOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
 
     flowControlConfig.ports.output.forEach(out => {
       if (out.dynamic) {
         const cases = node.data.config?.[out.field];
         if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
           Object.keys(cases).forEach(caseKey => {
-            allOutputs.push({
+            bottomOutputs.push({
               field: `${out.field}-${caseKey}`,
               label: caseKey,
               color: out.color,
@@ -60,7 +61,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
             });
           });
         } else {
-          allOutputs.push({
+          bottomOutputs.push({
             field: `${out.field}-add`,
             label: '+',
             color: out.color,
@@ -68,17 +69,26 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
           });
         }
       } else {
-        allOutputs.push({
-          field: out.field,
-          label: out.label,
-          color: out.color,
-          portGroup: out.field,
-        });
+        if (out.field === 'errors' || out.field === 'finally') {
+          rightOutputs.push({
+            field: out.field,
+            label: out.label,
+            color: out.field === 'errors' ? '#ef4444' : '#22c55e',
+            portGroup: out.field,
+          });
+        } else {
+          bottomOutputs.push({
+            field: out.field,
+            label: out.label,
+            color: out.color,
+            portGroup: out.field,
+          });
+        }
       }
     });
 
-    if (allOutputs.length === 1) {
-      const out = allOutputs[0]!;
+    if (bottomOutputs.length === 1) {
+      const out = bottomOutputs[0]!;
       ports.push({
         id: `${nodeId}-output-${out.field}`,
         nodeId,
@@ -91,9 +101,9 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
         },
         color: out.color
       });
-    } else {
-      const spacing = nodeWidth / (allOutputs.length + 1);
-      allOutputs.forEach((out, i) => {
+    } else if (bottomOutputs.length > 1) {
+      const spacing = nodeWidth / (bottomOutputs.length + 1);
+      bottomOutputs.forEach((out, i) => {
         ports.push({
           id: `${nodeId}-output-${out.field}`,
           nodeId,
@@ -103,6 +113,24 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
           position: {
             x: node.position.x + spacing * (i + 1),
             y: node.position.y + nodeHeight + 6
+          },
+          color: out.color
+        });
+      });
+    }
+
+    if (rightOutputs.length > 0) {
+      const spacing = nodeHeight / (rightOutputs.length + 1);
+      rightOutputs.forEach((out, i) => {
+        ports.push({
+          id: `${nodeId}-output-${out.field}`,
+          nodeId,
+          type: 'output',
+          label: out.label,
+          portGroup: out.portGroup,
+          position: {
+            x: node.position.x + nodeWidth + 6,
+            y: node.position.y + spacing * (i + 1)
           },
           color: out.color
         });
@@ -617,28 +645,49 @@ export function useCanvasInteraction(
     if (flowControlConfig && flowControlConfig.ports.output && portId.startsWith(`${nodeId}-output-`)) {
       const field = portId.replace(`${nodeId}-output-`, '');
 
-      const allOutputs: { field: string; label: string }[] = [];
+      const bottomOutputs: { field: string; label: string }[] = [];
+      const rightOutputs: { field: string; label: string }[] = [];
+
       flowControlConfig.ports.output.forEach(out => {
         if (out.dynamic) {
           const cases = node.data.config?.[out.field];
           if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
             Object.keys(cases).forEach(caseKey => {
-              allOutputs.push({ field: `${out.field}-${caseKey}`, label: caseKey });
+              bottomOutputs.push({ field: `${out.field}-${caseKey}`, label: caseKey });
             });
           } else {
-            allOutputs.push({ field: `${out.field}-add`, label: '+' });
+            bottomOutputs.push({ field: `${out.field}-add`, label: '+' });
           }
         } else {
-          allOutputs.push({ field: out.field, label: out.label });
+          if (out.field === 'errors' || out.field === 'finally') {
+            rightOutputs.push({ field: out.field, label: out.label });
+          } else {
+            bottomOutputs.push({ field: out.field, label: out.label });
+          }
         }
       });
 
-      const outputIndex = allOutputs.findIndex(o => o.field === field);
-      if (outputIndex >= 0) {
-        const spacing = nodeWidth / (allOutputs.length + 1);
+      const bottomIndex = bottomOutputs.findIndex(o => o.field === field);
+      if (bottomIndex >= 0) {
+        if (bottomOutputs.length === 1) {
+          return {
+            x: node.position.x + nodeWidth / 2,
+            y: node.position.y + nodeHeight + 6
+          };
+        }
+        const spacing = nodeWidth / (bottomOutputs.length + 1);
         return {
-          x: node.position.x + spacing * (outputIndex + 1),
+          x: node.position.x + spacing * (bottomIndex + 1),
           y: node.position.y + nodeHeight + 6
+        };
+      }
+
+      const rightIndex = rightOutputs.findIndex(o => o.field === field);
+      if (rightIndex >= 0) {
+        const spacing = nodeHeight / (rightOutputs.length + 1);
+        return {
+          x: node.position.x + nodeWidth + 6,
+          y: node.position.y + spacing * (rightIndex + 1)
         };
       }
     }
