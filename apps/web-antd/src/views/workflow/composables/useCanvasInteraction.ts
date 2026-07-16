@@ -48,27 +48,17 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
     const allOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
 
     flowControlConfig.ports.output.forEach(out => {
-      if (out.dynamic && node.data.config && node.data.config[out.field]) {
-        const cases = node.data.config[out.field];
-        if (typeof cases === 'object' && cases !== null) {
-          const caseKeys = Object.keys(cases);
-          if (caseKeys.length > 0) {
-            caseKeys.forEach(caseKey => {
-              allOutputs.push({
-                field: `${out.field}-${caseKey}`,
-                label: caseKey,
-                color: out.color,
-                portGroup: out.field,
-              });
-            });
-          } else {
+      if (out.dynamic) {
+        const cases = node.data.config?.[out.field];
+        if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
+          Object.keys(cases).forEach(caseKey => {
             allOutputs.push({
-              field: `${out.field}-add`,
-              label: '+',
+              field: `${out.field}-${caseKey}`,
+              label: caseKey,
               color: out.color,
               portGroup: out.field,
             });
-          }
+          });
         } else {
           allOutputs.push({
             field: `${out.field}-add`,
@@ -334,6 +324,7 @@ export function useCanvasInteraction(
               target: targetNodeId,
               targetHandle: targetPortId
             };
+            
             connections.value.push(newConnection);
             if (store.currentWorkflow) {
               store.currentWorkflow.edges = [...store.currentWorkflow.edges, newConnection];
@@ -342,10 +333,7 @@ export function useCanvasInteraction(
             syncConnectionToNodeConfig(newConnection, true);
 
             const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === connectingFrom.value);
-            console.log('onMouseUp - sourceNode after sync:', sourceNode?.data?.config);
-            console.log('onMouseUp - onNodeConnected callback exists:', !!onNodeConnected);
             if (sourceNode && onNodeConnected) {
-              console.log('onMouseUp - calling onNodeConnected');
               onNodeConnected(sourceNode);
             }
           }
@@ -370,30 +358,45 @@ export function useCanvasInteraction(
     const flowControlConfig = getFlowControlConfig(sourceNodeType);
     if (!flowControlConfig) return;
 
-    const field = conn.sourceHandle.replace(`${conn.source}-output-`, '');
+    const sourceHandle = conn.sourceHandle.replace(`${conn.source}-output-`, '');
 
-    let outputConfig = flowControlConfig.ports.output?.find(o => o.field === field);
+    let targetField = sourceHandle;
     let caseKey: string | undefined;
     let isAddPort = false;
 
-    if (!outputConfig && flowControlConfig.ports.output) {
-      const dynamicOutput = flowControlConfig.ports.output.find(o => o.dynamic && field.startsWith(o.field + '-'));
+    if (flowControlConfig.ports.output) {
+      const dynamicOutput = flowControlConfig.ports.output.find(
+        o => o.dynamic && sourceHandle.startsWith(o.field + '-')
+      );
       if (dynamicOutput) {
-        outputConfig = dynamicOutput;
-        const remaining = field.replace(dynamicOutput.field + '-', '');
+        targetField = dynamicOutput.field;
+        const remaining = sourceHandle.replace(dynamicOutput.field + '-', '');
         if (remaining === 'add') {
           isAddPort = true;
         } else {
           caseKey = remaining;
         }
+      } else {
+        const dynamicField = flowControlConfig.ports.output.find(
+          o => o.dynamic && sourceHandle === o.field
+        );
+        if (dynamicField) {
+          targetField = dynamicField.field;
+          isAddPort = true;
+        }
+      }
+
+      const isDynamicField = flowControlConfig.ports.output.some(
+        o => o.dynamic && (sourceHandle.startsWith(o.field + '-') || sourceHandle === o.field)
+      );
+      if (isDynamicField && !caseKey) {
+        isAddPort = true;
       }
     }
 
-    if (!outputConfig) return;
-
     if (!sourceNode.data.config) {
-      sourceNode.data.config = {};
-    }
+    sourceNode.data.config = {};
+  }
 
     const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
     if (!targetNode) return;
@@ -406,71 +409,63 @@ export function useCanvasInteraction(
     };
 
     if (isAddPort && isAdd) {
-      if (!sourceNode.data.config[outputConfig.field]) {
-        sourceNode.data.config[outputConfig.field] = {};
-      }
+      const currentCases = sourceNode.data.config[targetField];
+      const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
+        ? { ...currentCases }
+        : {};
 
-      const cases = sourceNode.data.config[outputConfig.field];
-      const caseCount = Object.keys(cases).length + 1;
+      const caseCount = Object.keys(casesObj).length + 1;
       caseKey = `CASE_${caseCount}`;
 
-      sourceNode.data.config[outputConfig.field] = {
-        ...sourceNode.data.config[outputConfig.field],
-        [caseKey]: [taskItem]
-      };
+      casesObj[caseKey] = [taskItem];
+      sourceNode.data.config[targetField] = casesObj;
 
-      conn.sourceHandle = `${conn.source}-output-${outputConfig.field}-${caseKey}`;
+      conn.sourceHandle = `${conn.source}-output-${targetField}-${caseKey}`;
     } else if (caseKey) {
-      if (!sourceNode.data.config[outputConfig.field]) {
-        sourceNode.data.config[outputConfig.field] = {};
-      }
+      const currentCases = sourceNode.data.config[targetField];
+      const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
+        ? { ...currentCases }
+        : {};
 
       if (isAdd) {
-        const existing = (sourceNode.data.config[outputConfig.field][caseKey] as any[] || []).find(
+        const caseItems = casesObj[caseKey];
+        casesObj[caseKey] = Array.isArray(caseItems) ? [...caseItems] : [];
+        const existing = casesObj[caseKey].find(
           (item: any) => item.nodeId === conn.target
         );
         if (!existing) {
-          const currentItems = sourceNode.data.config[outputConfig.field][caseKey] || [];
-          sourceNode.data.config[outputConfig.field] = {
-            ...sourceNode.data.config[outputConfig.field],
-            [caseKey]: [...currentItems, taskItem]
-          };
+          casesObj[caseKey].push(taskItem);
         }
       } else {
-        const currentItems = sourceNode.data.config[outputConfig.field][caseKey] || [];
-        sourceNode.data.config[outputConfig.field] = {
-          ...sourceNode.data.config[outputConfig.field],
-          [caseKey]: currentItems.filter((item: any) => item.nodeId !== conn.target)
-        };
-      }
-    } else {
-      if (!sourceNode.data.config[field]) {
-        sourceNode.data.config[field] = [];
-      }
-
-      if (isAdd) {
-        const existing = (sourceNode.data.config[field] as any[]).find(
-          (item: any) => item.nodeId === conn.target
-        );
-        if (!existing) {
-          sourceNode.data.config[field] = [...sourceNode.data.config[field], taskItem];
-
-          if (nodeConfigForm && selectedNode?.value?.id === conn.source) {
-            nodeConfigForm[field] = [...(nodeConfigForm[field] || []), taskItem];
-          }
-        }
-      } else {
-        sourceNode.data.config[field] = (sourceNode.data.config[field] as any[]).filter(
-          (item: any) => item.nodeId !== conn.target
-        );
-
-        if (nodeConfigForm && selectedNode?.value?.id === conn.source) {
-          nodeConfigForm[field] = (nodeConfigForm[field] || []).filter(
+        const caseItems = casesObj[caseKey];
+        if (Array.isArray(caseItems)) {
+          casesObj[caseKey] = caseItems.filter(
             (item: any) => item.nodeId !== conn.target
           );
         }
       }
+
+      sourceNode.data.config[targetField] = casesObj;
+    } else {
+      if (!Array.isArray(sourceNode.data.config[targetField])) {
+        sourceNode.data.config[targetField] = [];
+      }
+
+      if (isAdd) {
+        const existing = sourceNode.data.config[targetField].find(
+          (item: any) => item.nodeId === conn.target
+        );
+        if (!existing) {
+          sourceNode.data.config[targetField].push(taskItem);
+        }
+      } else {
+        sourceNode.data.config[targetField] = sourceNode.data.config[targetField].filter(
+          (item: any) => item.nodeId !== conn.target
+        );
+      }
     }
+
+    store.updateNode(conn.source, { data: { ...sourceNode.data } });
   }
 
   function deleteConnection(connId: string) {
@@ -612,17 +607,12 @@ export function useCanvasInteraction(
 
       const allOutputs: { field: string; label: string }[] = [];
       flowControlConfig.ports.output.forEach(out => {
-        if (out.dynamic && node.data.config && node.data.config[out.field]) {
-          const cases = node.data.config[out.field];
-          if (typeof cases === 'object' && cases !== null) {
-            const caseKeys = Object.keys(cases);
-            if (caseKeys.length > 0) {
-              caseKeys.forEach(caseKey => {
-                allOutputs.push({ field: `${out.field}-${caseKey}`, label: caseKey });
-              });
-            } else {
-              allOutputs.push({ field: `${out.field}-add`, label: '+' });
-            }
+        if (out.dynamic) {
+          const cases = node.data.config?.[out.field];
+          if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
+            Object.keys(cases).forEach(caseKey => {
+              allOutputs.push({ field: `${out.field}-${caseKey}`, label: caseKey });
+            });
           } else {
             allOutputs.push({ field: `${out.field}-add`, label: '+' });
           }

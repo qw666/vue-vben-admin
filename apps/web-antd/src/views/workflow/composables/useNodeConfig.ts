@@ -1,6 +1,6 @@
 import { ref, computed, reactive } from 'vue';
 import { message } from 'ant-design-vue';
-import { getFlowControlTaskFields, getFlowControlConfig } from '../config/workflow-node-config';
+import { getFlowControlTaskFields, getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
 
 export interface SchemaNode {
   type?: string;
@@ -522,46 +522,10 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     selectedNode.value = node;
     isConfigPanelOpen.value = true;
 
-    const flowControlConfig = getFlowControlConfig(node.data.type);
-    if (flowControlConfig) {
+    const strategy = flowControlNodeRegistry.get(node.data.type);
+    if (strategy) {
       const savedConfig = node.data.config || {};
-      
-      let newConfig: any = {};
-      if (node.data.type === 'idp_core_flow_If') {
-        newConfig = {
-          condition: savedConfig.condition || '',
-          then: savedConfig.then || [],
-          else: savedConfig.else || [],
-          errors: savedConfig.errors || [],
-          finally: savedConfig.finally || [],
-        };
-      } else if (node.data.type === 'idp_core_flow_Switch') {
-        newConfig = {
-          value: savedConfig.value || '',
-          cases: savedConfig.cases ? JSON.parse(JSON.stringify(savedConfig.cases)) : {},
-          defaults: savedConfig.defaults ? [...savedConfig.defaults] : [],
-          errors: savedConfig.errors ? [...savedConfig.errors] : [],
-          finally: savedConfig.finally ? [...savedConfig.finally] : [],
-        };
-      } else if (node.data.type === 'idp_core_flow_ForEach') {
-        newConfig = {
-          value: savedConfig.value || '',
-          do: savedConfig.do || [],
-        };
-      } else if (node.data.type === 'idp_core_flow_Parallel') {
-        newConfig = {
-          tasks: savedConfig.tasks || [],
-        };
-      } else if (node.data.type === 'idp_core_flow_Subflow') {
-        newConfig = {
-          tasks: savedConfig.tasks || [],
-        };
-      } else if (node.data.type === 'idp_core_flow_Pause') {
-        newConfig = {
-          duration: savedConfig.duration || '',
-          durationUnit: savedConfig.durationUnit || 'seconds',
-        };
-      }
+      const newConfig = strategy.initConfig(savedConfig);
 
       Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
       Object.assign(nodeConfigForm, newConfig);
@@ -722,33 +686,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
   const requiredFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    const flowControlConfig = getFlowControlConfig(selectedNode.value.data.type);
-    if (flowControlConfig) {
-      const fields: RenderedField[] = [];
-
-      if (selectedNode.value.data.type === 'idp_core_flow_If') {
-        fields.push({
-          type: 'Input',
-          props: { key: 'condition', label: '条件表达式', required: true, description: 'If判断条件，可填写任意能解析为布尔值的表达式', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_Switch') {
-        fields.push({
-          type: 'Input',
-          props: { key: 'value', label: '匹配值', required: true, description: '用于分支匹配判断的表达式/值', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_ForEach') {
-        fields.push({
-          type: 'Input',
-          props: { key: 'value', label: '循环值', required: true, description: '要循环迭代的值', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_Pause') {
-        fields.push({
-          type: 'Input',
-          props: { key: 'duration', label: '暂停时长', required: true, description: '暂停的时间长度', tooltip: '', dynamic: false },
-        });
-      }
-
-      return fields;
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    if (strategy) {
+      return strategy.getRequiredFields();
     }
 
     if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
@@ -771,72 +711,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
   const optionalFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    const flowControlConfig = getFlowControlConfig(selectedNode.value.data.type);
-    if (flowControlConfig) {
-      const fields: RenderedField[] = [];
-
-      if (selectedNode.value.data.type === 'idp_core_flow_If') {
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'then', label: 'Then', required: false, description: '条件成立时执行的任务列表', tooltip: '', dynamic: false },
-        });
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'else', label: 'Else', required: false, description: '条件不成立时执行的任务列表', tooltip: '', dynamic: false },
-        });
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'errors', label: 'Errors', required: false, description: '子任务执行出错时执行的任务列表', tooltip: '', dynamic: false },
-        });
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'finally', label: 'Finally', required: false, description: '分支全部执行完成后执行的收尾任务', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_Switch') {
-        fields.push({
-          type: 'SwitchCases',
-          props: { key: 'cases', label: 'Cases', required: false, description: '匹配键与对应执行任务列表映射', tooltip: '', dynamic: false },
-        });
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'defaults', label: 'Default', required: false, description: '无任何case匹配时执行的默认任务列表', tooltip: '', dynamic: false },
-        });
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'errors', label: 'Errors', required: false, description: '当前分支任务出现异常时执行的任务列表', tooltip: '', dynamic: false },
-        });
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'finally', label: 'Finally', required: false, description: '所有分支执行完成后执行的收尾任务', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_ForEach') {
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'do', label: 'Do', required: false, description: '循环执行的任务列表', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_Parallel') {
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'tasks', label: 'Tasks', required: false, description: '并行执行的任务列表', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_Subflow') {
-        fields.push({
-          type: 'ConnectionStatus',
-          props: { key: 'tasks', label: 'Tasks', required: false, description: '子流程任务列表', tooltip: '', dynamic: false },
-        });
-      } else if (selectedNode.value.data.type === 'idp_core_flow_Pause') {
-        fields.push({
-          type: 'Select',
-          props: { key: 'durationUnit', label: '时间单位', required: false, description: '暂停时长的单位', tooltip: '', dynamic: false, options: [
-            { value: 'seconds', label: '秒' },
-            { value: 'minutes', label: '分钟' },
-            { value: 'hours', label: '小时' },
-            { value: 'days', label: '天' },
-          ]},
-        });
-      }
-
-      return fields;
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    if (strategy) {
+      return strategy.getOptionalFields();
     }
 
     if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];

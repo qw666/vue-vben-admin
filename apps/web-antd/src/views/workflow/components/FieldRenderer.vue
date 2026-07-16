@@ -535,7 +535,7 @@ function buildField(prop: any, key: string): any {
         <IconifyIcon icon="mdi:git-branch" :size="16" class="text-amber-600" />
         <span style="font-size: 13px; font-weight: 500; color: #92400e;">{{ field.props.label }}</span>
         <span style="font-size: 12px; color: #6b7280;">({{ Object.keys(props.nodeConfigForm[fieldKey.value] || {}).length }} 个分支)</span>
-        <span style="font-size: 10px; color: #f59e0b;">[DEBUG: {{ JSON.stringify(props.nodeConfigForm[fieldKey.value] || {}).slice(0, 50) }}]</span>
+        
       </div>
       
       <div v-if="Object.keys(props.nodeConfigForm[fieldKey.value] || {}).length" style="display: flex; flex-direction: column; gap: 8px;">
