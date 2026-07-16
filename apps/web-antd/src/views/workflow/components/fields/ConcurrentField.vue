@@ -10,17 +10,22 @@ const props = defineProps<{
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 const connectionFieldKey = computed(() => props.field.props.connectionField || 'tasks');
+const maxLimited = computed(() => props.field.props.maxLimited !== false);
 
 const connectionCount = computed(() => {
   const connections = props.nodeConfigForm[connectionFieldKey.value];
   return Array.isArray(connections) ? connections.length : 0;
 });
 
+const maxValue = computed(() => {
+  return maxLimited.value ? connectionCount.value : 9999;
+});
+
 const currentValue = computed({
   get: () => props.nodeConfigForm[fieldKey.value] || 0,
   set: (val) => {
     const numVal = typeof val === 'number' ? val : parseInt(val, 10) || 0;
-    const clampedVal = Math.max(0, Math.min(numVal, connectionCount.value));
+    const clampedVal = Math.max(0, Math.min(numVal, maxValue.value));
     props.nodeConfigForm[fieldKey.value] = clampedVal;
   },
 });
@@ -32,7 +37,7 @@ function decrease() {
 }
 
 function increase() {
-  if (currentValue.value < connectionCount.value) {
+  if (currentValue.value < maxValue.value) {
     currentValue.value++;
   }
 }
@@ -64,7 +69,7 @@ function increase() {
       <InputNumber
         v-model:value="currentValue"
         :min="0"
-        :max="connectionCount"
+        :max="maxLimited ? connectionCount : undefined"
         :controls="false"
         style="flex: 1;"
         class="text-center"
@@ -72,14 +77,14 @@ function increase() {
       <Button
         type="text"
         size="small"
-        :disabled="currentValue >= connectionCount"
+        :disabled="maxLimited && currentValue >= connectionCount"
         @click="increase"
         style="width: 36px; height: 36px; padding: 0;"
       >
         <IconifyIcon icon="mdi:plus" :size="20" />
       </Button>
     </div>
-    <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
+    <div v-if="maxLimited" style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
       最大值: {{ connectionCount }} (已连接节点数)
     </div>
   </div>

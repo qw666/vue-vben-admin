@@ -5,7 +5,7 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_ForEach',
   config: {
     nodeType: 'idp_core_flow_ForEach',
-    nodeName: '循环节点',
+    nodeName: 'ForEach',
     icon: 'mdi:repeat',
     description: '循环执行',
     ports: {
@@ -17,24 +17,40 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
     taskFields: ['do'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
+    const value = savedConfig.value;
+    let valuesArray = [];
+    if (Array.isArray(value)) {
+      valuesArray = value;
+    } else if (typeof value === 'string' && value.trim()) {
+      try {
+        valuesArray = JSON.parse(value);
+      } catch {
+        valuesArray = [value];
+      }
+    }
     return {
-      value: savedConfig.value || '',
+      value: valuesArray,
+      concurrencyLimit: savedConfig.concurrencyLimit ?? 1,
       do: savedConfig.do || [],
     };
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
     return [
       {
-        type: 'Input',
-        props: { key: 'value', label: '循环值', required: true, description: '要循环迭代的值', tooltip: '', dynamic: false },
+        type: 'StringArray',
+        props: { key: 'value', label: 'values', required: true, description: '要循环迭代的值列表', tooltip: '每个值会触发一次循环，子任务中可通过 {{taskrun.value}} 访问当前迭代值，通过 {{taskrun.iteration}} 访问索引。在嵌套循环中，可通过 {{parent.taskrun.value}} 访问父循环的值。', dynamic: false },
       },
     ];
   },
   getOptionalFields(): { type: string; props: Record<string, any> }[] {
     return [
       {
+        type: 'Concurrent',
+        props: { key: 'concurrencyLimit', label: 'concurrencyLimit', required: false, description: '并发任务组数', tooltip: 'values 数组中每个值对应的任务组并发执行数量。默认值为1。0=无限制，所有任务组同时并行执行；1=完全串行，每次只执行一个任务组；大于1时，最多允许指定数量的任务组并行执行。', dynamic: false, connectionField: 'do', maxLimited: false },
+      },
+      {
         type: 'ConnectionStatus',
-        props: { key: 'do', label: 'Do', required: false, description: '循环执行的任务列表', tooltip: '', dynamic: false },
+        props: { key: 'do', label: 'Do', required: false, description: '循环执行的任务列表', tooltip: '每次迭代执行的子任务。子任务可通过 {{taskrun.value}} 访问当前迭代项。', dynamic: false },
       },
     ];
   },
