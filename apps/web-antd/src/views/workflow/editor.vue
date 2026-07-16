@@ -107,30 +107,63 @@ const {
 }, nodeConfigForm, selectedNode, (node: any) => {
   const flowControlConfig = getFlowControlConfig(node.data.type);
   if (flowControlConfig) {
-    selectedNode.value = null;
-    isConfigPanelOpen.value = false;
-    Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
+    const freshNode = store.currentWorkflow?.nodes.find(n => n.id === node.id);
+    const config = (freshNode?.data.config || node.data.config) || {};
 
-    setTimeout(() => {
-      const freshNode = store.currentWorkflow?.nodes.find(n => n.id === node.id);
+    if (!isConfigPanelOpen.value) {
       selectedNode.value = freshNode || node;
       isConfigPanelOpen.value = true;
-      const config = (freshNode?.data.config || node.data.config) || {};
-      const casesValue = config.cases;
-      nodeConfigForm.cases = typeof casesValue === 'object' && casesValue !== null && !Array.isArray(casesValue)
-        ? JSON.parse(JSON.stringify(casesValue))
-        : {};
-      nodeConfigForm.value = config.value || '';
-      nodeConfigForm.defaults = Array.isArray(config.defaults) ? [...config.defaults] : [];
-      nodeConfigForm.errors = Array.isArray(config.errors) ? [...config.errors] : [];
-      nodeConfigForm.finally = Array.isArray(config.finally) ? [...config.finally] : [];
-    }, 50);
+    }
+
+    const casesValue = config.cases;
+    nodeConfigForm.cases = typeof casesValue === 'object' && casesValue !== null && !Array.isArray(casesValue)
+      ? JSON.parse(JSON.stringify(casesValue))
+      : {};
+    nodeConfigForm.value = config.value || '';
+    nodeConfigForm.defaults = Array.isArray(config.defaults) ? [...config.defaults] : [];
+    nodeConfigForm.errors = Array.isArray(config.errors) ? [...config.errors] : [];
+    nodeConfigForm.finally = Array.isArray(config.finally) ? [...config.finally] : [];
   }
 });
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
+
+function updateNodeValue(fieldKey: string, caseKey: string, index: number, value: string) {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  if (node && node.data.config?.[fieldKey]?.[caseKey]) {
+    node.data.config[fieldKey][caseKey][index].value = value;
+    node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
+    store.updateNode(node.id, { data: { ...node.data } });
+    if (nodeConfigForm[fieldKey]) {
+      nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
+    }
+  }
+}
+
+function removeNodeFromCase(fieldKey: string, caseKey: string, index: number) {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  if (node && node.data.config?.[fieldKey]?.[caseKey]) {
+    const items = [...node.data.config[fieldKey][caseKey]];
+    const removedItem = items.splice(index, 1)[0];
+    node.data.config[fieldKey][caseKey] = items;
+    node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
+    store.updateNode(node.id, { data: { ...node.data } });
+    if (nodeConfigForm[fieldKey]) {
+      nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
+    }
+    if (removedItem?.nodeId) {
+      store.currentWorkflow!.edges = (store.currentWorkflow?.edges || []).filter(
+        conn => !(conn.source === node.id && conn.target === removedItem.nodeId)
+      );
+      connections.value = connections.value.filter(
+        conn => !(conn.source === node.id && conn.target === removedItem.nodeId)
+      );
+      store.removeNode(removedItem.nodeId);
+    }
+  }
+}
 
 const fieldRendererEvents = computed(() => ({
   addObjectItem,
@@ -147,6 +180,8 @@ const fieldRendererEvents = computed(() => ({
   addCaseKey: (fieldKey: string) => addSwitchCaseKey(selectedNode.value?.id || '', fieldKey),
   updateCaseKey: (fieldKey: string, oldKey: string, newKey: string) => updateSwitchCaseKey(selectedNode.value?.id || '', oldKey, newKey, fieldKey),
   removeCaseKey: (fieldKey: string, caseKey: string) => removeSwitchCaseKey(selectedNode.value?.id || '', caseKey, fieldKey),
+  updateNodeValue,
+  removeNodeFromCase,
 }));
 
 async function handleSave() {

@@ -395,8 +395,8 @@ export function useCanvasInteraction(
     }
 
     if (!sourceNode.data.config) {
-    sourceNode.data.config = {};
-  }
+      sourceNode.data.config = {};
+    }
 
     const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
     if (!targetNode) return;
@@ -421,6 +421,10 @@ export function useCanvasInteraction(
       sourceNode.data.config[targetField] = casesObj;
 
       conn.sourceHandle = `${conn.source}-output-${targetField}-${caseKey}`;
+
+      if (nodeConfigForm) {
+        nodeConfigForm[targetField] = { ...casesObj };
+      }
     } else if (caseKey) {
       const currentCases = sourceNode.data.config[targetField];
       const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
@@ -446,6 +450,10 @@ export function useCanvasInteraction(
       }
 
       sourceNode.data.config[targetField] = casesObj;
+
+      if (nodeConfigForm) {
+        nodeConfigForm[targetField] = { ...casesObj };
+      }
     } else {
       if (!Array.isArray(sourceNode.data.config[targetField])) {
         sourceNode.data.config[targetField] = [];
@@ -462,6 +470,10 @@ export function useCanvasInteraction(
         sourceNode.data.config[targetField] = sourceNode.data.config[targetField].filter(
           (item: any) => item.nodeId !== conn.target
         );
+      }
+
+      if (nodeConfigForm) {
+        nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
       }
     }
 
