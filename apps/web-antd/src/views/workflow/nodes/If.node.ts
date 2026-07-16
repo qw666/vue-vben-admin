@@ -11,7 +11,7 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'then', label: 'Then', color: '#22c55e' },
+        { field: 'then', label: 'IF', color: '#22c55e' },
         { field: 'else', label: 'Else', color: '#ef4444' },
         { field: 'errors', label: 'Errors', color: '#f59e0b' },
         { field: 'finally', label: 'Finally', color: '#64748b' },
@@ -40,7 +40,7 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
     return [
       {
         type: 'ConnectionStatus',
-        props: { key: 'then', label: 'Then', required: false, description: '条件成立时执行的任务列表', tooltip: '', dynamic: false },
+        props: { key: 'then', label: 'IF', required: false, description: '条件成立时执行的任务列表', tooltip: '', dynamic: false },
       },
       {
         type: 'ConnectionStatus',

@@ -47,6 +47,9 @@ function getCategoryColor(category: string): string {
 }
 
 const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
+const isPanning = ref(false);
+const panStart = ref({ x: 0, y: 0 });
+const scrollStart = ref({ x: 0, y: 0 });
 
 function showTooltip(event: MouseEvent, text: string) {
   tooltip.value = {
@@ -60,6 +63,33 @@ function showTooltip(event: MouseEvent, text: string) {
 function hideTooltip() {
   tooltip.value.show = false;
 }
+
+function startPan(event: MouseEvent) {
+  if (event.button !== 1 && !(event.button === 0 && event.altKey)) {
+    return;
+  }
+  const canvas = event.currentTarget as HTMLElement;
+  isPanning.value = true;
+  panStart.value = { x: event.clientX, y: event.clientY };
+  scrollStart.value = { x: canvas.scrollLeft, y: canvas.scrollTop };
+  canvas.style.cursor = 'grabbing';
+}
+
+function onPan(event: MouseEvent) {
+  if (!isPanning.value) return;
+  const canvas = event.currentTarget as HTMLElement;
+  const dx = event.clientX - panStart.value.x;
+  const dy = event.clientY - panStart.value.y;
+  canvas.scrollLeft = scrollStart.value.x - dx;
+  canvas.scrollTop = scrollStart.value.y - dy;
+}
+
+function stopPan(event: MouseEvent) {
+  if (!isPanning.value) return;
+  isPanning.value = false;
+  const canvas = event.currentTarget as HTMLElement;
+  canvas.style.cursor = 'default';
+}
 </script>
 
 <template>
@@ -67,8 +97,11 @@ function hideTooltip() {
     class="flex-1 relative bg-gray-50 workflow-canvas overflow-auto"
     @drop="emit('drop', $event)"
     @dragover="emit('dragOver', $event)"
-    @mouseleave="emit('mouseLeave')"
+    @mouseleave="() => { emit('mouseLeave'); stopPan(); }"
     @click="emit('canvasClick')"
+    @mousedown="startPan"
+    @mousemove="onPan"
+    @mouseup="stopPan"
   >
     <div class="absolute inset-0 pointer-events-none">
       <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">

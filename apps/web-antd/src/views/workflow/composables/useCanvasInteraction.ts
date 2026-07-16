@@ -50,25 +50,25 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
 
     flowControlConfig.ports.output.forEach(out => {
       if (out.dynamic) {
-        const cases = node.data.config?.[out.field];
-        if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
-          Object.keys(cases).forEach(caseKey => {
+          const cases = node.data.config?.[out.field];
+          if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
+            Object.keys(cases).forEach(caseKey => {
+              bottomOutputs.push({
+                field: `${out.field}-${caseKey}`,
+                label: 'Case',
+                color: out.color,
+                portGroup: out.field,
+              });
+            });
+          } else {
             bottomOutputs.push({
-              field: `${out.field}-${caseKey}`,
-              label: caseKey,
+              field: `${out.field}-add`,
+              label: '+',
               color: out.color,
               portGroup: out.field,
             });
-          });
+          }
         } else {
-          bottomOutputs.push({
-            field: `${out.field}-add`,
-            label: '+',
-            color: out.color,
-            portGroup: out.field,
-          });
-        }
-      } else {
         if (out.field === 'errors' || out.field === 'finally') {
           rightOutputs.push({
             field: out.field,
