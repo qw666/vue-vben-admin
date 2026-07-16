@@ -6,7 +6,7 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
   config: {
     nodeType: 'idp_core_flow_Switch',
     nodeName: '分支路由',
-    icon: 'mdi:git-branch-outline',
+    icon: 'mdi:hexagon',
     description: '多条件分支',
     ports: {
       input: 1,

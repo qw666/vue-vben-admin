@@ -50,6 +50,7 @@ const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0 });
 const scrollStart = ref({ x: 0, y: 0 });
+let canvasElement: HTMLElement | null = null;
 
 function showTooltip(event: MouseEvent, text: string) {
   tooltip.value = {
@@ -65,30 +66,37 @@ function hideTooltip() {
 }
 
 function startPan(event: MouseEvent) {
-  if (event.button !== 1 && !(event.button === 0 && event.altKey)) {
+  if (event.button !== 0) return;
+  const target = event.target as HTMLElement;
+  if (target.closest('.cursor-move') || target.closest('.node-port')) {
     return;
   }
-  const canvas = event.currentTarget as HTMLElement;
+  canvasElement = event.currentTarget as HTMLElement;
   isPanning.value = true;
   panStart.value = { x: event.clientX, y: event.clientY };
-  scrollStart.value = { x: canvas.scrollLeft, y: canvas.scrollTop };
-  canvas.style.cursor = 'grabbing';
+  scrollStart.value = { x: canvasElement.scrollLeft, y: canvasElement.scrollTop };
+  canvasElement.style.cursor = 'grabbing';
+  event.preventDefault();
+  document.addEventListener('mousemove', onPan);
+  document.addEventListener('mouseup', stopPan);
 }
 
 function onPan(event: MouseEvent) {
-  if (!isPanning.value) return;
-  const canvas = event.currentTarget as HTMLElement;
+  if (!isPanning.value || !canvasElement) return;
   const dx = event.clientX - panStart.value.x;
   const dy = event.clientY - panStart.value.y;
-  canvas.scrollLeft = scrollStart.value.x - dx;
-  canvas.scrollTop = scrollStart.value.y - dy;
+  canvasElement.scrollLeft = scrollStart.value.x - dx;
+  canvasElement.scrollTop = scrollStart.value.y - dy;
 }
 
-function stopPan(event: MouseEvent) {
+function stopPan() {
   if (!isPanning.value) return;
   isPanning.value = false;
-  const canvas = event.currentTarget as HTMLElement;
-  canvas.style.cursor = 'default';
+  if (canvasElement) {
+    canvasElement.style.cursor = 'default';
+  }
+  document.removeEventListener('mousemove', onPan);
+  document.removeEventListener('mouseup', stopPan);
 }
 </script>
 
@@ -100,8 +108,6 @@ function stopPan(event: MouseEvent) {
     @mouseleave="() => { emit('mouseLeave'); stopPan(); }"
     @click="emit('canvasClick')"
     @mousedown="startPan"
-    @mousemove="onPan"
-    @mouseup="stopPan"
   >
     <div class="absolute inset-0 pointer-events-none">
       <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
