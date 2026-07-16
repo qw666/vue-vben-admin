@@ -14,6 +14,7 @@ import ConnectionStatusField from './fields/ConnectionStatusField.vue';
 import SwitchCasesField from './fields/SwitchCasesField.vue';
 import AnyOfRadioField from './fields/AnyOfRadioField.vue';
 import RefObjectField from './fields/RefObjectField.vue';
+import ConcurrentField from './fields/ConcurrentField.vue';
 
 defineOptions({
   inheritAttrs: false,
@@ -138,6 +139,11 @@ const emit = defineEmits<{
     :field="field"
     :node-config-form="nodeConfigForm"
     :plugin-groups="pluginGroups"
+  />
+  <ConcurrentField
+    v-else-if="field.type === 'Concurrent'"
+    :field="field"
+    :node-config-form="nodeConfigForm"
   />
   <SwitchCasesField
     v-else-if="field.type === 'SwitchCases'"

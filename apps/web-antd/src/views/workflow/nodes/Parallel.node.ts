@@ -19,6 +19,7 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     return {
       tasks: savedConfig.tasks || [],
+      concurrent: savedConfig.concurrent || 0,
     };
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
@@ -29,6 +30,10 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
       {
         type: 'ConnectionStatus',
         props: { key: 'tasks', label: 'Tasks', required: false, description: '并行执行的任务列表', tooltip: '', dynamic: false },
+      },
+      {
+        type: 'Concurrent',
+        props: { key: 'concurrent', label: '并发数', required: false, description: '最大并发执行数量', tooltip: '任意时刻可以运行的并发并行任务数。如果值为0，则没有限制，所有任务将同时开始。', dynamic: false, connectionField: 'tasks' },
       },
     ];
   },

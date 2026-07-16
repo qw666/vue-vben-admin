@@ -49,8 +49,7 @@ function getCategoryColor(category: string): string {
 const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0 });
-const scrollStart = ref({ x: 0, y: 0 });
-let canvasElement: HTMLElement | null = null;
+const panOffset = ref({ x: 0, y: 0 });
 
 function showTooltip(event: MouseEvent, text: string) {
   tooltip.value = {
@@ -71,30 +70,28 @@ function startPan(event: MouseEvent) {
   if (target.closest('.cursor-move') || target.closest('.node-port')) {
     return;
   }
-  canvasElement = event.currentTarget as HTMLElement;
   isPanning.value = true;
   panStart.value = { x: event.clientX, y: event.clientY };
-  scrollStart.value = { x: canvasElement.scrollLeft, y: canvasElement.scrollTop };
-  canvasElement.style.cursor = 'grabbing';
+  (event.currentTarget as HTMLElement).style.cursor = 'grabbing';
   event.preventDefault();
   document.addEventListener('mousemove', onPan);
   document.addEventListener('mouseup', stopPan);
 }
 
 function onPan(event: MouseEvent) {
-  if (!isPanning.value || !canvasElement) return;
+  if (!isPanning.value) return;
   const dx = event.clientX - panStart.value.x;
   const dy = event.clientY - panStart.value.y;
-  canvasElement.scrollLeft = scrollStart.value.x - dx;
-  canvasElement.scrollTop = scrollStart.value.y - dy;
+  panOffset.value = {
+    x: panOffset.value.x + dx,
+    y: panOffset.value.y + dy,
+  };
+  panStart.value = { x: event.clientX, y: event.clientY };
 }
 
 function stopPan() {
   if (!isPanning.value) return;
   isPanning.value = false;
-  if (canvasElement) {
-    canvasElement.style.cursor = 'default';
-  }
   document.removeEventListener('mousemove', onPan);
   document.removeEventListener('mouseup', stopPan);
 }
@@ -102,115 +99,125 @@ function stopPan() {
 
 <template>
   <div
-    class="flex-1 relative bg-gray-50 workflow-canvas overflow-auto"
+    class="flex-1 relative bg-gray-50 workflow-canvas overflow-hidden"
     @drop="emit('drop', $event)"
     @dragover="emit('dragOver', $event)"
     @mouseleave="() => { emit('mouseLeave'); stopPan(); }"
     @click="emit('canvasClick')"
     @mousedown="startPan"
+    :style="{ cursor: isPanning ? 'grabbing' : 'default' }"
   >
-    <div class="absolute inset-0 pointer-events-none">
-      <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="0.5" opacity="0.3" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
-    </div>
+    <div
+      class="absolute"
+      :style="{
+        transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+        width: '4000px',
+        height: '4000px',
+      }"
+    >
+      <div class="absolute inset-0 pointer-events-none">
+        <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="0.5" opacity="0.3" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+      </div>
 
-    <div class="absolute inset-0" style="z-index: 5;">
-      <svg class="w-full h-full">
-        <defs>
-          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
-          </marker>
-        </defs>
-        <g>
+      <div class="absolute inset-0 pointer-events-none" style="z-index: 5;">
+        <svg class="w-full h-full">
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+            </marker>
+          </defs>
+          <g>
+            <path
+              v-for="conn in connections"
+              :key="conn.id"
+              :d="getConnectionPath(conn.source, conn.target, conn.sourceHandle, conn.targetHandle)"
+              fill="none"
+              stroke="transparent"
+              stroke-width="6"
+              stroke-linecap="round"
+              class="cursor-pointer"
+              @click="emit('selectConnection', conn.id)"
+              @contextmenu.prevent="(e) => emit('connectionContextMenu', e, conn.id)"
+              style="pointer-events: stroke;"
+            />
+            <path
+              v-for="conn in connections"
+              :key="'line-' + conn.id"
+              :d="getConnectionPath(conn.source, conn.target, conn.sourceHandle, conn.targetHandle)"
+              fill="none"
+              :stroke="getConnectionColor(conn)"
+              stroke-width="1.5"
+              marker-end="url(#arrowhead)"
+              style="pointer-events: none;"
+            />
+          </g>
           <path
-            v-for="conn in connections"
-            :key="conn.id"
-            :d="getConnectionPath(conn.source, conn.target, conn.sourceHandle, conn.targetHandle)"
+            v-if="isConnecting"
+            :d="getTempLinePath()"
             fill="none"
-            stroke="transparent"
-            stroke-width="6"
-            stroke-linecap="round"
-            class="cursor-pointer"
-            @click="emit('selectConnection', conn.id)"
-            @contextmenu.prevent="(e) => emit('connectionContextMenu', e, conn.id)"
-            style="pointer-events: stroke;"
-          />
-          <path
-            v-for="conn in connections"
-            :key="'line-' + conn.id"
-            :d="getConnectionPath(conn.source, conn.target, conn.sourceHandle, conn.targetHandle)"
-            fill="none"
-            :stroke="getConnectionColor(conn)"
-            stroke-width="1.5"
-            marker-end="url(#arrowhead)"
+            stroke="#3b82f6"
+            stroke-width="2"
+            stroke-dasharray="5,5"
             style="pointer-events: none;"
           />
-        </g>
-        <path
-          v-if="isConnecting"
-          :d="getTempLinePath()"
-          fill="none"
-          stroke="#3b82f6"
-          stroke-width="2"
-          stroke-dasharray="5,5"
-          style="pointer-events: none;"
-        />
-      </svg>
-    </div>
-
-    <div v-if="nodes.length === 0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div class="text-center">
-        <div class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-          <IconifyIcon icon="mdi:mouse-pointer-click" :size="48" class="text-gray-400" />
-        </div>
-        <h3 class="text-xl font-medium text-gray-600 mb-2">从左侧拖拽节点到这里</h3>
-        <p class="text-gray-400">双击节点可编辑配置</p>
+        </svg>
       </div>
-    </div>
 
-    <div
-      v-for="node in nodes"
-      :key="node.id"
-      class="absolute cursor-move select-none z-10"
-      :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
-      :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
-      @mousedown="(e) => emit('startNodeDrag', e, node.id)"
-      @click="emit('selectNode', node.id)"
-      @dblclick="() => { emit('selectNode', node.id); emit('nodeDoubleClick', node); }"
-      @contextmenu.prevent="(e) => emit('nodeContextMenu', e, node.id)"
-    >
-      <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-44"
-           :class="{ 'border-blue-500 ring-2 ring-blue-200': selectedNodeId === node.id }">
-        <template v-for="port in getNodePorts(node.id, node.data.type)" :key="port.id">
-          <div
-            class="node-port absolute w-4 h-4 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all z-20 shadow-sm flex items-center justify-center"
-            :style="{
-              left: (port.position.x - node.position.x - 8) + 'px',
-              top: (port.position.y - node.position.y - 8) + 'px',
-              backgroundColor: port.color || '#3b82f6'
-            }"
-            :data-node-id="node.id"
-            :data-port-id="port.id"
-            :data-port-type="port.type"
-            @mousedown="port.type === 'output' ? emit('startConnection', $event, node.id, port.id) : null"
-            @mouseenter="showTooltip($event, port.label)"
-            @mouseleave="hideTooltip"
-          />
-        </template>
-        <div class="flex items-center gap-2 mb-1">
-          <div
-            class="w-8 h-8 rounded-full flex items-center justify-center text-white"
-            :class="getCategoryColor(node.data.description || '基础')"
-          >
-            <IconifyIcon :icon="node.data.icon" :size="16" />
+      <div v-if="nodes.length === 0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div class="text-center">
+          <div class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
+            <IconifyIcon icon="mdi:mouse-pointer-click" :size="48" class="text-gray-400" />
           </div>
-          <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
+          <h3 class="text-xl font-medium text-gray-600 mb-2">从左侧拖拽节点到这里</h3>
+          <p class="text-gray-400">双击节点可编辑配置</p>
+        </div>
+      </div>
+
+      <div
+        v-for="node in nodes"
+        :key="node.id"
+        class="absolute cursor-move select-none z-10"
+        :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
+        :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
+        @mousedown="(e) => emit('startNodeDrag', e, node.id)"
+        @click="emit('selectNode', node.id)"
+        @dblclick="() => { emit('selectNode', node.id); emit('nodeDoubleClick', node); }"
+        @contextmenu.prevent="(e) => emit('nodeContextMenu', e, node.id)"
+      >
+        <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-44"
+             :class="{ 'border-blue-500 ring-2 ring-blue-200': selectedNodeId === node.id }">
+          <template v-for="port in getNodePorts(node.id, node.data.type)" :key="port.id">
+            <div
+              class="node-port absolute w-4 h-4 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all z-20 shadow-sm flex items-center justify-center"
+              :style="{
+                left: (port.position.x - node.position.x - 8) + 'px',
+                top: (port.position.y - node.position.y - 8) + 'px',
+                backgroundColor: port.color || '#3b82f6'
+              }"
+              :data-node-id="node.id"
+              :data-port-id="port.id"
+              :data-port-type="port.type"
+              @mousedown="port.type === 'output' ? emit('startConnection', $event, node.id, port.id) : null"
+              @mouseenter="showTooltip($event, port.label)"
+              @mouseleave="hideTooltip"
+            />
+          </template>
+          <div class="flex items-center gap-2 mb-1">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center text-white"
+              :class="getCategoryColor(node.data.description || '基础')"
+            >
+              <IconifyIcon :icon="node.data.icon" :size="16" />
+            </div>
+            <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
+          </div>
         </div>
       </div>
     </div>
