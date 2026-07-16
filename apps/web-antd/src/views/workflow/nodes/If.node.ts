@@ -6,7 +6,7 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
   config: {
     nodeType: 'idp_core_flow_If',
     nodeName: '条件判断',
-    icon: 'mdi:logic-condition',
+    icon: 'mdi:checkbox-marked-circle',
     description: '条件分支',
     ports: {
       input: 1,
