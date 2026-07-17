@@ -2,6 +2,7 @@
 import { onMounted, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { Select } from 'ant-design-vue';
 
 import { useWorkflowStore } from '#/store/workflow';
 
@@ -24,7 +25,26 @@ watch(() => store.projectId, async (newId) => {
 </script>
 
 <template>
-  <Page content-class="flex h-full" title="工作流列表">
+  <Page content-class="flex h-full">
+    <template #title>
+      <div class="flex items-center gap-4">
+        <span>工作流列表</span>
+        <Select
+          v-model:value="store.projectId"
+          class="w-40"
+          size="small"
+          placeholder="选择项目"
+        >
+          <Select.Option
+            v-for="project in store.projects"
+            :key="project.id"
+            :value="project.id"
+          >
+            {{ project.projectName }}
+          </Select.Option>
+        </Select>
+      </div>
+    </template>
     <div class="flex flex-1 overflow-hidden">
       <div class="w-64 flex-shrink-0">
         <FolderTree />

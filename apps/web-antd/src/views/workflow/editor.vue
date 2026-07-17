@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Button, message, Input } from 'ant-design-vue';
+import { Button, message, Input, Select } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
@@ -13,6 +13,16 @@ import Canvas from './components/Canvas.vue';
 import ConfigPanel from './components/ConfigPanel.vue';
 import NodeSelectModal from './components/NodeSelectModal.vue';
 import { getFlowControlConfig } from './config/workflow-node-config';
+import { getProjectList } from '#/api/core/workflow';
+
+interface ProjectVO {
+  id: number;
+  projectName: string;
+  namespace: string;
+  description: string;
+  createBy: string;
+  createTime: string;
+}
 
 const router = useRouter();
 const route = useRoute();
@@ -136,6 +146,10 @@ const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
 
+const projects = ref<ProjectVO[]>([]);
+const selectedProjectId = ref<number | null>(null);
+const isProjectsLoading = ref(false);
+
 function updateNodeValue(fieldKey: string, caseKey: string, index: number, value: string) {
   const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
   if (node && node.data.config?.[fieldKey]?.[caseKey]) {
@@ -249,9 +263,31 @@ function handleBack() {
   router.push('/workflow/list');
 }
 
+async function loadProjects() {
+  isProjectsLoading.value = true;
+  try {
+    const response = await getProjectList();
+    if (response.code === 200 && response.data) {
+      projects.value = response.data;
+      if (projects.value.length > 0) {
+        selectedProjectId.value = projects.value[0].id;
+      }
+    }
+  } catch (error) {
+    message.error('加载项目列表失败');
+  } finally {
+    isProjectsLoading.value = false;
+  }
+}
+
+function handleProjectChange(value: number) {
+  selectedProjectId.value = value;
+}
+
 onMounted(() => {
   store.initMockData();
   loadPlugins();
+  loadProjects();
   const workflowId = route.params.id as string;
   if (workflowId) {
     const workflow = store.getWorkflowById(workflowId);
@@ -290,6 +326,22 @@ onUnmounted(() => {
           size="small"
           placeholder="流程名称"
         />
+        <Select
+          v-model:value="selectedProjectId"
+          :loading="isProjectsLoading"
+          class="w-48"
+          size="small"
+          placeholder="选择项目"
+          @change="handleProjectChange"
+        >
+          <Select.Option
+            v-for="project in projects"
+            :key="project.id"
+            :value="project.id"
+          >
+            {{ project.projectName }}
+          </Select.Option>
+        </Select>
       </div>
       <div class="flex items-center gap-2">
         <Button type="text" @click="handleClear">
