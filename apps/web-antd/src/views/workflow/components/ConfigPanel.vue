@@ -74,7 +74,7 @@ const emit = defineEmits<{
           </div>
           <div class="p-4 bg-gray-50 rounded-lg">
             <div class="text-sm text-gray-500">节点类型</div>
-            <div class="text-base text-gray-800">{{ selectedNode.data.type }}</div>
+            <div class="text-base text-gray-800 mt-1">{{ selectedNode.data.type }}</div>
           </div>
           <div v-if="currentNodeMeta?.parsedSchema?.description" class="p-4 bg-blue-50 rounded-lg">
             <div class="text-sm text-blue-600 font-medium mb-1">配置说明</div>

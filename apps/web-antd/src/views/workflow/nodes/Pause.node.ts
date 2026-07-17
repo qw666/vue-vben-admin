@@ -63,7 +63,7 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
       },
       {
         type: 'OnResume',
-        props: { key: 'onResume', label: 'onResume', required: false, description: '恢复时需要填写的输入', tooltip: '在恢复执行前，用户需要填写的输入字段。这些输入可以在后续任务中通过 {{outputs.pause_task_id.onResume.field_id}} 访问。', dynamic: false },
+        props: { key: 'onResume', label: 'onResume', required: false, description: '恢复时需要填写的输入字段', tooltip: '在恢复执行前，用户需要填写的输入字段。支持 STRING、INT、LONG、FLOAT、DOUBLE、BOOL、DATE、TIME、DATETIME、DURATION、ARRAY、JSON、URI 等类型。这些输入可以在后续任务中通过 {{outputs.pause_task_id.onResume.field_id}} 访问。', dynamic: false },
       },
       {
         type: 'ConnectionStatus',

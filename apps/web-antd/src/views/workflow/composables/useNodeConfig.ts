@@ -674,7 +674,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
 
   function addOnResumeItem(fieldKey: string) {
     const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', description: '', defaults: '' }];
+    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', displayName: '', required: false, itemType: 'STRING', defaults: '' }];
   }
 
   function updateOnResumeField(fieldKey: string, index: number, key: string, value: any) {

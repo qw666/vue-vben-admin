@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Button, Input, Select, Tooltip } from 'ant-design-vue';
+import { Button, Input, InputNumber, Select, Switch, Tooltip, DatePicker, TimePicker, Textarea } from 'ant-design-vue';
+import dayjs from 'dayjs';
 import { IconifyIcon } from '@vben/icons';
 
 const props = defineProps<{
@@ -17,16 +18,19 @@ const emit = defineEmits<{
 }>();
 
 const inputTypes = [
-  { value: 'STRING', label: 'STRING' },
-  { value: 'BOOLEAN', label: 'BOOLEAN' },
-  { value: 'INT', label: 'INT' },
-  { value: 'LONG', label: 'LONG' },
-  { value: 'FLOAT', label: 'FLOAT' },
-  { value: 'DOUBLE', label: 'DOUBLE' },
-  { value: 'DATE', label: 'DATE' },
-  { value: 'DATETIME', label: 'DATETIME' },
-  { value: 'URI', label: 'URI' },
-  { value: 'ARRAY', label: 'ARRAY' },
+  { value: 'STRING', label: 'STRING', defaultControl: 'input' },
+  { value: 'INT', label: 'INT', defaultControl: 'number' },
+  { value: 'LONG', label: 'LONG', defaultControl: 'number' },
+  { value: 'FLOAT', label: 'FLOAT', defaultControl: 'number' },
+  { value: 'DOUBLE', label: 'DOUBLE', defaultControl: 'number' },
+  { value: 'BOOL', label: 'BOOL', defaultControl: 'switch' },
+  { value: 'DATE', label: 'DATE', defaultControl: 'date' },
+  { value: 'TIME', label: 'TIME', defaultControl: 'time' },
+  { value: 'DATETIME', label: 'DATETIME', defaultControl: 'datetime' },
+  { value: 'DURATION', label: 'DURATION', defaultControl: 'duration' },
+  { value: 'ARRAY', label: 'ARRAY', defaultControl: 'input' },
+  { value: 'JSON', label: 'JSON', defaultControl: 'json' },
+  { value: 'URI', label: 'URI', defaultControl: 'input' },
 ];
 
 function addOnResumeItem() {
@@ -39,6 +43,80 @@ function updateField(index: number, key: string, value: any) {
 
 function removeField(index: number) {
   emit('removeOnResumeItem', fieldKey.value, index);
+}
+
+function getControlType(type: string): string {
+  const typeConfig = inputTypes.find(t => t.value === type);
+  return typeConfig?.defaultControl || 'input';
+}
+
+function formatDefaultValue(item: any): any {
+  const controlType = getControlType(item.type);
+  const value = item.defaults;
+  
+  if (!value && value !== 0 && value !== false) {
+    if (controlType === 'switch') return false;
+    return value;
+  }
+  
+  switch (controlType) {
+    case 'date':
+      return dayjs(value);
+    case 'time':
+      return dayjs(value, 'HH:mm:ss');
+    case 'datetime':
+      return dayjs(value);
+    case 'duration':
+      return parseDuration(value);
+    case 'switch':
+      return !!value;
+    case 'number':
+      const num = parseFloat(value);
+      return isNaN(num) ? undefined : num;
+    case 'array':
+      return Array.isArray(value) ? value : [];
+    default:
+      return value;
+  }
+}
+
+function parseDuration(iso: string): { value: number; unit: string } | null {
+  if (!iso) return null;
+  const regex = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/;
+  const match = iso.match(regex);
+  if (!match) return null;
+
+  const days = match[1] ? parseInt(match[1], 10) : 0;
+  const hours = match[2] ? parseInt(match[2], 10) : 0;
+  const minutes = match[3] ? parseInt(match[3], 10) : 0;
+  const seconds = match[4] ? parseInt(match[4], 10) : 0;
+
+  if (days > 0) return { value: days, unit: 'days' };
+  if (hours > 0) return { value: hours, unit: 'hours' };
+  if (minutes > 0) return { value: minutes, unit: 'minutes' };
+  if (seconds > 0) return { value: seconds, unit: 'seconds' };
+  return null;
+}
+
+function formatDuration(displayValue: number, displayUnit: string): string {
+  if (!displayValue || displayValue <= 0) return '';
+  const unitMap: Record<string, { char: string; prefix: string }> = {
+    seconds: { char: 'S', prefix: 'T' },
+    minutes: { char: 'M', prefix: 'T' },
+    hours: { char: 'H', prefix: 'T' },
+    days: { char: 'D', prefix: '' },
+  };
+  const unit = unitMap[displayUnit];
+  if (!unit) return '';
+  if (unit.prefix) {
+    return `PT${displayValue}${unit.char}`;
+  }
+  return `P${displayValue}${unit.char}`;
+}
+
+function handleDurationChange(index: number, value: number, unit: string) {
+  const duration = formatDuration(value, unit);
+  emit('updateOnResumeField', fieldKey.value, index, 'defaults', duration);
 }
 </script>
 
@@ -66,13 +144,20 @@ function removeField(index: number) {
              style="display: flex; flex-direction: column; gap: 6px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 12px; font-weight: 500; color: #6b7280;">字段 {{ index + 1 }}</span>
+            <Switch
+              v-model:checked="item.required"
+              @change="(val: any) => updateField(index, 'required', val)"
+              :checked-children="'必填'"
+              :un-checked-children="'选填'"
+              size="small"
+            />
             <Button type="text" size="small" @click="removeField(index)" danger>
               <IconifyIcon icon="mdi:close" :size="12" />
             </Button>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px;">
             <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="font-size: 11px; color: #9ca3af; width: 36px;">id</span>
+              <span style="font-size: 11px; color: #9ca3af; width: 40px;">id</span>
               <Input
                 :value="item.id"
                 @input="(e: any) => updateField(index, 'id', e.target.value)"
@@ -82,7 +167,17 @@ function removeField(index: number) {
               />
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="font-size: 11px; color: #9ca3af; width: 36px;">type</span>
+              <span style="font-size: 11px; color: #9ca3af; width: 40px;">显示名</span>
+              <Input
+                :value="item.displayName"
+                @input="(e: any) => updateField(index, 'displayName', e.target.value)"
+                :placeholder="'显示名称'"
+                style="flex: 1;"
+                size="small"
+              />
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 11px; color: #9ca3af; width: 40px;">类型</span>
               <Select
                 :value="item.type"
                 @change="(val: any) => updateField(index, 'type', val)"
@@ -93,24 +188,93 @@ function removeField(index: number) {
               </Select>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="font-size: 11px; color: #9ca3af; width: 36px;">描述</span>
-              <Input
-                :value="item.description"
-                @input="(e: any) => updateField(index, 'description', e.target.value)"
-                :placeholder="'字段描述'"
-                style="flex: 1;"
-                size="small"
-              />
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="font-size: 11px; color: #9ca3af; width: 36px;">默认</span>
-              <Input
-                :value="item.defaults"
-                @input="(e: any) => updateField(index, 'defaults', e.target.value)"
-                :placeholder="'默认值'"
-                style="flex: 1;"
-                size="small"
-              />
+              <span style="font-size: 11px; color: #9ca3af; width: 40px;">值</span>
+              <template v-if="getControlType(item.type) === 'switch'">
+                <Switch
+                  :checked="formatDefaultValue(item)"
+                  @change="(val: any) => updateField(index, 'defaults', val)"
+                  :checked-children="'是'"
+                  :un-checked-children="'否'"
+                  size="small"
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'number'">
+                <InputNumber
+                  :value="formatDefaultValue(item)"
+                  @change="(val: any) => updateField(index, 'defaults', val)"
+                  :placeholder="'请输入数值'"
+                  style="flex: 1;"
+                  size="small"
+                  :step="item.type === 'FLOAT' || item.type === 'DOUBLE' ? 0.1 : 1"
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'date'">
+                <DatePicker
+                  :value="formatDefaultValue(item)"
+                  @change="(val: any) => updateField(index, 'defaults', val?.format('YYYY-MM-DD'))"
+                  style="flex: 1;"
+                  size="small"
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'time'">
+                <TimePicker
+                  :value="formatDefaultValue(item)"
+                  @change="(val: any) => updateField(index, 'defaults', val?.format('HH:mm:ss'))"
+                  style="flex: 1;"
+                  size="small"
+                  format="HH:mm:ss"
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'datetime'">
+                <DatePicker
+                  :value="formatDefaultValue(item)"
+                  @change="(val: any) => updateField(index, 'defaults', val?.toISOString())"
+                  style="flex: 1;"
+                  size="small"
+                  showTime
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'duration'">
+                <div style="display: flex; align-items: center; gap: 4px; flex: 1;">
+                  <InputNumber
+                    :value="parseDuration(item.defaults)?.value || null"
+                    @change="(val: any) => handleDurationChange(index, val, parseDuration(item.defaults)?.unit || 'minutes')"
+                    :min="0"
+                    :placeholder="'数值'"
+                    style="flex: 1;"
+                    size="small"
+                  />
+                  <Select
+                    :value="parseDuration(item.defaults)?.unit || 'minutes'"
+                    @change="(val: string) => handleDurationChange(index, parseDuration(item.defaults)?.value || 0, val)"
+                    style="width: 70px;"
+                    size="small"
+                  >
+                    <Select.Option value="seconds">秒</Select.Option>
+                    <Select.Option value="minutes">分钟</Select.Option>
+                    <Select.Option value="hours">小时</Select.Option>
+                    <Select.Option value="days">天</Select.Option>
+                  </Select>
+                </div>
+              </template>
+              <template v-else-if="getControlType(item.type) === 'json'">
+                <Textarea
+                  :value="item.defaults"
+                  @input="(e: any) => updateField(index, 'defaults', e.target.value)"
+                  :placeholder="'输入 JSON'"
+                  style="flex: 1; min-height: 80px;"
+                  size="small"
+                />
+              </template>
+              <template v-else>
+                <Input
+                  :value="item.defaults"
+                  @input="(e: any) => updateField(index, 'defaults', e.target.value)"
+                  :placeholder="item.type === 'ARRAY' ? '[\"item1\", \"item2\"]' : '默认值'"
+                  style="flex: 1;"
+                  size="small"
+                />
+              </template>
             </div>
           </div>
         </div>
