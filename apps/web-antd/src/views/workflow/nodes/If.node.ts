@@ -15,9 +15,10 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
         { field: 'else', label: 'Else', color: '#ef4444' },
         { field: 'errors', label: 'Errors', color: '#f59e0b' },
         { field: 'finally', label: 'Finally', color: '#64748b' },
+        { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['then', 'else', 'errors', 'finally'],
+    taskFields: ['then', 'else', 'errors', 'finally', 'next'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     return {
@@ -26,6 +27,7 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
       else: savedConfig.else || [],
       errors: savedConfig.errors || [],
       finally: savedConfig.finally || [],
+      next: savedConfig.next || [],
     };
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
@@ -53,6 +55,10 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
       {
         type: 'ConnectionStatus',
         props: { key: 'finally', label: 'Finally', required: false, description: '分支全部执行完成后执行的收尾任务', tooltip: '', dynamic: false },
+      },
+      {
+        type: 'ConnectionStatus',
+        props: { key: 'next', label: 'Next', required: false, description: '条件判断完成后继续执行的任务', tooltip: '', dynamic: false },
       },
     ];
   },

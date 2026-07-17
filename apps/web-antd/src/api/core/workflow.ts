@@ -60,12 +60,22 @@ export interface FlowPageResponse {
   size: number;
 }
 
+export interface FlowTask {
+  id: string;
+  type: string;
+  [key: string]: any;
+}
+
+export interface FlowModel {
+  tasks: FlowTask[];
+}
+
 export interface FlowSaveDTO {
   projectId: number;
   folderId: number;
   description: string;
   flowId: string;
-  flowModel: object;
+  flowModel: FlowModel;
 }
 
 export interface ApiResponse<T = any> {

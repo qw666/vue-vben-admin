@@ -12,9 +12,10 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
       input: 1,
       output: [
         { field: 'do', label: 'Do', color: '#3b82f6' },
+        { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['do'],
+    taskFields: ['do', 'next'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     const value = savedConfig.value;
@@ -32,6 +33,7 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
       value: valuesArray,
       concurrencyLimit: savedConfig.concurrencyLimit ?? 1,
       do: savedConfig.do || [],
+      next: savedConfig.next || [],
     };
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
@@ -51,6 +53,10 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
       {
         type: 'ConnectionStatus',
         props: { key: 'do', label: 'Do', required: false, description: '循环执行的任务列表', tooltip: '每次迭代执行的子任务。子任务可通过 {{taskrun.value}} 访问当前迭代项。', dynamic: false },
+      },
+      {
+        type: 'ConnectionStatus',
+        props: { key: 'next', label: 'Next', required: false, description: '循环执行完成后继续执行的任务', tooltip: '', dynamic: false },
       },
     ];
   },

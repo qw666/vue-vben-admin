@@ -15,9 +15,10 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
         { field: 'defaults', label: 'Default', color: '#64748b' },
         { field: 'errors', label: 'Errors', color: '#f59e0b' },
         { field: 'finally', label: 'Finally', color: '#64748b' },
+        { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['cases', 'defaults', 'errors', 'finally'],
+    taskFields: ['cases', 'defaults', 'errors', 'finally', 'next'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     const casesValue = savedConfig.cases;
@@ -29,6 +30,7 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
       defaults: Array.isArray(savedConfig.defaults) ? [...savedConfig.defaults] : [],
       errors: Array.isArray(savedConfig.errors) ? [...savedConfig.errors] : [],
       finally: Array.isArray(savedConfig.finally) ? [...savedConfig.finally] : [],
+      next: Array.isArray(savedConfig.next) ? [...savedConfig.next] : [],
     };
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
@@ -56,6 +58,10 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
       {
         type: 'ConnectionStatus',
         props: { key: 'finally', label: 'Finally', required: false, description: '所有分支执行完成后执行的收尾任务', tooltip: '', dynamic: false },
+      },
+      {
+        type: 'ConnectionStatus',
+        props: { key: 'next', label: 'Next', required: false, description: '分支路由完成后继续执行的任务', tooltip: '', dynamic: false },
       },
     ];
   },

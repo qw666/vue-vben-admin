@@ -13,6 +13,7 @@ import Canvas from './components/Canvas.vue';
 import ConfigPanel from './components/ConfigPanel.vue';
 import NodeSelectModal from './components/NodeSelectModal.vue';
 import { getFlowControlConfig } from './config/workflow-node-config';
+import { convertWorkflowToFlowModel } from './utils/flowModelConverter';
 import type { ProjectVO } from '#/api/core/workflow';
 
 const router = useRouter();
@@ -232,10 +233,7 @@ async function handleSave() {
     store.currentWorkflow.name = workflowName.value;
     store.currentWorkflow.updatedAt = new Date().toISOString();
 
-    const flowModel = {
-      tasks: store.currentWorkflow.nodes,
-      edges: store.currentWorkflow.edges,
-    };
+    const flowModel = convertWorkflowToFlowModel(store.currentWorkflow);
 
     const saved = await store.saveWorkflowToBackend(store.currentWorkflow.id, {
       projectId: store.projectId,
