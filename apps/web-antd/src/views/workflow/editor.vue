@@ -102,6 +102,7 @@ const {
   getConnectionColor,
   getTempLinePath,
   getNodePorts,
+  getGroupBounds,
   updateSwitchCaseKey,
   removeSwitchCaseKey,
   addSwitchCaseKey,
@@ -389,6 +390,7 @@ onUnmounted(() => {
           :get-connection-path="getConnectionPath"
           :get-connection-color="getConnectionColor"
           :get-temp-line-path="getTempLinePath"
+          :get-group-bounds="getGroupBounds"
           :scale="scale"
           :config-panel-width="isConfigPanelOpen ? configPanelWidth : 0"
           @drop="onDrop"

@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 
+const NODE_WIDTH = 176;
+const NODE_HEIGHT = 68;
+
 const props = defineProps<{
   nodes: any[];
   isDraggingNode: boolean;
@@ -15,6 +18,7 @@ const props = defineProps<{
   getConnectionPath: (sourceId: string, targetId: string, sourcePortId?: string, targetPortId?: string) => string;
   getConnectionColor: (conn: any) => string;
   getTempLinePath: () => string;
+  getGroupBounds: (nodeId: string) => { x: number; y: number; width: number; height: number } | null;
   scale?: number;
   configPanelWidth?: number;
 }>();
@@ -207,6 +211,40 @@ onMounted(() => {
           </svg>
         </div>
 
+        <div class="absolute inset-0 pointer-events-none" style="z-index: 2;">
+          <div
+            v-for="node in nodes"
+            :key="'group-bg-' + node.id"
+            v-show="node.data.description === '条件分支' || node.data.description === '多条件分支' || node.data.description === '循环执行' || node.data.description === '并行分支'"
+            class="absolute rounded-xl bg-purple-50/40"
+            :style="{
+              left: (getGroupBounds(node.id)?.x ?? node.position.x - 24) + 'px',
+              top: (getGroupBounds(node.id)?.y ?? node.position.y - 24) + 'px',
+              width: (getGroupBounds(node.id)?.width ?? NODE_WIDTH + 48) + 'px',
+              height: (getGroupBounds(node.id)?.height ?? NODE_HEIGHT + 80) + 'px',
+            }"
+          />
+        </div>
+
+        <div class="absolute inset-0 pointer-events-none" style="z-index: 15;">
+          <div
+            v-for="node in nodes"
+            :key="'group-border-' + node.id"
+            v-show="node.data.description === '条件分支' || node.data.description === '多条件分支' || node.data.description === '循环执行' || node.data.description === '并行分支'"
+            class="absolute rounded-xl border-2 border-dashed border-purple-500 shadow-sm"
+            :style="{
+              left: (getGroupBounds(node.id)?.x ?? node.position.x - 24) + 'px',
+              top: (getGroupBounds(node.id)?.y ?? node.position.y - 24) + 'px',
+              width: (getGroupBounds(node.id)?.width ?? NODE_WIDTH + 48) + 'px',
+              height: (getGroupBounds(node.id)?.height ?? NODE_HEIGHT + 80) + 'px',
+            }"
+          >
+            <div class="absolute -top-3 left-4 px-2 bg-white text-xs text-purple-600 font-medium border border-purple-300 rounded shadow-sm">
+              {{ node.data.label }}
+            </div>
+          </div>
+        </div>
+
         <div class="absolute inset-0 pointer-events-none" style="z-index: 5;">
           <svg class="w-full h-full">
             <defs>
@@ -274,22 +312,6 @@ onMounted(() => {
         >
           <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-44"
                :class="{ 'border-blue-500 ring-2 ring-blue-200': selectedNodeId === node.id }">
-            <template v-for="port in getNodePorts(node.id, node.data.type)" :key="port.id">
-              <div
-                class="node-port absolute w-4 h-4 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all z-20 shadow-sm flex items-center justify-center"
-                :style="{
-                  left: (port.position.x - node.position.x - 8) + 'px',
-                  top: (port.position.y - node.position.y - 8) + 'px',
-                  backgroundColor: port.color || '#3b82f6'
-                }"
-                :data-node-id="node.id"
-                :data-port-id="port.id"
-                :data-port-type="port.type"
-                @mousedown="port.type === 'output' ? emit('startConnection', $event, node.id, port.id) : null"
-                @mouseenter="showTooltip($event, port.label)"
-                @mouseleave="hideTooltip"
-              />
-            </template>
             <div class="flex items-center gap-2 mb-1">
               <div
                 class="w-8 h-8 rounded-full flex items-center justify-center text-white"
@@ -300,6 +322,27 @@ onMounted(() => {
               <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
             </div>
           </div>
+        </div>
+
+        <div class="absolute inset-0 pointer-events-none" style="z-index: 20;">
+          <template v-for="node in nodes" :key="'ports-' + node.id">
+            <div
+              v-for="port in getNodePorts(node.id, node.data.type)"
+              :key="port.id"
+              class="node-port absolute w-4 h-4 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all shadow-sm flex items-center justify-center pointer-events-auto"
+              :style="{
+                left: (port.position.x - 8) + 'px',
+                top: (port.position.y - 8) + 'px',
+                backgroundColor: port.color || '#3b82f6'
+              }"
+              :data-node-id="node.id"
+              :data-port-id="port.id"
+              :data-port-type="port.type"
+              @mousedown="port.type === 'output' ? emit('startConnection', $event, node.id, port.id) : null"
+              @mouseenter="showTooltip($event, port.label)"
+              @mouseleave="hideTooltip"
+            />
+          </template>
         </div>
       </div>
     </div>
