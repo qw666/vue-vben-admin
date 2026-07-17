@@ -5,39 +5,69 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_Pause',
   config: {
     nodeType: 'idp_core_flow_Pause',
-    nodeName: '暂停节点',
+    nodeName: 'Pause',
     icon: 'mdi:pause',
     description: '暂停等待',
     ports: {
       input: 1,
-      output: [],
+      output: [
+        { field: 'resume', label: 'Resume', color: '#22c55e' },
+      ],
     },
-    taskFields: [],
+    taskFields: ['resume'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     return {
-      duration: savedConfig.duration || '',
-      durationUnit: savedConfig.durationUnit || 'seconds',
+      pauseDuration: savedConfig.pauseDuration || '',
+      behavior: savedConfig.behavior || 'RESUME',
+      onResume: savedConfig.onResume || [],
+      resume: savedConfig.resume || [],
     };
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
-    return [
-      {
-        type: 'Input',
-        props: { key: 'duration', label: '暂停时长', required: true, description: '暂停的时间长度', tooltip: '', dynamic: false },
-      },
-    ];
+    return [];
   },
   getOptionalFields(): { type: string; props: Record<string, any> }[] {
     return [
       {
-        type: 'Select',
-        props: { key: 'durationUnit', label: '时间单位', required: false, description: '暂停时长的单位', tooltip: '', dynamic: false, options: [
-          { value: 'seconds', label: '秒' },
-          { value: 'minutes', label: '分钟' },
-          { value: 'hours', label: '小时' },
-          { value: 'days', label: '天' },
+        type: 'InfoBox',
+        props: {
+          key: '_usage_guide',
+          title: 'Pause 节点使用说明',
+          icon: 'mdi:lightbulb-on',
+          iconColor: '#d97706',
+          background: '#fffbeb',
+          borderColor: '#fcd34d',
+          titleColor: '#92400e',
+          steps: [
+            '流程执行到此节点时会暂停，等待指定时长或手动恢复',
+            '在「暂停时长」中设置等待时间；不设置则永久等待，直到手动恢复',
+            '在「超时行为」中设置到达时长后的行为：继续/警告/失败/取消',
+            '在「onResume」中添加恢复时需要用户填写的输入字段，后续任务可通过 {{outputs.pause_task_id.onResume.field_id}} 引用',
+            '从节点底部的 Resume 端口拖线，连接恢复后要执行的下游任务',
+          ],
+        },
+      },
+      {
+        type: 'Duration',
+        props: { key: 'pauseDuration', label: '暂停时长', required: false, description: '不设置则永久等待，直到手动恢复', tooltip: '暂停执行的时间长度。到达此时长后，将根据「超时行为」决定后续操作。' },
+      },
+      {
+        type: 'EnumSelect',
+        props: { key: 'behavior', label: '超时行为', required: false, description: '到达暂停时长后的行为', tooltip: '当暂停任务到达持续时间时执行的行为。默认值为 RESUME。在持续时间之前恢复的任务（例如从 UI）将不会使用此属性，而是始终成功。RESUME=继续执行，WARN=以 WARNING 状态结束并继续执行，FAIL=暂停任务失败，CANCEL=取消执行。', dynamic: false, options: [
+          { value: 'RESUME', label: 'RESUME - 继续执行' },
+          { value: 'WARN', label: 'WARN - 警告后继续' },
+          { value: 'FAIL', label: 'FAIL - 执行失败' },
+          { value: 'CANCEL', label: 'CANCEL - 取消执行' },
         ]},
+      },
+      {
+        type: 'OnResume',
+        props: { key: 'onResume', label: 'onResume', required: false, description: '恢复时需要填写的输入', tooltip: '在恢复执行前，用户需要填写的输入字段。这些输入可以在后续任务中通过 {{outputs.pause_task_id.onResume.field_id}} 访问。', dynamic: false },
+      },
+      {
+        type: 'ConnectionStatus',
+        props: { key: 'resume', label: '恢复后执行', required: false, description: '恢复后执行的任务', tooltip: '暂停结束或手动恢复后继续执行的子任务。', dynamic: false },
       },
     ];
   },

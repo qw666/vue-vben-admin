@@ -102,7 +102,11 @@ const emit = defineEmits<{
               <span class="text-sm font-semibold text-gray-700">选填项</span>
             </div>
             <div class="space-y-4">
-              <div v-for="field in optionalFields" :key="field.props.key" class="border-l-2 border-gray-200 pl-3">
+              <div
+                v-for="field in optionalFields"
+                :key="field.props.key"
+                :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
+              >
                 <FieldRenderer
                   :field="field"
                   :node-config-form="nodeConfigForm"

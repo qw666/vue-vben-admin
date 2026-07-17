@@ -672,6 +672,22 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
   }
 
+  function addOnResumeItem(fieldKey: string) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', description: '', defaults: '' }];
+  }
+
+  function updateOnResumeField(fieldKey: string, index: number, key: string, value: any) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    currentValue[index] = { ...currentValue[index], [key]: value };
+    nodeConfigForm[fieldKey] = [...currentValue];
+  }
+
+  function removeOnResumeItem(fieldKey: string, index: number) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+  }
+
   function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
     const currentValue = nodeConfigForm[fieldKey] || [];
     currentValue[index][itemKey] = value;
@@ -900,6 +916,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     updateObjectKey,
     updateObjectValue,
     removeObjectItem,
+    addOnResumeItem,
+    updateOnResumeField,
+    removeOnResumeItem,
     updateArrayItemValue,
     currentNodeMeta,
     requiredFields,

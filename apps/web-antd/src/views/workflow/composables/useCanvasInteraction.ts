@@ -167,6 +167,7 @@ export function useCanvasInteraction(
   const isDraggingNode = ref(false);
   const draggingNodeId = ref<string | null>(null);
   const dragOffset = ref({ x: 0, y: 0 });
+  const panOffset = ref({ x: 0, y: 0 });
 
   const isConnecting = ref(false);
   const connectingFrom = ref<string | null>(null);
@@ -202,8 +203,8 @@ export function useCanvasInteraction(
     const canvas = e.currentTarget as HTMLElement;
     const rect = canvas.getBoundingClientRect();
     const position = {
-      x: e.clientX - rect.left - 70 + canvas.scrollLeft,
-      y: e.clientY - rect.top - 30 + canvas.scrollTop,
+      x: e.clientX - rect.left - 70 - panOffset.value.x,
+      y: e.clientY - rect.top - 30 - panOffset.value.y,
     };
 
     if (e.dataTransfer) {
@@ -316,17 +317,17 @@ export function useCanvasInteraction(
     const portRect = portElement.getBoundingClientRect();
     
     tempLine.value = {
-      x1: portRect.left - canvasRect.left + portRect.width / 2,
-      y1: portRect.top - canvasRect.top + portRect.height / 2,
-      x2: e.clientX - canvasRect.left,
-      y2: e.clientY - canvasRect.top
+      x1: portRect.left - canvasRect.left + portRect.width / 2 - panOffset.value.x,
+      y1: portRect.top - canvasRect.top + portRect.height / 2 - panOffset.value.y,
+      x2: e.clientX - canvasRect.left - panOffset.value.x,
+      y2: e.clientY - canvasRect.top - panOffset.value.y
     };
 
     function onMouseMove(event: MouseEvent) {
       if (!isConnecting.value) return;
       const rect = canvas!.getBoundingClientRect();
-      tempLine.value.x2 = event.clientX - rect.left;
-      tempLine.value.y2 = event.clientY - rect.top;
+      tempLine.value.x2 = event.clientX - rect.left - panOffset.value.x;
+      tempLine.value.y2 = event.clientY - rect.top - panOffset.value.y;
     }
 
     function onMouseUp(event: MouseEvent) {
@@ -827,6 +828,10 @@ export function useCanvasInteraction(
     return `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
   }
 
+  function updatePanOffset(offset: { x: number; y: number }) {
+    panOffset.value = offset;
+  }
+
   return {
     isDraggingNode,
     draggingNodeId,
@@ -865,5 +870,6 @@ export function useCanvasInteraction(
     updateSwitchCaseKey,
     removeSwitchCaseKey,
     addSwitchCaseKey,
+    updatePanOffset,
   };
 }

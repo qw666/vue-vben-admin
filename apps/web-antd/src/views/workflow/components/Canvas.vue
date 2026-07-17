@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 
 defineProps<{
@@ -32,6 +32,7 @@ const emit = defineEmits<{
   (e: 'deleteSelectedNode'): void;
   (e: 'deleteSelectedConnection'): void;
   (e: 'closeContextMenu'): void;
+  (e: 'panChange', offset: { x: number; y: number }): void;
 }>();
 
 const categoryColors: Record<string, string> = {
@@ -50,6 +51,7 @@ const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
 const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0 });
 const panOffset = ref({ x: 0, y: 0 });
+const canvasSize = ref({ width: 4000, height: 4000 });
 
 function showTooltip(event: MouseEvent, text: string) {
   tooltip.value = {
@@ -67,7 +69,7 @@ function hideTooltip() {
 function startPan(event: MouseEvent) {
   if (event.button !== 0) return;
   const target = event.target as HTMLElement;
-  if (target.closest('.cursor-move') || target.closest('.node-port')) {
+  if (target.closest('.cursor-move') || target.closest('.node-port') || target.closest('.node-container')) {
     return;
   }
   isPanning.value = true;
@@ -87,6 +89,7 @@ function onPan(event: MouseEvent) {
     y: panOffset.value.y + dy,
   };
   panStart.value = { x: event.clientX, y: event.clientY };
+  emit('panChange', panOffset.value);
 }
 
 function stopPan() {
@@ -95,6 +98,23 @@ function stopPan() {
   document.removeEventListener('mousemove', onPan);
   document.removeEventListener('mouseup', stopPan);
 }
+
+function centerCanvas() {
+  const canvas = document.querySelector('.workflow-canvas');
+  if (canvas) {
+    const rect = canvas.getBoundingClientRect();
+    panOffset.value = {
+      x: rect.width / 2 - canvasSize.value.width / 2,
+      y: rect.height / 2 - canvasSize.value.height / 2,
+    };
+    emit('panChange', panOffset.value);
+  }
+}
+
+onMounted(() => {
+  centerCanvas();
+  window.addEventListener('resize', centerCanvas);
+});
 </script>
 
 <template>
@@ -111,8 +131,8 @@ function stopPan() {
       class="absolute"
       :style="{
         transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
-        width: '4000px',
-        height: '4000px',
+        width: canvasSize.width + 'px',
+        height: canvasSize.height + 'px',
       }"
     >
       <div class="absolute inset-0 pointer-events-none">

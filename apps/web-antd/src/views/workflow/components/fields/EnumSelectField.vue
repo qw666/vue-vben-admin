@@ -30,7 +30,13 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
       :placeholder="field.props.placeholder"
       style="width: 100%;"
     >
-      <option v-for="opt in field.props.options" :key="opt" :value="opt">{{ opt }}</option>
+      <Select.Option
+        v-for="opt in field.props.options"
+        :key="opt.value || opt"
+        :value="opt.value || opt"
+      >
+        {{ opt.label || opt }}
+      </Select.Option>
     </Select>
   </div>
 </template>

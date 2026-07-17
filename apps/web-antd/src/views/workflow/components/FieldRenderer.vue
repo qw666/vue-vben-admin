@@ -15,6 +15,9 @@ import SwitchCasesField from './fields/SwitchCasesField.vue';
 import AnyOfRadioField from './fields/AnyOfRadioField.vue';
 import RefObjectField from './fields/RefObjectField.vue';
 import ConcurrentField from './fields/ConcurrentField.vue';
+import OnResumeField from './fields/OnResumeField.vue';
+import DurationField from './fields/DurationField.vue';
+import InfoBoxField from './fields/InfoBoxField.vue';
 
 defineOptions({
   inheritAttrs: false,
@@ -43,6 +46,9 @@ const emit = defineEmits<{
   (e: 'removeCaseKey', fieldKey: string, caseKey: string): void;
   (e: 'updateNodeValue', fieldKey: string, caseKey: string, index: number, value: string): void;
   (e: 'removeNodeFromCase', fieldKey: string, caseKey: string, index: number): void;
+  (e: 'addOnResumeItem', fieldKey: string): void;
+  (e: 'updateOnResumeField', fieldKey: string, index: number, key: string, value: any): void;
+  (e: 'removeOnResumeItem', fieldKey: string, index: number): void;
 }>();
 </script>
 
@@ -144,6 +150,23 @@ const emit = defineEmits<{
     v-else-if="field.type === 'Concurrent'"
     :field="field"
     :node-config-form="nodeConfigForm"
+  />
+  <OnResumeField
+    v-else-if="field.type === 'OnResume'"
+    :field="field"
+    :node-config-form="nodeConfigForm"
+    @add-on-resume-item="(fk: string) => emit('addOnResumeItem', fk)"
+    @update-on-resume-field="(fk: string, idx: number, key: string, val: any) => emit('updateOnResumeField', fk, idx, key, val)"
+    @remove-on-resume-item="(fk: string, idx: number) => emit('removeOnResumeItem', fk, idx)"
+  />
+  <DurationField
+    v-else-if="field.type === 'Duration'"
+    :field="field"
+    :node-config-form="nodeConfigForm"
+  />
+  <InfoBoxField
+    v-else-if="field.type === 'InfoBox'"
+    :field="field"
   />
   <SwitchCasesField
     v-else-if="field.type === 'SwitchCases'"

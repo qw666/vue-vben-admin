@@ -56,6 +56,9 @@ const {
   updateObjectKey,
   updateObjectValue,
   removeObjectItem,
+  addOnResumeItem,
+  updateOnResumeField,
+  removeOnResumeItem,
   updateArrayItemValue,
   currentNodeMeta,
   requiredFields,
@@ -100,6 +103,7 @@ const {
   updateSwitchCaseKey,
   removeSwitchCaseKey,
   addSwitchCaseKey,
+  updatePanOffset,
 } = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
   if (isConfigPanelOpen && selectedNode.value?.id === nodeId) {
     handleConfigClose();
@@ -182,6 +186,9 @@ const fieldRendererEvents = computed(() => ({
   removeCaseKey: (fieldKey: string, caseKey: string) => removeSwitchCaseKey(selectedNode.value?.id || '', caseKey, fieldKey),
   updateNodeValue,
   removeNodeFromCase,
+  addOnResumeItem,
+  updateOnResumeField,
+  removeOnResumeItem,
 }));
 
 async function handleSave() {
@@ -313,6 +320,7 @@ onUnmounted(() => {
           @connection-context-menu="showConnectionContextMenu"
           @delete-selected-node="deleteSelectedNode"
           @delete-selected-connection="deleteSelectedConnection"
+          @pan-change="updatePanOffset"
         />
 
         <ConfigPanel
