@@ -76,27 +76,29 @@ watch(searchInput, () => {
 
 <template>
   <div class="flex flex-col h-full">
-    <div class="flex items-center justify-between p-4 bg-card border-b border-border">
-      <div class="w-48">
-        <Input
-          v-model:value="searchInput"
-          placeholder="搜索流程名称"
-          size="small"
-          allow-clear
-          @clear="handleSearchClear"
-        >
-          <template #prefix>
-            <IconifyIcon icon="mdi:search" :size="14" />
-          </template>
-        </Input>
+    <Card class="rounded-t-lg rounded-b-none border-b-0">
+      <div class="flex items-center justify-between">
+        <div class="w-48">
+          <Input
+            v-model:value="searchInput"
+            placeholder="搜索流程名称"
+            size="small"
+            allow-clear
+            @clear="handleSearchClear"
+          >
+            <template #prefix>
+              <IconifyIcon icon="mdi:search" :size="14" />
+            </template>
+          </Input>
+        </div>
+        <Button type="primary" @click="handleCreate">
+          <IconifyIcon icon="mdi:plus" :size="16" />
+          创建流程
+        </Button>
       </div>
-      <Button type="primary" @click="handleCreate">
-        <IconifyIcon icon="mdi:plus" :size="16" />
-        创建流程
-      </Button>
-    </div>
+    </Card>
 
-    <Card class="flex-1 overflow-hidden border-t-0">
+    <Card class="flex-1 overflow-hidden rounded-t-none rounded-b-lg">
       <div v-if="store.isWorkflowsLoading" class="h-full flex items-center justify-center">
         <div class="text-center">
           <IconifyIcon icon="mdi:loader" :size="32" class="text-blue-500 animate-spin" />

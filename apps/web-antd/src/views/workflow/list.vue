@@ -46,7 +46,7 @@ watch(() => store.selectedFolderId, async (newId) => {
   <Page content-class="flex h-full">
     <template #title>
       <div class="flex items-center gap-4">
-        <span>流程编排</span>
+        <span>项目</span>
         <Select
           v-model:value="store.projectId"
           class="w-48"
