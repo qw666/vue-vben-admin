@@ -1,79 +1,76 @@
-<script lang="ts" setup>
-import { ref, computed, onMounted, watch } from 'vue';
+<script lang="ts" setup>import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-
 import { Card, Button, message, Popconfirm, Tooltip, Space, Tag, Input } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
-
 import { useWorkflowStore } from '#/store/workflow';
-
 const router = useRouter();
 const store = useWorkflowStore();
-
 const searchInput = ref('');
-
-const workflows = computed(() => {
-  let result = store.workflows;
-  if (store.selectedFolderId) {
-    result = result.filter((w) => w.folderId === store.selectedFolderId);
-  }
-  if (searchInput.value.trim()) {
-    const keyword = searchInput.value.toLowerCase();
-    result = result.filter((w) =>
-      w.name.toLowerCase().includes(keyword) ||
-      w.description.toLowerCase().includes(keyword)
-    );
-  }
-  return result;
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+const filteredWorkflows = computed(() => {
+ let result = store.workflows;
+ if (store.selectedFolderId) {
+ result = result.filter((w) => w.folderId === store.selectedFolderId);
+ }
+ if (searchInput.value.trim()) {
+ const keyword = searchInput.value.toLowerCase();
+ result = result.filter((w) => w.name.toLowerCase().includes(keyword) ||
+ w.description.toLowerCase().includes(keyword));
+ }
+ return result;
 });
-
 function handleCreate() {
-  const newWorkflow = store.createWorkflow('未命名流程', store.selectedFolderId);
-  router.push(`/workflow/editor/${newWorkflow.id}`);
+ const folderId = store.selectedFolderId || undefined;
+ const newWorkflow = store.createWorkflow('未命名流程', folderId);
+ router.push(`/workflow/editor/${newWorkflow.id}`);
 }
-
 function handleEdit(workflowId: string) {
-  router.push(`/workflow/editor/${workflowId}`);
+ router.push(`/workflow/editor/${workflowId}`);
 }
-
 async function handleRun(workflowId: string) {
-  message.info('正在运行流程...');
-  setTimeout(() => {
-    message.success('流程运行成功');
-  }, 1500);
+ message.info('正在运行流程...');
+ setTimeout(() => {
+ message.success('流程运行成功');
+ }, 1500);
 }
-
 async function handleDelete(workflowId: string) {
-  const success = await store.deleteWorkflowById(workflowId);
-  if (success) {
-    message.success('删除成功');
-  } else {
-    message.error('删除失败');
-  }
+ const success = await store.deleteWorkflowById(workflowId);
+ if (success) {
+ message.success('删除成功');
+ }
+ else {
+ message.error('删除失败');
+ }
 }
-
-function handleSearch() {
-  store.setSearchKeyword(searchInput.value);
-  store.loadWorkflows(store.selectedFolderId || undefined, searchInput.value);
+function triggerSearch() {
+ if (searchTimer) {
+ clearTimeout(searchTimer);
+ }
+ searchTimer = setTimeout(() => {
+ store.setSearchKeyword(searchInput.value);
+ store.loadWorkflows(store.selectedFolderId || undefined, searchInput.value);
+ }, 300);
 }
-
 function handleSearchClear() {
-  searchInput.value = '';
-  store.setSearchKeyword('');
-  store.loadWorkflows(store.selectedFolderId || undefined);
+ searchInput.value = '';
+ store.setSearchKeyword('');
+ store.loadWorkflows(store.selectedFolderId || undefined);
 }
-
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('zh-CN');
+ try {
+ const date = new Date(dateStr);
+ return date.toLocaleDateString('zh-CN', {
+ year: 'numeric',
+ month: '2-digit',
+ day: '2-digit',
+ });
+ }
+ catch {
+ return '-';
+ }
 }
-
-watch(searchInput, (newVal) => {
-  if (!newVal.trim()) {
-    handleSearchClear();
-  }
-});
-
-onMounted(() => {
+watch(searchInput, () => {
+ triggerSearch();
 });
 </script>
 
@@ -86,7 +83,6 @@ onMounted(() => {
           placeholder="搜索流程名称"
           size="small"
           allow-clear
-          @pressEnter="handleSearch"
           @clear="handleSearchClear"
         >
           <template #prefix>
@@ -108,10 +104,10 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="workflows.length > 0" class="h-full overflow-y-auto p-2">
+      <div v-else-if="filteredWorkflows.length > 0" class="h-full overflow-y-auto p-2">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card
-            v-for="workflow in workflows"
+            v-for="workflow in filteredWorkflows"
             :key="workflow.id"
             hoverable
             class="cursor-pointer group"

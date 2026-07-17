@@ -5,6 +5,7 @@ import { Tree, Button, message, Popconfirm, Tooltip, Input, Modal, Form, Select 
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
+import type { WorkflowFolder } from '#/types/workflow';
 
 const store = useWorkflowStore();
 
@@ -24,11 +25,19 @@ const editingFolderId = ref<number | null>(null);
 const editingFolderName = ref('');
 const editingParentId = ref<number | null>(null);
 
-const treeData = computed(() => {
+interface FolderTreeNode {
+  key: string;
+  title: ReturnType<typeof h>;
+  icon: () => ReturnType<typeof h>;
+  children?: FolderTreeNode[];
+  data: WorkflowFolder;
+}
+
+const treeData = computed<FolderTreeNode[]>(() => {
   return foldersToTree(store.folders);
 });
 
-function foldersToTree(folders: any[]): any[] {
+function foldersToTree(folders: WorkflowFolder[]): FolderTreeNode[] {
   return folders.map((folder) => ({
     key: String(folder.id),
     title: renderTitle(folder),
@@ -38,7 +47,7 @@ function foldersToTree(folders: any[]): any[] {
   }));
 }
 
-function renderTitle(folder: any) {
+function renderTitle(folder: WorkflowFolder) {
   if (editingKey.value === folder.id) {
     return h(Input, {
       value: editingName.value,
@@ -105,7 +114,7 @@ function renderTitle(folder: any) {
   ]);
 }
 
-async function handleEditBlur(folder: any) {
+async function handleEditBlur(folder: WorkflowFolder) {
   return async () => {
     if (editingName.value.trim()) {
       loading.value = true;
@@ -251,7 +260,6 @@ async function onDeleteFolder(folderId?: number) {
   }
 }
 
-// 弹窗打开期间实时同步选中
 watch(selectedKeys, (newKeys) => {
   if (!showModal.value) return;
   if (!newKeys.length) {
@@ -270,8 +278,6 @@ watch(showModal, (isOpen) => {
   }
 });
 
-// ==========【终极修复】重写 projectId 监听 ==========
-// 弹窗打开时，禁止关闭弹窗、禁止清空选中
 watch(() => store.projectId, () => {
   if (!showModal.value) {
     selectedKeys.value = [];

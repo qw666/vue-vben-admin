@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { onMounted, watch } from 'vue';
+import { onMounted, watch, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { Select } from 'ant-design-vue';
+import { Select, Spin } from 'ant-design-vue';
+import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
 
@@ -11,17 +12,29 @@ import WorkflowList from './components/WorkflowList.vue';
 
 const store = useWorkflowStore();
 
+const isLoading = ref(true);
+let projectChangeTimer: ReturnType<typeof setTimeout> | null = null;
+
 onMounted(async () => {
-  await store.loadProjects().catch(() => {});
-  await store.loadFolders().catch(() => {});
-  await store.loadWorkflows().catch(() => {});
+  try {
+    await store.loadProjects();
+    await store.loadFolders();
+    await store.loadWorkflows();
+  } finally {
+    isLoading.value = false;
+  }
 });
 
-watch(() => store.projectId, async (newId) => {
-  if (newId) {
-    await store.loadFolders().catch(() => {});
-    await store.loadWorkflows().catch(() => {});
+watch(() => store.projectId, (newId) => {
+  if (projectChangeTimer) {
+    clearTimeout(projectChangeTimer);
   }
+  projectChangeTimer = setTimeout(async () => {
+    if (newId) {
+      await store.loadFolders().catch(() => {});
+      await store.loadWorkflows().catch(() => {});
+    }
+  }, 300);
 });
 
 watch(() => store.selectedFolderId, async (newId) => {
@@ -36,9 +49,10 @@ watch(() => store.selectedFolderId, async (newId) => {
         <span>流程编排</span>
         <Select
           v-model:value="store.projectId"
-          class="w-40"
+          class="w-48"
           size="small"
           placeholder="选择项目"
+          :loading="isLoading"
         >
           <Select.Option
             v-for="project in store.projects"
@@ -50,7 +64,12 @@ watch(() => store.selectedFolderId, async (newId) => {
         </Select>
       </div>
     </template>
-    <div class="flex flex-1 overflow-hidden">
+    <div v-if="isLoading" class="flex-1 flex items-center justify-center">
+      <Spin size="large" tip="加载中...">
+        <IconifyIcon icon="mdi:loader" :size="32" class="text-blue-500" />
+      </Spin>
+    </div>
+    <div v-else class="flex flex-1 overflow-hidden">
       <div class="w-64 flex-shrink-0">
         <FolderTree />
       </div>

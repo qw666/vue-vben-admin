@@ -74,6 +74,30 @@ export interface ApiResponse<T = any> {
   data: T;
 }
 
+export interface PluginSimpleDTO {
+  type: string;
+  nodeName: string;
+  nodeCategory: string;
+  icon: string;
+}
+
+export interface PluginGroupTreeDTO {
+  groupKey: string;
+  groupName: string;
+  sort: number;
+  pluginList: PluginSimpleDTO[];
+}
+
+export interface PluginMetaDetailDTO {
+  type: string;
+  nodeName: string;
+  nodeDesc: string;
+  nodeCategory: string;
+  icon: string;
+  description: string;
+  formSchema: string;
+}
+
 function getHeaders() {
   return {
     tenantId: 'tenant001',
@@ -87,18 +111,13 @@ export async function addFolder(data: FolderAddRequest): Promise<ApiResponse> {
   });
 }
 
-export async function updateFolder(
-  data: FolderUpdateRequest,
-): Promise<ApiResponse> {
+export async function updateFolder(data: FolderUpdateRequest): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/folder/update`, data, {
     headers: getHeaders(),
   });
 }
 
-export async function deleteFolder(
-  id: number,
-  projectId: number,
-): Promise<ApiResponse> {
+export async function deleteFolder(id: number, projectId: number): Promise<ApiResponse> {
   return requestClient.post(
     `${BASE_URL}/folder/delete?id=${id}&projectId=${projectId}`,
     {},
@@ -108,9 +127,7 @@ export async function deleteFolder(
   );
 }
 
-export async function getFolderTree(
-  projectId: number,
-): Promise<FolderResponse[]> {
+export async function getFolderTree(projectId: number): Promise<FolderResponse[]> {
   return requestClient.post(`${BASE_URL}/folder/tree?projectId=${projectId}`, {}, {
     headers: getHeaders(),
   });
@@ -142,28 +159,13 @@ export async function getFlowPage(data: FlowPageRequest): Promise<FlowPageRespon
   });
 }
 
-export async function addFlow(data: {
-  projectId: number;
-  folderId: number;
-  description: string;
-  flowId: string;
-  flowModel: object;
-}): Promise<ApiResponse> {
+export async function addFlow(data: FlowSaveDTO): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/flow/add`, data, {
     headers: getHeaders(),
   });
 }
 
-export async function updateFlow(
-  id: number,
-  data: {
-    projectId: number;
-    folderId: number;
-    description: string;
-    flowId: string;
-    flowModel: object;
-  },
-): Promise<ApiResponse> {
+export async function updateFlow(id: number, data: FlowSaveDTO): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/flow/update?id=${id}`, data, {
     headers: getHeaders(),
   });
@@ -175,50 +177,20 @@ export async function deleteFlow(id: number): Promise<ApiResponse> {
   });
 }
 
-export async function getFlowDetail(id: number): Promise<{
-  projectId: number;
-  folderId: number;
-  flowId: string;
-  description: string;
-  flowModel: object;
-}> {
+export async function getFlowDetail(id: number): Promise<FlowSaveDTO> {
   return requestClient.post(`${BASE_URL}/flow/detail?id=${id}`, {}, {
     headers: getHeaders(),
   });
 }
 
-export interface PluginSimpleDTO {
-  type: string;
-  nodeName: string;
-  nodeCategory: string;
-  icon: string;
-}
-
-export interface PluginGroupTreeDTO {
-  groupKey: string;
-  groupName: string;
-  sort: number;
-  pluginList: PluginSimpleDTO[];
-}
-
-export async function getPluginTree(nodeCategory?: string): Promise<ApiResponse<PluginGroupTreeDTO[]>> {
+export async function getPluginTree(nodeCategory?: string): Promise<PluginGroupTreeDTO[]> {
   const params = nodeCategory ? `?nodeCategory=${nodeCategory}` : '';
   return requestClient.post(`${BASE_URL}/plugin/tree${params}`, {}, {
     headers: getHeaders(),
   });
 }
 
-export interface PluginMetaDetailDTO {
-  type: string;
-  nodeName: string;
-  nodeDesc: string;
-  nodeCategory: string;
-  icon: string;
-  description: string;
-  formSchema: string;
-}
-
-export async function getPluginMetaBatch(nodeTypes: string[]): Promise<ApiResponse<Record<string, PluginMetaDetailDTO>>> {
+export async function getPluginMetaBatch(nodeTypes: string[]): Promise<Record<string, PluginMetaDetailDTO>> {
   return requestClient.post(`${BASE_URL}/plugin/batch/meta`, nodeTypes, {
     headers: getHeaders(),
   });

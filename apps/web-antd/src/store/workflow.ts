@@ -1,17 +1,30 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 
 import type { Workflow, WorkflowNode, WorkflowEdge, WorkflowFolder } from '#/types/workflow';
-import { addFolder, updateFolder, deleteFolder, getFolderTree, getProjectList, getFlowPage, addFlow, updateFlow, deleteFlow, getFlowDetail, type FlowSaveDTO } from '#/api';
+import {
+  addFolder,
+  updateFolder,
+  deleteFolder,
+  getFolderTree,
+  getProjectList,
+  getFlowPage,
+  addFlow,
+  updateFlow,
+  deleteFlow,
+  getFlowDetail,
+  type FlowSaveDTO,
+  type ProjectVO,
+} from '#/api';
 
-export interface ProjectVO {
-  id: number;
-  projectName: string;
-  namespace: string;
-  description: string;
-  createBy: string;
-  createTime: string;
-}
+const MOCK_PROJECTS: ProjectVO[] = [
+  { id: 1, projectName: '测试项目A1', namespace: 'test-a1', description: '测试项目A1', createBy: 'admin', createTime: new Date().toISOString() },
+  { id: 2, projectName: '测试项目B2', namespace: 'test-b2', description: '测试项目B2', createBy: 'admin', createTime: new Date().toISOString() },
+];
+
+const MOCK_FOLDERS: WorkflowFolder[] = [
+  { id: 1, name: '默认文件夹', parentId: 0, sort: 1, children: [] },
+];
 
 export const useWorkflowStore = defineStore('workflow', () => {
   const workflows = ref<Workflow[]>([]);
@@ -25,13 +38,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const searchKeyword = ref('');
   const totalWorkflows = ref(0);
   const isWorkflowsLoading = ref(false);
-
-  const workflowsByFolder = computed(() => {
-    if (!selectedFolderId.value) {
-      return workflows.value;
-    }
-    return workflows.value.filter((w) => w.folderId === selectedFolderId.value);
-  });
 
   function setCurrentWorkflow(workflow: Workflow | null) {
     currentWorkflow.value = workflow;
@@ -110,28 +116,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return workflow;
   }
 
-  function saveWorkflow(workflow: Workflow) {
-    workflow.updatedAt = new Date().toISOString();
-    const index = workflows.value.findIndex((w) => w.id === workflow.id);
-    if (index !== -1) {
-      workflows.value[index] = workflow;
-    } else {
-      workflows.value.push(workflow);
-    }
-    if (currentWorkflow.value?.id === workflow.id) {
-      currentWorkflow.value = workflow;
-    }
-  }
-
-  function deleteWorkflow(workflowId: string) {
-    workflows.value = workflows.value.filter((w) => w.id !== workflowId);
-    if (currentWorkflow.value?.id === workflowId) {
-      currentWorkflow.value = null;
-    }
-  }
-
-  function getWorkflowById(workflowId: string): Workflow | undefined {
-    return workflows.value.find((w) => w.id === workflowId);
+  function findWorkflowById(id: string): Workflow | undefined {
+    return workflows.value.find((w) => w.id === id);
   }
 
   async function loadProjects() {
@@ -139,28 +125,18 @@ export const useWorkflowStore = defineStore('workflow', () => {
       const data = await getProjectList();
       if (data && data.length > 0) {
         projects.value = data;
-        const found = projects.value.find(p => p.id === projectId.value);
+        const found = projects.value.find((p) => p.id === projectId.value);
         if (!found && projects.value[0]) {
           projectId.value = projects.value[0].id;
         }
       } else {
-        projects.value = [
-          { id: 1, projectName: '测试项目A1', namespace: 'test-a1', description: '测试项目A1', createBy: 'admin', createTime: new Date().toISOString() },
-          { id: 2, projectName: '测试项目B2', namespace: 'test-b2', description: '测试项目B2', createBy: 'admin', createTime: new Date().toISOString() },
-        ];
-        if (projects.value[0]) {
-          projectId.value = projects.value[0].id;
-        }
+        projects.value = [...MOCK_PROJECTS];
+        projectId.value = projects.value[0]?.id ?? 1;
       }
     } catch (error) {
       console.error('Failed to load projects:', error);
-      projects.value = [
-        { id: 1, projectName: '测试项目A1', namespace: 'test-a1', description: '测试项目A1', createBy: 'admin', createTime: new Date().toISOString() },
-        { id: 2, projectName: '测试项目B2', namespace: 'test-b2', description: '测试项目B2', createBy: 'admin', createTime: new Date().toISOString() },
-      ];
-      if (projects.value[0]) {
-        projectId.value = projects.value[0].id;
-      }
+      projects.value = [...MOCK_PROJECTS];
+      projectId.value = projects.value[0]?.id ?? 1;
     }
   }
 
@@ -195,15 +171,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
       if (data && data.length > 0) {
         folders.value = data.map((item: any) => transformFolder(item));
       } else {
-        folders.value = [
-          { id: 1, name: '默认文件夹', parentId: 0, sort: 1, children: [] },
-        ];
+        folders.value = [...MOCK_FOLDERS];
       }
     } catch (error) {
       console.error('Failed to load folders:', error);
-      folders.value = [
-        { id: 1, name: '默认文件夹', parentId: 0, sort: 1, children: [] },
-      ];
+      folders.value = [...MOCK_FOLDERS];
     }
   }
 
@@ -289,17 +261,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  function addWorkflow(workflow: Omit<Workflow, 'id'>): Workflow {
-    const id = `workflow-${Date.now()}`;
-    const newWorkflow = { ...workflow, id };
-    workflows.value.push(newWorkflow);
-    return newWorkflow;
-  }
-
-  function findWorkflowById(id: string): Workflow | undefined {
-    return workflows.value.find((w) => w.id === id);
-  }
-
   async function updateWorkflow(workflow: Workflow): Promise<boolean> {
     try {
       const index = workflows.value.findIndex((w) => w.id === workflow.id);
@@ -378,27 +339,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     searchKeyword.value = keyword;
   }
 
-  function initMockData() {
-    if (projects.value.length === 0) {
-      projects.value = [
-        { id: 1, projectName: '测试项目A1', namespace: 'test-a1', description: '测试项目A1', createBy: 'admin', createTime: new Date().toISOString() },
-        { id: 2, projectName: '测试项目B2', namespace: 'test-b2', description: '测试项目B2', createBy: 'admin', createTime: new Date().toISOString() },
-      ];
-    }
-    if (workflows.value.length === 0 && folders.value.length === 0) {
-      const now = new Date().toISOString();
-      folders.value = [
-        { id: 1, name: '默认文件夹', parentId: 0, sort: 1, children: [] },
-        { id: 2, name: 'AI流程', parentId: 0, sort: 2, children: [] },
-      ];
-      workflows.value = [
-        { id: 'workflow-1', name: '示例流程', description: '这是一个示例流程', folderId: 1, nodes: [], edges: [], createdAt: now, updatedAt: now },
-        { id: 'workflow-2', name: 'AI问答流程', description: '基于AI的问答流程', folderId: 2, nodes: [], edges: [], createdAt: now, updatedAt: now },
-        { id: 'workflow-3', name: '数据处理流程', description: '数据处理和转换流程', folderId: 1, nodes: [], edges: [], createdAt: now, updatedAt: now },
-      ];
-    }
-  }
-
   return {
     projects,
     projectId,
@@ -417,7 +357,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     createFolder,
     updateFolderById,
     deleteFolderById,
-    addWorkflow,
     createWorkflow,
     findWorkflowById,
     findFolderById,
@@ -428,7 +367,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     selectFolder,
     selectWorkflow,
     setSearchKeyword,
-    initMockData,
     setCurrentWorkflow,
     setSelectedNodeId,
     setSelectedFolderId,
@@ -437,8 +375,5 @@ export const useWorkflowStore = defineStore('workflow', () => {
     updateNode,
     addEdge,
     removeEdge,
-    saveWorkflow,
-    deleteWorkflow,
-    getWorkflowById,
   };
-})
+});
