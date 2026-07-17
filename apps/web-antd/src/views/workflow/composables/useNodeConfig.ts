@@ -63,6 +63,103 @@ function internalIsTaskRef(schema: SchemaNode): boolean {
   return schema.$ref?.endsWith('idp_core_models_tasks_Task') === true;
 }
 
+function createFieldProps(
+  fieldKey: string,
+  fieldSchema: SchemaNode,
+  isRequired: boolean,
+  value: any,
+  onUpdate: (val: any) => void
+): RenderedField['props'] {
+  return {
+    key: fieldKey,
+    label: fieldSchema.title || fieldKey,
+    tooltip: fieldSchema.description || '',
+    required: isRequired,
+    dynamic: fieldSchema.$dynamic === true,
+    fieldType: fieldSchema.type,
+    modelValue: value,
+    'onUpdate:modelValue': onUpdate,
+  };
+}
+
+function initFormFieldValue(schema: SchemaNode, defs: Record<string, SchemaNode> = {}): any {
+  if (schema.$ref) {
+    const refSchema = internalResolveRef(schema.$ref, defs);
+    if (refSchema) {
+      return initFormFieldValue(refSchema, { ...defs, ...(refSchema.$defs || {}) });
+    }
+    return {};
+  }
+
+  if (schema.anyOf) {
+    return null;
+  }
+
+  switch (schema.type) {
+    case 'boolean':
+      return false;
+    case 'object':
+      return [];
+    case 'array':
+      return [];
+    case 'string':
+      return '';
+    case 'number':
+    case 'integer':
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+function serializeFieldValue(schema: SchemaNode, value: any, defs: Record<string, SchemaNode> = {}): any {
+  if (schema.$ref) {
+    const refSchema = internalResolveRef(schema.$ref, defs);
+    if (refSchema) {
+      return serializeFieldValue(refSchema, value, { ...defs, ...(refSchema.$defs || {}) });
+    }
+    return value;
+  }
+
+  if (schema.anyOf) {
+    return value;
+  }
+
+  if (schema.type === 'object') {
+    if (Array.isArray(value)) {
+      const obj: Record<string, any> = {};
+      value.forEach((item: any) => {
+        if (item.key) {
+          obj[item.key] = item.value;
+        }
+      });
+      return obj;
+    }
+    if (typeof value === 'object' && value !== null) {
+      const result: Record<string, any> = {};
+      Object.keys(value).forEach(key => {
+        if (schema.properties && schema.properties[key]) {
+          result[key] = serializeFieldValue(schema.properties[key], value[key], defs);
+        } else {
+          result[key] = value[key];
+        }
+      });
+      return result;
+    }
+  }
+
+  if (schema.type === 'array' && value && Array.isArray(value)) {
+    return value.map((item: any) => {
+      if (schema.items) {
+        return serializeFieldValue(schema.items, item, defs);
+      }
+      return item;
+    });
+  }
+
+  return value;
+}
+
 export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTaskRef: any, _resolveRef: any, pluginGroups: any) {
   const selectedNode = ref<any>(null);
   const nodeConfigForm = reactive<any>({});
@@ -87,103 +184,6 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         const subIsRequired = (schema.required || []).includes(subKey);
         return renderFormField(schema.properties!, subKey, subIsRequired, mergedDefs);
       });
-  }
-
-  function createFieldProps(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void
-  ): RenderedField['props'] {
-    return {
-      key: fieldKey,
-      label: fieldSchema.title || fieldKey,
-      tooltip: fieldSchema.description || '',
-      required: isRequired,
-      dynamic: fieldSchema.$dynamic === true,
-      fieldType: fieldSchema.type,
-      modelValue: value,
-      'onUpdate:modelValue': onUpdate,
-    };
-  }
-
-  function initFormFieldValue(schema: SchemaNode, defs: Record<string, SchemaNode> = {}): any {
-    if (schema.$ref) {
-      const refSchema = internalResolveRef(schema.$ref, defs);
-      if (refSchema) {
-        return initFormFieldValue(refSchema, { ...defs, ...(refSchema.$defs || {}) });
-      }
-      return {};
-    }
-
-    if (schema.anyOf) {
-      return null;
-    }
-
-    switch (schema.type) {
-      case 'boolean':
-        return false;
-      case 'object':
-        return [];
-      case 'array':
-        return [];
-      case 'string':
-        return '';
-      case 'number':
-      case 'integer':
-        return undefined;
-      default:
-        return undefined;
-    }
-  }
-
-  function serializeFieldValue(schema: SchemaNode, value: any, defs: Record<string, SchemaNode> = {}): any {
-    if (schema.$ref) {
-      const refSchema = internalResolveRef(schema.$ref, defs);
-      if (refSchema) {
-        return serializeFieldValue(refSchema, value, { ...defs, ...(refSchema.$defs || {}) });
-      }
-      return value;
-    }
-
-    if (schema.anyOf) {
-      return value;
-    }
-
-    if (schema.type === 'object') {
-      if (Array.isArray(value)) {
-        const obj: Record<string, any> = {};
-        value.forEach((item: any) => {
-          if (item.key) {
-            obj[item.key] = item.value;
-          }
-        });
-        return obj;
-      }
-      if (typeof value === 'object' && value !== null) {
-        const result: Record<string, any> = {};
-        Object.keys(value).forEach(key => {
-          if (schema.properties && schema.properties[key]) {
-            result[key] = serializeFieldValue(schema.properties[key], value[key], defs);
-          } else {
-            result[key] = value[key];
-          }
-        });
-        return result;
-      }
-    }
-
-    if (schema.type === 'array' && value && Array.isArray(value)) {
-      return value.map((item: any) => {
-        if (schema.items) {
-          return serializeFieldValue(schema.items, item, defs);
-        }
-        return item;
-      });
-    }
-
-    return value;
   }
 
   function resolveStringField(

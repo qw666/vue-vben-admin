@@ -21,9 +21,10 @@ export interface Connection {
   targetHandle: string;
 }
 
+const NODE_WIDTH = 176;
+const NODE_HEIGHT = 68;
+
 function getNodePorts(nodeId: string, nodeType: string): Port[] {
-  const nodeWidth = 176;
-  const nodeHeight = 68;
   const node = useWorkflowStore().currentWorkflow?.nodes.find(n => n.id === nodeId);
   if (!node) return [];
 
@@ -37,7 +38,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
       type: 'input',
       label: '输入',
       position: {
-        x: node.position.x + nodeWidth / 2,
+        x: node.position.x + NODE_WIDTH / 2,
         y: node.position.y - 6
       },
       color: '#64748b'
@@ -50,25 +51,25 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
 
     flowControlConfig.ports.output.forEach(out => {
       if (out.dynamic) {
-          const cases = node.data.config?.[out.field];
-          if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
-            Object.keys(cases).forEach(caseKey => {
-              bottomOutputs.push({
-                field: `${out.field}-${caseKey}`,
-                label: 'Case',
-                color: out.color,
-                portGroup: out.field,
-              });
-            });
-          } else {
+        const cases = node.data.config?.[out.field];
+        if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
+          Object.keys(cases).forEach(caseKey => {
             bottomOutputs.push({
-              field: `${out.field}-add`,
-              label: '+',
+              field: `${out.field}-${caseKey}`,
+              label: 'Case',
               color: out.color,
               portGroup: out.field,
             });
-          }
+          });
         } else {
+          bottomOutputs.push({
+            field: `${out.field}-add`,
+            label: '+',
+            color: out.color,
+            portGroup: out.field,
+          });
+        }
+      } else {
         if (out.field === 'errors' || out.field === 'finally') {
           rightOutputs.push({
             field: out.field,
@@ -96,13 +97,13 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
         label: out.label,
         portGroup: out.portGroup,
         position: {
-          x: node.position.x + nodeWidth / 2,
-          y: node.position.y + nodeHeight + 6
+          x: node.position.x + NODE_WIDTH / 2,
+          y: node.position.y + NODE_HEIGHT + 6
         },
         color: out.color
       });
     } else if (bottomOutputs.length > 1) {
-      const spacing = nodeWidth / (bottomOutputs.length + 1);
+      const spacing = NODE_WIDTH / (bottomOutputs.length + 1);
       bottomOutputs.forEach((out, i) => {
         ports.push({
           id: `${nodeId}-output-${out.field}`,
@@ -112,7 +113,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
           portGroup: out.portGroup,
           position: {
             x: node.position.x + spacing * (i + 1),
-            y: node.position.y + nodeHeight + 6
+            y: node.position.y + NODE_HEIGHT + 6
           },
           color: out.color
         });
@@ -120,7 +121,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
     }
 
     if (rightOutputs.length > 0) {
-      const spacing = nodeHeight / (rightOutputs.length + 1);
+      const spacing = NODE_HEIGHT / (rightOutputs.length + 1);
       rightOutputs.forEach((out, i) => {
         ports.push({
           id: `${nodeId}-output-${out.field}`,
@@ -129,7 +130,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
           label: out.label,
           portGroup: out.portGroup,
           position: {
-            x: node.position.x + nodeWidth + 6,
+            x: node.position.x + NODE_WIDTH + 6,
             y: node.position.y + spacing * (i + 1)
           },
           color: out.color
@@ -143,8 +144,8 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
       type: 'output',
       label: '输出',
       position: {
-        x: node.position.x + nodeWidth / 2,
-        y: node.position.y + nodeHeight + 6
+        x: node.position.x + NODE_WIDTH / 2,
+        y: node.position.y + NODE_HEIGHT + 6
       },
       color: '#3b82f6'
     });
@@ -168,7 +169,7 @@ export function useCanvasInteraction(
   const draggingNodeId = ref<string | null>(null);
   const dragOffset = ref({ x: 0, y: 0 });
   const panOffset = ref({ x: 0, y: 0 });
-const scale = ref(1);
+  const scale = ref(1);
 
   const isConnecting = ref(false);
   const connectingFrom = ref<string | null>(null);
@@ -177,6 +178,7 @@ const scale = ref(1);
   const connections = ref<Connection[]>([]);
   const selectedConnectionId = ref<string | null>(null);
   const selectedNodeId = ref<string | null>(null);
+  
   type ContextMenuType = { show: boolean; x: number; y: number; type: 'node' | 'connection' | null; targetId: string | null };
   const contextMenu = ref<ContextMenuType>({ show: false, x: 0, y: 0, type: null, targetId: null });
 
@@ -212,7 +214,6 @@ const scale = ref(1);
       const data = e.dataTransfer.getData('application/json');
       if (data) {
         const { nodeType } = JSON.parse(data);
-        console.log('onDrop - nodeType:', nodeType);
         let template: any = null;
 
         const flowControlConfig = getFlowControlConfig(nodeType);
@@ -236,9 +237,8 @@ const scale = ref(1);
             if (template) break;
           }
         }
-        console.log('onDrop - template:', template);
+
         const meta = pluginMetaCache.value[nodeType];
-        
         const nodeTypeParts = nodeType.split('_');
         const nodeTypeSuffix = nodeTypeParts[nodeTypeParts.length - 1] || 'node';
         
@@ -276,17 +276,17 @@ const scale = ref(1);
 
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (node) {
-        dragOffset.value = {
-          x: e.clientX - node.position.x * scale.value - panOffset.value.x,
-          y: e.clientY - node.position.y * scale.value - panOffset.value.y
-        };
-      }
+      dragOffset.value = {
+        x: e.clientX - node.position.x * scale.value - panOffset.value.x,
+        y: e.clientY - node.position.y * scale.value - panOffset.value.y
+      };
+    }
 
-      function onMouseMove(event: MouseEvent) {
-        if (!isDraggingNode.value || !draggingNodeId.value) return;
+    function onMouseMove(event: MouseEvent) {
+      if (!isDraggingNode.value || !draggingNodeId.value) return;
 
-        const newX = Math.max(0, (event.clientX - dragOffset.value.x - panOffset.value.x) / scale.value);
-        const newY = Math.max(0, (event.clientY - dragOffset.value.y - panOffset.value.y) / scale.value);
+      const newX = Math.max(0, (event.clientX - dragOffset.value.x - panOffset.value.x) / scale.value);
+      const newY = Math.max(0, (event.clientY - dragOffset.value.y - panOffset.value.y) / scale.value);
 
       store.updateNode(draggingNodeId.value, {
         position: { x: newX, y: newY }
@@ -619,8 +619,8 @@ const scale = ref(1);
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (node) {
       return {
-        x: node.position.x + 88,
-        y: node.position.y + 34
+        x: node.position.x + NODE_WIDTH / 2,
+        y: node.position.y + NODE_HEIGHT / 2
       };
     }
     return { x: 0, y: 0 };
@@ -630,20 +630,17 @@ const scale = ref(1);
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) return { x: 0, y: 0 };
 
-    const nodeWidth = 176;
-    const nodeHeight = 68;
-
     if (portId === `${nodeId}-input`) {
       return {
-        x: node.position.x + nodeWidth / 2,
+        x: node.position.x + NODE_WIDTH / 2,
         y: node.position.y - 6
       };
     }
 
     if (portId === `${nodeId}-output`) {
       return {
-        x: node.position.x + nodeWidth / 2,
-        y: node.position.y + nodeHeight + 6
+        x: node.position.x + NODE_WIDTH / 2,
+        y: node.position.y + NODE_HEIGHT + 6
       };
     }
 
@@ -677,30 +674,30 @@ const scale = ref(1);
       if (bottomIndex >= 0) {
         if (bottomOutputs.length === 1) {
           return {
-            x: node.position.x + nodeWidth / 2,
-            y: node.position.y + nodeHeight + 6
+            x: node.position.x + NODE_WIDTH / 2,
+            y: node.position.y + NODE_HEIGHT + 6
           };
         }
-        const spacing = nodeWidth / (bottomOutputs.length + 1);
+        const spacing = NODE_WIDTH / (bottomOutputs.length + 1);
         return {
           x: node.position.x + spacing * (bottomIndex + 1),
-          y: node.position.y + nodeHeight + 6
+          y: node.position.y + NODE_HEIGHT + 6
         };
       }
 
       const rightIndex = rightOutputs.findIndex(o => o.field === field);
       if (rightIndex >= 0) {
-        const spacing = nodeHeight / (rightOutputs.length + 1);
+        const spacing = NODE_HEIGHT / (rightOutputs.length + 1);
         return {
-          x: node.position.x + nodeWidth + 6,
+          x: node.position.x + NODE_WIDTH + 6,
           y: node.position.y + spacing * (rightIndex + 1)
         };
       }
     }
 
     return {
-      x: node.position.x + nodeWidth / 2,
-      y: node.position.y + nodeHeight + 6
+      x: node.position.x + NODE_WIDTH / 2,
+      y: node.position.y + NODE_HEIGHT + 6
     };
   }
 
@@ -770,8 +767,8 @@ const scale = ref(1);
       }
     }
 
-    const connections = store.currentWorkflow?.edges || [];
-    connections.forEach(conn => {
+    const edges = store.currentWorkflow?.edges || [];
+    edges.forEach(conn => {
       if (conn.source === nodeId && conn.sourceHandle === `${nodeId}-output-${fieldKey}-${oldKey}`) {
         conn.sourceHandle = `${nodeId}-output-${fieldKey}-${newKeyTrimmed}`;
       }

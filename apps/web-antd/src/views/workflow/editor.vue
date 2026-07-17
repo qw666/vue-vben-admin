@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Button, message, Input, Select } from 'ant-design-vue';
+import { Button, message, Input } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
@@ -13,16 +13,7 @@ import Canvas from './components/Canvas.vue';
 import ConfigPanel from './components/ConfigPanel.vue';
 import NodeSelectModal from './components/NodeSelectModal.vue';
 import { getFlowControlConfig } from './config/workflow-node-config';
-import { getProjectList } from '#/api/core/workflow';
-
-interface ProjectVO {
-  id: number;
-  projectName: string;
-  namespace: string;
-  description: string;
-  createBy: string;
-  createTime: string;
-}
+import type { ProjectVO } from '#/api/core/workflow';
 
 const router = useRouter();
 const route = useRoute();
@@ -117,7 +108,7 @@ const {
   updateScale,
   scale,
 } = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
-  if (isConfigPanelOpen && selectedNode.value?.id === nodeId) {
+  if (isConfigPanelOpen.value && selectedNode.value?.id === nodeId) {
     handleConfigClose();
   }
 }, nodeConfigForm, selectedNode, (node: any) => {
@@ -145,11 +136,10 @@ const {
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
-
 const isProjectsLoading = ref(false);
 
 const currentProjectName = computed(() => {
-  const project = store.projects.find(p => p.id === store.projectId);
+  const project = store.projects.find((p: ProjectVO) => p.id === store.projectId);
   return project?.projectName || '';
 });
 
@@ -234,13 +224,34 @@ function updateNodeId(value: string) {
 async function handleSave() {
   isLoading.value = true;
   try {
-    if (store.currentWorkflow) {
-      store.currentWorkflow.name = workflowName.value;
-      store.currentWorkflow.updatedAt = new Date().toISOString();
-      store.saveWorkflow(store.currentWorkflow);
+    if (!store.currentWorkflow) {
+      message.error('请先创建流程');
+      return;
     }
-    message.success('流程已保存');
+
+    store.currentWorkflow.name = workflowName.value;
+    store.currentWorkflow.updatedAt = new Date().toISOString();
+
+    const flowModel = {
+      tasks: store.currentWorkflow.nodes,
+      edges: store.currentWorkflow.edges,
+    };
+
+    const saved = await store.saveWorkflowToBackend(store.currentWorkflow.id, {
+      projectId: store.projectId,
+      folderId: store.currentWorkflow.folderId || 0,
+      description: workflowName.value,
+      flowId: store.currentWorkflow.id.replace('workflow-', ''),
+      flowModel,
+    });
+
+    if (saved) {
+      message.success('流程已保存');
+    } else {
+      message.error('保存失败');
+    }
   } catch (error) {
+    console.error('Failed to save workflow:', error);
     message.error('保存失败');
   } finally {
     isLoading.value = false;
@@ -258,6 +269,7 @@ function handleClear() {
   if (store.currentWorkflow) {
     store.currentWorkflow.nodes = [];
     store.currentWorkflow.edges = [];
+    connections.value = [];
   }
   message.info('画布已清空');
 }
@@ -277,22 +289,34 @@ async function loadProjects() {
   }
 }
 
-onMounted(() => {
-  store.initMockData();
+onMounted(async () => {
   loadPlugins();
-  loadProjects();
+  await loadProjects();
+
   const workflowId = route.params.id as string;
   if (workflowId) {
-    const workflow = store.getWorkflowById(workflowId);
+    const workflow = store.findWorkflowById(workflowId);
     if (workflow) {
       store.setCurrentWorkflow(workflow);
       workflowName.value = workflow.name;
       connections.value = workflow.edges || [];
+    } else {
+      const detail = await store.loadWorkflowDetail(workflowId);
+      if (detail) {
+        const newWorkflow = store.createWorkflow(detail.description || '未命名流程', detail.folderId, detail.description);
+        newWorkflow.id = workflowId;
+        store.setCurrentWorkflow(newWorkflow);
+        workflowName.value = newWorkflow.name;
+      } else {
+        const newWorkflow = store.createWorkflow('未命名流程');
+        store.setCurrentWorkflow(newWorkflow);
+      }
     }
   } else {
     const newWorkflow = store.createWorkflow('未命名流程');
     store.setCurrentWorkflow(newWorkflow);
   }
+
   window.addEventListener('keydown', handleKeyDown);
   setTimeout(() => {
     isPageReady.value = true;

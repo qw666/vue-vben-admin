@@ -1,10 +1,9 @@
 import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
-import { getPluginTree, getPluginMetaBatch } from '#/api';
+import { getPluginTree, getPluginMetaBatch, type PluginGroupTreeDTO, type PluginMetaDetailDTO } from '#/api';
 
-const pluginGroupsCache = ref<Record<string, any[]>>({});
-
-const pluginMetaCache = ref<Record<string, any>>({});
+const pluginGroupsCache = ref<Record<string, PluginGroupTreeDTO[]>>({});
+const pluginMetaCache = ref<Record<string, PluginMetaDetailDTO>>({});
 const isPluginLoading = ref(false);
 const isMetaLoading = ref(false);
 const activeTab = ref<'task' | 'trigger'>('task');
@@ -29,7 +28,7 @@ const defaultDefs: Record<string, any> = {
   },
 };
 
-function resolveRef(ref: string, defs: any): any {
+function resolveRef(ref: string, defs: Record<string, any>): any {
   if (!ref) return null;
   const refName = ref.replace('#/$defs/', '').replace('#/definitions/', '');
   const resolved = defs && defs[refName] ? defs[refName] : defaultDefs[refName];
@@ -61,18 +60,20 @@ function switchTab(tab: 'task' | 'trigger') {
   }
 }
 
-async function loadPluginMeta(nodeType: string) {
-  if (pluginMetaCache.value[nodeType]) {
-    return pluginMetaCache.value[nodeType];
+async function loadPluginMeta(nodeType: string): Promise<PluginMetaDetailDTO | null> {
+  const cached = pluginMetaCache.value[nodeType];
+  if (cached) {
+    return cached;
   }
+
   isMetaLoading.value = true;
   try {
     const response = await getPluginMetaBatch([nodeType]);
-    const data = response as any;
+    const data = response as Record<string, PluginMetaDetailDTO>;
     if (data && data[nodeType]) {
       const meta = data[nodeType];
       if (meta.formSchema) {
-        let schema = meta.formSchema;
+        let schema: any = meta.formSchema;
         try {
           schema = JSON.parse(meta.formSchema);
         } catch {

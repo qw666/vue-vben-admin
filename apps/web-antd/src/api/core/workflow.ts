@@ -96,6 +96,10 @@ export interface PluginMetaDetailDTO {
   icon: string;
   description: string;
   formSchema: string;
+  parsedSchema?: any;
+  formProperties?: Record<string, any>;
+  formRequired?: string[];
+  formDefs?: Record<string, any>;
 }
 
 function getHeaders() {
