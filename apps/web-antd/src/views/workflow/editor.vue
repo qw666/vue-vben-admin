@@ -337,15 +337,18 @@ onUnmounted(() => {
           返回列表
         </Button>
         <div class="h-6 w-px bg-gray-200"></div>
-        <Input
-          v-model:value="workflowName"
-          class="w-48 flex-shrink-0"
-          size="small"
-          placeholder="流程名称"
-        />
         <div class="flex items-center gap-2 whitespace-nowrap">
           <span class="text-sm text-gray-500">项目：</span>
           <span class="text-sm font-medium text-gray-800">{{ currentProjectName || '加载中...' }}</span>
+        </div>
+        <div class="flex items-center gap-2 whitespace-nowrap">
+          <span class="text-sm text-gray-500">流程名称：</span>
+          <Input
+            v-model:value="workflowName"
+            class="w-48 flex-shrink-0"
+            size="small"
+            placeholder="请输入流程名称"
+          />
         </div>
       </div>
       <div class="flex items-center gap-2">
