@@ -33,6 +33,8 @@ const inputTypes = [
   { value: 'URI', label: 'URI', defaultControl: 'input' },
 ];
 
+const arrayPlaceholder = '["item1", "item2"]';
+
 function addOnResumeItem() {
   emit('addOnResumeItem', fieldKey.value);
 }
@@ -270,7 +272,7 @@ function handleDurationChange(index: number, value: number, unit: string) {
                 <Input
                   :value="item.defaults"
                   @input="(e: any) => updateField(index, 'defaults', e.target.value)"
-                  :placeholder="item.type === 'ARRAY' ? '[\"item1\", \"item2\"]' : '默认值'"
+                  :placeholder="item.type === 'ARRAY' ? arrayPlaceholder : '默认值'"
                   style="flex: 1;"
                   size="small"
                 />

@@ -104,6 +104,8 @@ const {
   removeSwitchCaseKey,
   addSwitchCaseKey,
   updatePanOffset,
+  updateScale,
+  scale,
 } = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
   if (isConfigPanelOpen && selectedNode.value?.id === nodeId) {
     handleConfigClose();
@@ -191,6 +193,27 @@ const fieldRendererEvents = computed(() => ({
   removeOnResumeItem,
 }));
 
+function updateNodeLabel(value: string) {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  if (node) {
+    node.data.label = value;
+    store.updateNode(node.id, { data: { ...node.data } });
+  }
+}
+
+function updateNodeId(value: string) {
+  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  if (node) {
+    const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (sanitized !== value) {
+      return;
+    }
+    const oldId = node.id;
+    node.id = value;
+    store.updateNode(oldId, { id: value });
+  }
+}
+
 async function handleSave() {
   isLoading.value = true;
   try {
@@ -253,7 +276,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-gray-100">
+  <div class="workflow-editor flex flex-col bg-gray-100 overflow-hidden">
     <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
       <div class="flex items-center gap-4">
         <Button type="text" @click="handleBack">
@@ -284,8 +307,9 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden" style="height: 100%;">
+    <div class="flex-1 flex overflow-hidden h-full">
       <LeftPanel
+        class="flex-shrink-0"
         :active-tab="activeTab"
         :is-plugin-loading="isPluginLoading"
         :plugin-groups="pluginGroups"
@@ -307,6 +331,8 @@ onUnmounted(() => {
           :get-connection-path="getConnectionPath"
           :get-connection-color="getConnectionColor"
           :get-temp-line-path="getTempLinePath"
+          :scale="scale"
+          :config-panel-width="isConfigPanelOpen ? configPanelWidth : 0"
           @drop="onDrop"
           @drag-over="onDragOver"
           @mouse-leave="handleCanvasMouseLeave"
@@ -321,6 +347,7 @@ onUnmounted(() => {
           @delete-selected-node="deleteSelectedNode"
           @delete-selected-connection="deleteSelectedConnection"
           @pan-change="updatePanOffset"
+          @scale-change="updateScale"
         />
 
         <ConfigPanel
@@ -338,6 +365,8 @@ onUnmounted(() => {
           @close="handleConfigClose"
           @start-resize="startResize"
           @save-config="handleSaveConfig"
+          @update-node-label="updateNodeLabel"
+          @update-node-id="updateNodeId"
         />
       </div>
     </div>
@@ -359,3 +388,10 @@ onUnmounted(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.workflow-editor {
+  height: calc(100vh - 88px);
+  min-height: 0;
+}
+</style>

@@ -26,7 +26,7 @@ function getCategoryColor(category: string): string {
 </script>
 
 <template>
-  <div class="w-64 bg-white border-r border-gray-200 flex flex-col" style="height: 100%;">
+  <div class="w-64 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
     <div class="border-b border-gray-200 flex-shrink-0">
       <div class="flex">
         <button

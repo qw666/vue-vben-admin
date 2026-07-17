@@ -21,6 +21,8 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'startResize', event: MouseEvent): void;
   (e: 'saveConfig'): void;
+  (e: 'updateNodeLabel', value: string): void;
+  (e: 'updateNodeId', value: string): void;
 }>();
 </script>
 
@@ -57,7 +59,8 @@ const emit = defineEmits<{
           <div class="p-4 bg-gray-50 rounded-lg">
             <div class="text-sm text-gray-500">节点ID</div>
             <Input
-              v-model:value="selectedNode.id"
+              :value="selectedNode.id"
+              @input="(e: any) => emit('updateNodeId', e.target.value)"
               class="mt-1"
               size="small"
               placeholder="请输入节点ID"
@@ -66,7 +69,11 @@ const emit = defineEmits<{
           <div class="p-4 bg-gray-50 rounded-lg">
             <div class="text-sm text-gray-500">节点名称</div>
             <div class="flex items-center gap-2 mt-1">
-              <span class="text-base font-medium text-gray-800">{{ selectedNode.data.label }}</span>
+              <Input
+                :value="selectedNode.data.label"
+                @input="(e: any) => emit('updateNodeLabel', e.target.value)"
+                size="small"
+              />
               <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
                 <IconifyIcon icon="mdi:help-circle" :size="16" class="text-gray-400 cursor-help" />
               </Tooltip>

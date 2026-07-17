@@ -168,6 +168,7 @@ export function useCanvasInteraction(
   const draggingNodeId = ref<string | null>(null);
   const dragOffset = ref({ x: 0, y: 0 });
   const panOffset = ref({ x: 0, y: 0 });
+const scale = ref(1);
 
   const isConnecting = ref(false);
   const connectingFrom = ref<string | null>(null);
@@ -203,8 +204,8 @@ export function useCanvasInteraction(
     const canvas = e.currentTarget as HTMLElement;
     const rect = canvas.getBoundingClientRect();
     const position = {
-      x: e.clientX - rect.left - 70 - panOffset.value.x,
-      y: e.clientY - rect.top - 30 - panOffset.value.y,
+      x: (e.clientX - rect.left - 70 - panOffset.value.x) / scale.value,
+      y: (e.clientY - rect.top - 30 - panOffset.value.y) / scale.value,
     };
 
     if (e.dataTransfer) {
@@ -237,8 +238,12 @@ export function useCanvasInteraction(
         }
         console.log('onDrop - template:', template);
         const meta = pluginMetaCache.value[nodeType];
+        
+        const nodeTypeParts = nodeType.split('_');
+        const nodeTypeSuffix = nodeTypeParts[nodeTypeParts.length - 1] || 'node';
+        
         const newNode = {
-          id: `node-${Date.now()}`,
+          id: `${nodeTypeSuffix}_${Date.now()}`,
           type: 'custom',
           position,
           data: {
@@ -271,17 +276,17 @@ export function useCanvasInteraction(
 
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (node) {
-      dragOffset.value = {
-        x: e.clientX - node.position.x,
-        y: e.clientY - node.position.y
-      };
-    }
+        dragOffset.value = {
+          x: e.clientX - node.position.x * scale.value - panOffset.value.x,
+          y: e.clientY - node.position.y * scale.value - panOffset.value.y
+        };
+      }
 
-    function onMouseMove(event: MouseEvent) {
-      if (!isDraggingNode.value || !draggingNodeId.value) return;
+      function onMouseMove(event: MouseEvent) {
+        if (!isDraggingNode.value || !draggingNodeId.value) return;
 
-      const newX = Math.max(0, event.clientX - dragOffset.value.x);
-      const newY = Math.max(0, event.clientY - dragOffset.value.y);
+        const newX = Math.max(0, (event.clientX - dragOffset.value.x - panOffset.value.x) / scale.value);
+        const newY = Math.max(0, (event.clientY - dragOffset.value.y - panOffset.value.y) / scale.value);
 
       store.updateNode(draggingNodeId.value, {
         position: { x: newX, y: newY }
@@ -832,10 +837,16 @@ export function useCanvasInteraction(
     panOffset.value = offset;
   }
 
+  function updateScale(value: number) {
+    scale.value = value;
+  }
+
   return {
     isDraggingNode,
     draggingNodeId,
     dragOffset,
+    panOffset,
+    scale,
     isConnecting,
     connectingFrom,
     connectingFromPortId,
@@ -871,5 +882,6 @@ export function useCanvasInteraction(
     removeSwitchCaseKey,
     addSwitchCaseKey,
     updatePanOffset,
+    updateScale,
   };
 }
