@@ -17,13 +17,11 @@ const hoveredKey = ref<string | null>(null);
 
 const showModal = ref(false);
 const folderName = ref('');
-const selectedProjectId = ref<number>(1);
 const selectedParentId = ref<number | null>(null);
 
 const showEditModal = ref(false);
 const editingFolderId = ref<number | null>(null);
 const editingFolderName = ref('');
-const editingProjectId = ref<number>(1);
 const editingParentId = ref<number | null>(null);
 
 const treeData = computed(() => {
@@ -133,20 +131,21 @@ function onSelect(selectedKeysValue: string[]) {
   store.setSelectedFolderId(folderId);
 }
 
+function clearSelection() {
+  selectedKeys.value = [];
+  store.setSelectedFolderId(null);
+}
+
 function onCreateFolder(parentId?: number) {
   const tempSelectId = selectedKeys.value.length ? Number(selectedKeys.value[0]) : null;
 
   folderName.value = '';
-  selectedProjectId.value = store.projectId;
 
   if (parentId !== undefined) {
     selectedParentId.value = parentId;
   } else {
     selectedParentId.value = tempSelectId;
   }
-
-  // 【最关键修复】彻底删除 loadProjects / loadFolders
-  // 避免 projectId 变更导致弹窗关闭、选中清空
 
   showModal.value = true;
 }
@@ -160,7 +159,6 @@ function handleCancelEdit() {
   showEditModal.value = false;
   editingFolderId.value = null;
   editingFolderName.value = '';
-  editingProjectId.value = 1;
   editingParentId.value = null;
 }
 
@@ -198,7 +196,6 @@ function onRenameFolder(folderId?: number) {
     if (folder) {
       editingFolderId.value = folder.id;
       editingFolderName.value = folder.name;
-      editingProjectId.value = store.projectId;
       editingParentId.value = folder.parentId === 0 ? null : folder.parentId;
       showEditModal.value = true;
     }
@@ -216,7 +213,7 @@ function handleEditFolder() {
   }
   loading.value = true;
   const parentId = editingParentId.value === null ? 0 : editingParentId.value;
-  store.updateFolderById(editingFolderId.value, name, editingProjectId.value, parentId)
+  store.updateFolderById(editingFolderId.value, name, store.projectId, parentId)
     .then((success) => {
       loading.value = false;
       if (success) {
@@ -226,7 +223,6 @@ function handleEditFolder() {
       }
       editingFolderId.value = null;
       editingFolderName.value = '';
-      editingProjectId.value = 1;
       editingParentId.value = null;
       showEditModal.value = false;
     })
@@ -235,7 +231,6 @@ function handleEditFolder() {
       message.error('更新失败');
       editingFolderId.value = null;
       editingFolderName.value = '';
-      editingProjectId.value = 1;
       editingParentId.value = null;
       showEditModal.value = false;
     });
@@ -294,9 +289,20 @@ onMounted(() => {
     <div class="p-4 border-b border-border flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-foreground">分组</h2>
-        <Button type="text" size="small" @click="onCreateFolder()">
-          <IconifyIcon icon="mdi:plus" :size="16" />
-        </Button>
+        <div class="flex items-center gap-2">
+          <Button
+            type="text"
+            size="small"
+            :class="{ 'text-blue-600 font-medium': !store.selectedFolderId }"
+            @click="clearSelection"
+            title="全部流程"
+          >
+            <IconifyIcon icon="mdi:layers" :size="16" />
+          </Button>
+          <Button type="text" size="small" @click="onCreateFolder()" title="新建文件夹">
+            <IconifyIcon icon="mdi:plus" :size="16" />
+          </Button>
+        </div>
       </div>
       <Tree
         :expanded-keys="expandedKeys"
@@ -318,21 +324,13 @@ onMounted(() => {
       @ok="handleCreateFolder"
       @cancel="handleCancelCreate"
     >
-      <Form :model="{ folderName, selectedProjectId, selectedParentId }" layout="vertical">
+      <Form :model="{ folderName, selectedParentId }" layout="vertical">
         <Form.Item label="项目">
-          <Select
-            v-model:value="selectedProjectId"
-            placeholder="请选择项目"
-            style="width: 100%"
-          >
-            <Select.Option
-              v-for="project in store.projects"
-              :key="project.id"
-              :value="project.id"
-            >
-              {{ project.projectName }}
-            </Select.Option>
-          </Select>
+          <Input
+            :value="(store.projects.find(p => p.id === store.projectId)?.projectName) || '-'"
+            disabled
+            class="bg-gray-50"
+          />
         </Form.Item>
         <Form.Item label="父分组">
           <Select
@@ -369,21 +367,13 @@ onMounted(() => {
       @ok="handleEditFolder"
       @cancel="handleCancelEdit"
     >
-      <Form :model="{ editingFolderName, editingProjectId, editingParentId }" layout="vertical">
+      <Form :model="{ editingFolderName, editingParentId }" layout="vertical">
         <Form.Item label="项目">
-          <Select
-            v-model:value="editingProjectId"
-            placeholder="请选择项目"
-            style="width: 100%"
-          >
-            <Select.Option
-              v-for="project in store.projects"
-              :key="project.id"
-              :value="project.id"
-            >
-              {{ project.projectName }}
-            </Select.Option>
-          </Select>
+          <Input
+            :value="(store.projects.find(p => p.id === store.projectId)?.projectName) || '-'"
+            disabled
+            class="bg-gray-50"
+          />
         </Form.Item>
         <Form.Item label="父分组">
           <Select

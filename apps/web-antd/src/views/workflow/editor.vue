@@ -146,9 +146,12 @@ const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
 
-const projects = ref<ProjectVO[]>([]);
-const selectedProjectId = ref<number | null>(null);
 const isProjectsLoading = ref(false);
+
+const currentProjectName = computed(() => {
+  const project = store.projects.find(p => p.id === store.projectId);
+  return project?.projectName || '';
+});
 
 function updateNodeValue(fieldKey: string, caseKey: string, index: number, value: string) {
   const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
@@ -266,22 +269,12 @@ function handleBack() {
 async function loadProjects() {
   isProjectsLoading.value = true;
   try {
-    const response = await getProjectList();
-    if (response.code === 200 && response.data) {
-      projects.value = response.data;
-      if (projects.value.length > 0) {
-        selectedProjectId.value = projects.value[0].id;
-      }
-    }
+    await store.loadProjects();
   } catch (error) {
     message.error('加载项目列表失败');
   } finally {
     isProjectsLoading.value = false;
   }
-}
-
-function handleProjectChange(value: number) {
-  selectedProjectId.value = value;
 }
 
 onMounted(() => {
@@ -314,7 +307,7 @@ onUnmounted(() => {
 <template>
   <div class="workflow-editor flex flex-col bg-gray-100 overflow-hidden">
     <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 flex-nowrap">
         <Button type="text" @click="handleBack">
           <IconifyIcon icon="mdi:arrow-left" :size="16" />
           返回列表
@@ -322,26 +315,14 @@ onUnmounted(() => {
         <div class="h-6 w-px bg-gray-200"></div>
         <Input
           v-model:value="workflowName"
-          class="w-48"
+          class="w-48 flex-shrink-0"
           size="small"
           placeholder="流程名称"
         />
-        <Select
-          v-model:value="selectedProjectId"
-          :loading="isProjectsLoading"
-          class="w-48"
-          size="small"
-          placeholder="选择项目"
-          @change="handleProjectChange"
-        >
-          <Select.Option
-            v-for="project in projects"
-            :key="project.id"
-            :value="project.id"
-          >
-            {{ project.projectName }}
-          </Select.Option>
-        </Select>
+        <div class="flex items-center gap-2 whitespace-nowrap">
+          <span class="text-sm text-gray-500">项目：</span>
+          <span class="text-sm font-medium text-gray-800">{{ currentProjectName || '加载中...' }}</span>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <Button type="text" @click="handleClear">

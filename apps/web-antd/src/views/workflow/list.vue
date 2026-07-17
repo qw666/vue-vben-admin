@@ -12,15 +12,20 @@ import WorkflowList from './components/WorkflowList.vue';
 const store = useWorkflowStore();
 
 onMounted(async () => {
-  store.initMockData();
   await store.loadProjects().catch(() => {});
   await store.loadFolders().catch(() => {});
+  await store.loadWorkflows().catch(() => {});
 });
 
 watch(() => store.projectId, async (newId) => {
   if (newId) {
     await store.loadFolders().catch(() => {});
+    await store.loadWorkflows().catch(() => {});
   }
+});
+
+watch(() => store.selectedFolderId, async (newId) => {
+  await store.loadWorkflows(newId || undefined).catch(() => {});
 });
 </script>
 
@@ -28,7 +33,7 @@ watch(() => store.projectId, async (newId) => {
   <Page content-class="flex h-full">
     <template #title>
       <div class="flex items-center gap-4">
-        <span>工作流列表</span>
+        <span>流程编排</span>
         <Select
           v-model:value="store.projectId"
           class="w-40"

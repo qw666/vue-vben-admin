@@ -34,6 +34,40 @@ export interface ProjectVO {
   createTime: string;
 }
 
+export interface FlowVO {
+  id: number;
+  projectId: number;
+  folderId: number;
+  description: string;
+  namespace: string;
+  flowId: string;
+  createBy: string;
+  createTime: string;
+}
+
+export interface FlowPageRequest {
+  projectId: number;
+  folderId?: number;
+  description?: string;
+  pageNum?: number;
+  pageSize?: number;
+}
+
+export interface FlowPageResponse {
+  records: FlowVO[];
+  total: number;
+  current: number;
+  size: number;
+}
+
+export interface FlowSaveDTO {
+  projectId: number;
+  folderId: number;
+  description: string;
+  flowId: string;
+  flowModel: object;
+}
+
 export interface ApiResponse<T = any> {
   code: number;
   msg: string;
@@ -76,14 +110,79 @@ export async function deleteFolder(
 
 export async function getFolderTree(
   projectId: number,
-): Promise<ApiResponse<FolderResponse[]>> {
+): Promise<FolderResponse[]> {
   return requestClient.post(`${BASE_URL}/folder/tree?projectId=${projectId}`, {}, {
     headers: getHeaders(),
   });
 }
 
-export async function getProjectList(): Promise<ApiResponse<ProjectVO[]>> {
+export async function getProjectList(): Promise<ProjectVO[]> {
   return requestClient.post(`${BASE_URL}/project/list`, {}, {
+    headers: getHeaders(),
+  });
+}
+
+export async function getFlowPage(data: FlowPageRequest): Promise<FlowPageResponse> {
+  const params = new URLSearchParams();
+  params.append('projectId', data.projectId.toString());
+  if (data.folderId !== undefined) {
+    params.append('folderId', data.folderId.toString());
+  }
+  if (data.description) {
+    params.append('description', data.description);
+  }
+  if (data.pageNum) {
+    params.append('pageNum', data.pageNum.toString());
+  }
+  if (data.pageSize) {
+    params.append('pageSize', data.pageSize.toString());
+  }
+  return requestClient.post(`${BASE_URL}/flow/page?${params.toString()}`, {}, {
+    headers: getHeaders(),
+  });
+}
+
+export async function addFlow(data: {
+  projectId: number;
+  folderId: number;
+  description: string;
+  flowId: string;
+  flowModel: object;
+}): Promise<ApiResponse> {
+  return requestClient.post(`${BASE_URL}/flow/add`, data, {
+    headers: getHeaders(),
+  });
+}
+
+export async function updateFlow(
+  id: number,
+  data: {
+    projectId: number;
+    folderId: number;
+    description: string;
+    flowId: string;
+    flowModel: object;
+  },
+): Promise<ApiResponse> {
+  return requestClient.post(`${BASE_URL}/flow/update?id=${id}`, data, {
+    headers: getHeaders(),
+  });
+}
+
+export async function deleteFlow(id: number): Promise<ApiResponse> {
+  return requestClient.post(`${BASE_URL}/flow/delete?id=${id}`, {}, {
+    headers: getHeaders(),
+  });
+}
+
+export async function getFlowDetail(id: number): Promise<{
+  projectId: number;
+  folderId: number;
+  flowId: string;
+  description: string;
+  flowModel: object;
+}> {
+  return requestClient.post(`${BASE_URL}/flow/detail?id=${id}`, {}, {
     headers: getHeaders(),
   });
 }
