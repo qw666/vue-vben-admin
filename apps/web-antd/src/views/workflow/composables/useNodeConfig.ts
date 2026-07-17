@@ -759,7 +759,8 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         config[key] = nodeConfigForm[key];
       });
       selectedNode.value.data.config = config;
-      message.success('节点配置已更新');
+      message.success('节点配置已保存');
+      handleConfigClose();
       return;
     }
 
@@ -801,7 +802,8 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     }
 
     selectedNode.value.data.config = config;
-    message.success('节点配置已更新');
+    message.success('节点配置已保存');
+    handleConfigClose();
   }
 
   function openNodeSelectModal(fieldKey: string) {
