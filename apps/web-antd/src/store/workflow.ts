@@ -274,15 +274,24 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  async function loadWorkflows(folderId?: number, keyword?: string) {
+  async function loadWorkflows(
+    folderId?: number,
+    keyword?: string,
+    startTime?: string,
+    endTime?: string,
+    pageNum?: number,
+    pageSize?: number,
+  ) {
     isWorkflowsLoading.value = true;
     try {
       const data = await getFlowPage({
         projectId: projectId.value,
         folderId: folderId ?? undefined,
         description: keyword || searchKeyword.value || undefined,
-        pageNum: 1,
-        pageSize: 100,
+        startTime,
+        endTime,
+        pageNum: pageNum ?? 1,
+        pageSize: pageSize ?? 10,
       });
       if (data && data.records) {
         workflows.value = data.records.map((item: FlowVO) => ({

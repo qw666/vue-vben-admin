@@ -7,8 +7,10 @@ import { IconifyIcon } from '@vben/icons';
 import {
   Button,
   Card,
+  DatePicker,
   Input,
   message,
+  Pagination,
   Popconfirm,
   Space,
   Tag,
@@ -19,22 +21,13 @@ import { useWorkflowStore } from '#/store/workflow';
 const router = useRouter();
 const store = useWorkflowStore();
 const searchInput = ref('');
+const startTime = ref<string | undefined>();
+const endTime = ref<string | undefined>();
+const currentPage = ref(1);
+const pageSize = ref(10);
 let searchTimer: null | ReturnType<typeof setTimeout> = null;
-const filteredWorkflows = computed(() => {
-  let result = store.workflows;
-  if (store.selectedFolderId) {
-    result = result.filter((w) => w.folderId === store.selectedFolderId);
-  }
-  if (searchInput.value.trim()) {
-    const keyword = searchInput.value.toLowerCase();
-    result = result.filter(
-      (w) =>
-        w.name.toLowerCase().includes(keyword) ||
-        (w.description && w.description.toLowerCase().includes(keyword)),
-    );
-  }
-  return result;
-});
+
+const workflows = computed(() => store.workflows);
 function handleCreate() {
   if (store.selectedFolderId === null) {
     message.warning('请先选择左侧文件夹');
@@ -68,14 +61,64 @@ function triggerSearch() {
     clearTimeout(searchTimer);
   }
   searchTimer = setTimeout(() => {
+    currentPage.value = 1;
     store.setSearchKeyword(searchInput.value);
-    store.loadWorkflows(store.selectedFolderId || undefined, searchInput.value);
+    store.loadWorkflows(
+      store.selectedFolderId || undefined,
+      searchInput.value,
+      startTime.value,
+      endTime.value,
+      currentPage.value,
+      pageSize.value,
+    );
   }, 300);
 }
 function handleSearchClear() {
   searchInput.value = '';
+  startTime.value = undefined;
+  endTime.value = undefined;
+  currentPage.value = 1;
   store.setSearchKeyword('');
   store.loadWorkflows(store.selectedFolderId || undefined);
+}
+function formatDateTimeForBackend(dateStr: string | undefined): string | undefined {
+  if (!dateStr) return undefined;
+  if (dateStr.length === 10) {
+    return `${dateStr} 00:00:00`;
+  }
+  if (dateStr.length === 16) {
+    return `${dateStr}:00`;
+  }
+  return dateStr;
+}
+
+function handleDateChange(_dates: [string, string] | [any, any], dateString: [string, string]) {
+  startTime.value = formatDateTimeForBackend(dateString[0]);
+  endTime.value = dateString[1] ? `${dateString[1]} 23:59:59` : undefined;
+  triggerSearch();
+}
+function handlePageChange(page: number) {
+  currentPage.value = page;
+  store.loadWorkflows(
+    store.selectedFolderId || undefined,
+    searchInput.value,
+    startTime.value,
+    endTime.value,
+    currentPage.value,
+    pageSize.value,
+  );
+}
+function handlePageSizeChange(size: number) {
+  pageSize.value = size;
+  currentPage.value = 1;
+  store.loadWorkflows(
+    store.selectedFolderId || undefined,
+    searchInput.value,
+    startTime.value,
+    endTime.value,
+    currentPage.value,
+    pageSize.value,
+  );
 }
 function formatDate(dateStr: string) {
   try {
@@ -98,18 +141,26 @@ watch(searchInput, () => {
   <div class="flex flex-col h-full">
     <Card class="rounded-t-lg rounded-b-none border-b-0">
       <div class="flex items-center justify-between">
-        <div class="w-48">
-          <Input
-            v-model:value="searchInput"
-            placeholder="搜索流程名称"
+        <div class="flex items-center gap-4">
+          <div class="w-48">
+            <Input
+              v-model:value="searchInput"
+              placeholder="搜索流程名称"
+              size="small"
+              allow-clear
+              @clear="handleSearchClear"
+            >
+              <template #prefix>
+                <IconifyIcon icon="mdi:search" :size="14" />
+              </template>
+            </Input>
+          </div>
+          <DatePicker.RangePicker
+            :placeholder="['开始时间', '结束时间']"
             size="small"
-            allow-clear
-            @clear="handleSearchClear"
-          >
-            <template #prefix>
-              <IconifyIcon icon="mdi:search" :size="14" />
-            </template>
-          </Input>
+            style="width: 320px"
+            @change="handleDateChange"
+          />
         </div>
         <Button type="primary" @click="handleCreate">
           <IconifyIcon icon="mdi:plus" :size="16" />
@@ -134,12 +185,12 @@ watch(searchInput, () => {
       </div>
 
       <div
-        v-else-if="filteredWorkflows.length > 0"
+        v-else-if="workflows.length > 0"
         class="h-full overflow-y-auto p-2"
       >
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card
-            v-for="workflow in filteredWorkflows"
+            v-for="workflow in workflows"
             :key="workflow.id"
             hoverable
             class="cursor-pointer group"
@@ -212,7 +263,7 @@ watch(searchInput, () => {
         </div>
       </div>
 
-      <div v-else class="h-full flex items-center justify-center">
+      <div v-else-if="!store.isWorkflowsLoading && workflows.length === 0" class="h-full flex items-center justify-center">
         <div class="text-center">
           <div
             class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4"
@@ -230,6 +281,22 @@ watch(searchInput, () => {
             创建流程
           </Button>
         </div>
+      </div>
+
+      <div
+        v-if="store.totalWorkflows > pageSize"
+        class="flex justify-center py-4"
+      >
+        <Pagination
+          :current="currentPage"
+          :page-size="pageSize"
+          :total="store.totalWorkflows"
+          show-size-changer
+          :page-size-options="['10', '20', '50']"
+          :show-total="(total: number) => `共 ${total} 条`"
+          @change="handlePageChange"
+          @show-size-change="handlePageSizeChange"
+        />
       </div>
     </Card>
   </div>

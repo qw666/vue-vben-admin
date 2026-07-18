@@ -49,6 +49,8 @@ export interface FlowPageRequest {
   projectId: number;
   folderId?: number;
   description?: string;
+  startTime?: string;
+  endTime?: string;
   pageNum?: number;
   pageSize?: number;
 }
@@ -176,23 +178,9 @@ export async function getProjectList(): Promise<ProjectVO[]> {
 export async function getFlowPage(
   data: FlowPageRequest,
 ): Promise<FlowPageResponse> {
-  const params = new URLSearchParams();
-  params.append('projectId', data.projectId.toString());
-  if (data.folderId !== undefined) {
-    params.append('folderId', data.folderId.toString());
-  }
-  if (data.description) {
-    params.append('description', data.description);
-  }
-  if (data.pageNum) {
-    params.append('pageNum', data.pageNum.toString());
-  }
-  if (data.pageSize) {
-    params.append('pageSize', data.pageSize.toString());
-  }
   return requestClient.post(
-    `${BASE_URL}/flow/page?${params.toString()}`,
-    {},
+    `${BASE_URL}/flow/page`,
+    data,
     {
       headers: getHeaders(),
     },
