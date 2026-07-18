@@ -67,6 +67,7 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
     const task: FlowTask = {
       id: node.id,
       type: node.data.type,
+      description: node.data.label || '',
     };
 
     const config = node.data.config;

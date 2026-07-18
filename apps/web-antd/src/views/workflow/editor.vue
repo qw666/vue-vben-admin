@@ -282,10 +282,16 @@ async function handleSave() {
 
     const flowModel = convertWorkflowToFlowModel(store.currentWorkflow);
 
+    const nodeLabels = store.currentWorkflow.nodes
+      .map((n) => n.data.label)
+      .filter((l) => l);
+    const description =
+      nodeLabels.length > 0 ? nodeLabels.join(', ') : workflowName.value;
+
     const saved = await store.saveWorkflowToBackend({
       projectId: store.projectId,
       folderId: store.currentWorkflow.folderId,
-      description: workflowName.value,
+      description,
       flowId: store.currentWorkflow.flowId,
       flowModel,
     });
