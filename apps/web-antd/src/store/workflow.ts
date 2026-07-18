@@ -354,17 +354,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
       if (!current) {
         return false;
       }
-      // backendId 为空说明后端尚未保存，走 add；已存在则走 update
       if (current.backendId === undefined) {
-        await addFlow(data);
-        // addFlow 只返回成功状态，需要重新加载列表并通过 flowId 匹配出后端数字 ID
-        await loadWorkflows(selectedFolderId.value || undefined);
-        const matched = workflows.value.find(
-          (w) => w.flowId === current.flowId,
-        );
-        if (matched) {
-          current.backendId = matched.backendId;
-          current.id = matched.id;
+        const response = await addFlow(data);
+        if (response && response.data && typeof response.data.id === 'number') {
+          current.backendId = response.data.id;
+          current.id = `workflow-${response.data.id}`;
         }
       } else {
         await updateFlow(current.backendId, data);
@@ -380,10 +374,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
     try {
       const numericId = Number.parseInt(id.replace('workflow-', ''));
       if (!Number.isNaN(numericId)) {
-        const data = await getFlowDetail(numericId);
-        if (data) {
-          return data;
+        const result = await getFlowDetail(numericId);
+        if (result && typeof result === 'object') {
+          if ('data' in result && result.data) {
+            return result.data;
+          }
         }
+        return result;
       }
       return null;
     } catch (error) {

@@ -1,7 +1,158 @@
 import type { FlowModel, FlowTask } from '#/api/core/workflow';
-import type { Workflow, WorkflowEdge, WorkflowNode } from '#/types/workflow';
+import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '#/types/workflow';
 
 import { getFlowControlConfig } from '../config/workflow-node-config';
+
+function collectAllTasks(tasks: FlowTask[], result: FlowTask[] = []): FlowTask[] {
+  for (const task of tasks) {
+    result.push(task);
+    const flowControlConfig = getFlowControlConfig(task.type);
+    if (flowControlConfig && flowControlConfig.taskFields) {
+      for (const field of flowControlConfig.taskFields) {
+        const fieldValue = task[field];
+        if (Array.isArray(fieldValue)) {
+          for (const item of fieldValue) {
+            if (item.id && item.type) {
+              collectAllTasks([item], result);
+            }
+          }
+        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+          for (const caseKey of Object.keys(fieldValue)) {
+            const caseItems = fieldValue[caseKey];
+            if (Array.isArray(caseItems)) {
+              for (const item of caseItems) {
+                if (item.id && item.type) {
+                  collectAllTasks([item], result);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+function buildEdges(tasks: FlowTask[], parentId?: string): WorkflowEdge[] {
+  const edges: WorkflowEdge[] = [];
+  for (const task of tasks) {
+    if (parentId) {
+      edges.push({
+        id: `edge-${parentId}-${task.id}`,
+        source: parentId,
+        target: task.id,
+      });
+    }
+    const flowControlConfig = getFlowControlConfig(task.type);
+    if (flowControlConfig && flowControlConfig.taskFields) {
+      for (const field of flowControlConfig.taskFields) {
+        const fieldValue = task[field];
+        if (Array.isArray(fieldValue)) {
+          const childTasks = fieldValue.filter((item: any) => item.id && item.type);
+          const childEdges = buildEdges(childTasks, task.id);
+          edges.push(...childEdges);
+        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+          for (const caseKey of Object.keys(fieldValue)) {
+            const caseItems = fieldValue[caseKey];
+            if (Array.isArray(caseItems)) {
+              const childTasks = caseItems.filter((item: any) => item.id && item.type);
+              const childEdges = buildEdges(childTasks, task.id);
+              edges.push(...childEdges);
+            }
+          }
+        }
+      }
+    }
+  }
+  return edges;
+}
+
+export function convertFlowModelToWorkflow(
+  flowModel: FlowModel,
+  workflowId: string,
+  name: string,
+  folderId?: number,
+  flowId?: string,
+): Workflow {
+  const allTasks = collectAllTasks(flowModel.tasks || []);
+  const edges = buildEdges(flowModel.tasks || []);
+
+  let x = 200;
+  let y = 100;
+  const spacing = 120;
+
+  const nodes: WorkflowNode[] = allTasks.map((task) => {
+    const node: WorkflowNode = {
+      id: task.id,
+      type: task.type,
+      position: { x, y },
+      data: {
+        label: task.description || task.id,
+        type: task.type as WorkflowNodeType,
+        config: {},
+      },
+    };
+
+    const flowControlConfig = getFlowControlConfig(task.type);
+    const config: Record<string, any> = {};
+    for (const key of Object.keys(task)) {
+      if (key === 'id' || key === 'type' || key === 'description') {
+        continue;
+      }
+      if (flowControlConfig && flowControlConfig.taskFields?.includes(key)) {
+        const fieldValue = task[key];
+        if (Array.isArray(fieldValue)) {
+          config[key] = fieldValue.map((item: any) => {
+            if (item.id && item.type) {
+              return { nodeId: item.id };
+            }
+            return item;
+          });
+        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+          const nestedConfig: Record<string, any[]> = {};
+          for (const caseKey of Object.keys(fieldValue)) {
+            const caseItems = fieldValue[caseKey];
+            if (Array.isArray(caseItems)) {
+              nestedConfig[caseKey] = caseItems.map((item: any) => {
+                if (item.id && item.type) {
+                  return { nodeId: item.id };
+                }
+                return item;
+              });
+            }
+          }
+          config[key] = nestedConfig;
+        } else {
+          config[key] = fieldValue;
+        }
+      } else {
+        config[key] = task[key];
+      }
+    }
+    node.data.config = config;
+
+    x += spacing;
+    if (x > 800) {
+      x = 200;
+      y += spacing;
+    }
+
+    return node;
+  });
+
+  return {
+    id: workflowId,
+    name,
+    description: name,
+    folderId,
+    nodes,
+    edges,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    flowId: flowId || `flow-${Date.now()}`,
+  };
+}
 
 function isEmptyValue(value: any): boolean {
   if (value === '' || value === null || value === undefined) {

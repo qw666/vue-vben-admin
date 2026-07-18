@@ -18,7 +18,10 @@ import { useCanvasInteraction } from './composables/useCanvasInteraction';
 import { useNodeConfig } from './composables/useNodeConfig';
 import { usePluginMeta } from './composables/usePluginMeta';
 import { getFlowControlConfig } from './config/workflow-node-config';
-import { convertWorkflowToFlowModel } from './utils/flowModelConverter';
+import {
+  convertWorkflowToFlowModel,
+  convertFlowModelToWorkflow,
+} from './utils/flowModelConverter';
 
 const router = useRouter();
 const route = useRoute();
@@ -340,6 +343,27 @@ onMounted(async () => {
 
   const workflowId = route.params.id as string;
   if (workflowId) {
+    const parsedBackendId = Number.parseInt(
+      workflowId.replace('workflow-', ''),
+    );
+    if (!Number.isNaN(parsedBackendId)) {
+      const detail = await store.loadWorkflowDetail(workflowId);
+      if (detail) {
+        const restoredWorkflow = convertFlowModelToWorkflow(
+          detail.flowModel || { tasks: [] },
+          workflowId,
+          detail.description || '未命名流程',
+          detail.folderId,
+          detail.flowId,
+        );
+        restoredWorkflow.backendId = parsedBackendId;
+        store.setCurrentWorkflow(restoredWorkflow);
+        workflowName.value = restoredWorkflow.name;
+        connections.value = (restoredWorkflow.edges ||
+          []) as unknown as typeof connections.value;
+        return;
+      }
+    }
     const workflow = store.findWorkflowById(workflowId);
     if (workflow) {
       store.setCurrentWorkflow(workflow);
@@ -347,27 +371,8 @@ onMounted(async () => {
       connections.value = (workflow.edges ||
         []) as unknown as typeof connections.value;
     } else {
-      const detail = await store.loadWorkflowDetail(workflowId);
-      if (detail) {
-        const newWorkflow = store.createWorkflow(
-          detail.description || '未命名流程',
-          detail.folderId,
-          detail.description,
-        );
-        newWorkflow.id = workflowId;
-        // 从 URL 的 workflow-${id} 中解析出后端数字 ID，标记为已保存状态
-        const parsedBackendId = Number.parseInt(
-          workflowId.replace('workflow-', ''),
-        );
-        if (!Number.isNaN(parsedBackendId)) {
-          newWorkflow.backendId = parsedBackendId;
-        }
-        store.setCurrentWorkflow(newWorkflow);
-        workflowName.value = newWorkflow.name;
-      } else {
-        const newWorkflow = store.createWorkflow('未命名流程');
-        store.setCurrentWorkflow(newWorkflow);
-      }
+      const newWorkflow = store.createWorkflow('未命名流程');
+      store.setCurrentWorkflow(newWorkflow);
     }
   } else {
     const newWorkflow = store.createWorkflow('未命名流程');
