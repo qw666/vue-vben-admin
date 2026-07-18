@@ -355,6 +355,7 @@ onMounted(async () => {
           detail.description || '未命名流程',
           detail.folderId,
           detail.flowId,
+          pluginGroupsCache.value,
         );
         restoredWorkflow.backendId = parsedBackendId;
         store.setCurrentWorkflow(restoredWorkflow);
