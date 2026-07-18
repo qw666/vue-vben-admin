@@ -70,12 +70,17 @@ export interface FlowModel {
   tasks: FlowTask[];
 }
 
+export interface FlowLayout {
+  nodes: Record<string, { x: number; y: number }>;
+}
+
 export interface FlowSaveDTO {
   projectId: number;
   folderId?: number;
   description: string;
   flowId: string;
   flowModel: FlowModel;
+  flowLayout?: string;
 }
 
 export interface ApiResponse<T = any> {

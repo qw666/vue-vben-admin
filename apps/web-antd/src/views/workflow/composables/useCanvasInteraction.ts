@@ -794,7 +794,7 @@ export function useCanvasInteraction(
       });
 
       if (field === 'next') {
-        const nextY = groupBounds ? groupBounds.y + groupBounds.height - PORT_RADIUS : node.position.y + NODE_HEIGHT + PORT_RADIUS;
+        const nextY = groupBounds ? groupBounds.y + groupBounds.height + 6 : node.position.y + NODE_HEIGHT + 6;
         const nextX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
         return {
           x: nextX,

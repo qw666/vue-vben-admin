@@ -19,8 +19,8 @@ import { useNodeConfig } from './composables/useNodeConfig';
 import { usePluginMeta } from './composables/usePluginMeta';
 import { getFlowControlConfig } from './config/workflow-node-config';
 import {
-  convertWorkflowToFlowModel,
   convertFlowModelToWorkflow,
+  buildFlowSavePayload,
 } from './utils/flowModelConverter';
 
 const router = useRouter();
@@ -168,6 +168,7 @@ const workflowName = ref('未命名流程');
 const isLoading = ref(false);
 const isPageReady = ref(false);
 const isProjectsLoading = ref(false);
+const workflowLoaded = ref(false);
 
 const currentProjectName = computed(() => {
   const project = store.projects.find(
@@ -283,15 +284,9 @@ async function handleSave() {
     store.currentWorkflow.name = workflowName.value;
     store.currentWorkflow.updatedAt = new Date().toISOString();
 
-    const flowModel = convertWorkflowToFlowModel(store.currentWorkflow);
+    const payload = buildFlowSavePayload(store.currentWorkflow, store.projectId, workflowName.value);
 
-    const saved = await store.saveWorkflowToBackend({
-      projectId: store.projectId,
-      folderId: store.currentWorkflow.folderId,
-      description: workflowName.value,
-      flowId: store.currentWorkflow.flowId,
-      flowModel,
-    });
+    const saved = await store.saveWorkflowToBackend(payload);
 
     if (saved) {
       message.success('流程已保存');
@@ -356,12 +351,17 @@ onMounted(async () => {
           detail.folderId,
           detail.flowId,
           pluginGroupsCache.value,
+          detail.flowLayout,
         );
         restoredWorkflow.backendId = parsedBackendId;
         store.setCurrentWorkflow(restoredWorkflow);
         workflowName.value = restoredWorkflow.name;
         connections.value = (restoredWorkflow.edges ||
           []) as unknown as typeof connections.value;
+        workflowLoaded.value = true;
+        setTimeout(() => {
+          updatePanOffset({ x: 0, y: 0 });
+        }, 100);
         return;
       }
     }

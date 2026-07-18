@@ -100,6 +100,96 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
   }
 }
 
+interface NodePosition {
+  x: number;
+  y: number;
+}
+
+function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>): { width: number; height: number } {
+  const NODE_WIDTH = 176;
+  const NODE_HEIGHT = 68;
+  const VERTICAL_SPACING = 80;
+  const BRANCH_SPACING = 200;
+
+  let currentX = 0;
+  let currentY = 0;
+  let maxWidth = NODE_WIDTH;
+  let maxHeight = NODE_HEIGHT;
+
+  const processed = new Set<string>();
+
+  function processTask(task: FlowTask, x: number, y: number): { width: number; height: number } {
+    if (!task || processed.has(task.id)) return { width: 0, height: 0 };
+
+    processed.add(task.id);
+    nodesMap.set(task.id, { x, y });
+
+    let nodeWidth = NODE_WIDTH;
+    let nodeHeight = NODE_HEIGHT;
+
+    const flowControlConfig = getFlowControlConfig(task.type);
+    if (flowControlConfig && flowControlConfig.taskFields) {
+      const childY = y + NODE_HEIGHT + VERTICAL_SPACING;
+      const branchItems: FlowTask[][] = [];
+
+      for (const field of flowControlConfig.taskFields) {
+        const fieldValue = task[field];
+        if (Array.isArray(fieldValue)) {
+          const childTasks = fieldValue.filter((item: any) => item.id && item.type);
+          if (childTasks.length > 0) {
+            branchItems.push(childTasks);
+          }
+        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+          for (const caseKey of Object.keys(fieldValue)) {
+            const caseItems = fieldValue[caseKey];
+            if (Array.isArray(caseItems)) {
+              const childTasks = caseItems.filter((item: any) => item.id && item.type);
+              if (childTasks.length > 0) {
+                branchItems.push(childTasks);
+              }
+            }
+          }
+        }
+      }
+
+      const numBranches = branchItems.length;
+      if (numBranches > 0) {
+        const totalBranchWidth = numBranches * NODE_WIDTH + (numBranches - 1) * BRANCH_SPACING;
+        const startBranchX = x + NODE_WIDTH / 2 - totalBranchWidth / 2;
+
+        let branchMaxHeight = 0;
+        for (let i = 0; i < numBranches; i++) {
+          const childTasks = branchItems[i];
+          if (!childTasks) continue;
+
+          const branchX = startBranchX + i * (NODE_WIDTH + BRANCH_SPACING);
+          for (const childTask of childTasks) {
+            const result = processTask(childTask, branchX, childY);
+            branchMaxHeight = Math.max(branchMaxHeight, result.height);
+          }
+        }
+
+        nodeWidth = Math.max(nodeWidth, startBranchX + totalBranchWidth - x);
+        nodeHeight = NODE_HEIGHT + VERTICAL_SPACING + branchMaxHeight;
+      }
+    }
+
+    return { width: nodeWidth, height: nodeHeight };
+  }
+
+  for (const task of tasks) {
+    if (!task || processed.has(task.id)) continue;
+
+    const result = processTask(task, currentX, currentY);
+    maxWidth = Math.max(maxWidth, currentX + result.width);
+    maxHeight = Math.max(maxHeight, currentY + result.height);
+
+    currentY += result.height + VERTICAL_SPACING;
+  }
+
+  return { width: maxWidth, height: maxHeight };
+}
+
 export function convertFlowModelToWorkflow(
   flowModel: FlowModel,
   workflowId: string,
@@ -107,6 +197,7 @@ export function convertFlowModelToWorkflow(
   folderId?: number,
   flowId?: string,
   pluginGroupsCache: Record<string, any[]> = {},
+  flowLayout?: string,
 ): Workflow {
   const tasks = flowModel.tasks || [];
 
@@ -133,13 +224,40 @@ export function convertFlowModelToWorkflow(
     }
   }
 
-  const NODE_WIDTH = 176;
-  const NODE_HEIGHT = 68;
-  const HORIZONTAL_SPACING = 24;
-  const VERTICAL_SPACING = 80;
+  const nodesMap = new Map<string, NodePosition>();
 
-  let x = 0;
-  let y = 0;
+  let layoutWidth = 0;
+  let layoutHeight = 0;
+
+  if (flowLayout) {
+    try {
+      const parsedLayout = JSON.parse(flowLayout);
+      if (parsedLayout && parsedLayout.nodes) {
+        const layoutNodes = parsedLayout.nodes as Record<string, { x: number; y: number }>;
+        let maxX = 0;
+        let maxY = 0;
+        for (const task of allTasks) {
+          const pos = layoutNodes[task.id];
+          if (pos) {
+            nodesMap.set(task.id, pos);
+            maxX = Math.max(maxX, pos.x + 176);
+            maxY = Math.max(maxY, pos.y + 68);
+          }
+        }
+        if (nodesMap.size > 0) {
+          layoutWidth = maxX;
+          layoutHeight = maxY;
+        }
+      }
+    } catch {
+    }
+  }
+
+  if (nodesMap.size === 0) {
+    const { width, height } = calculateLayout(tasks, nodesMap);
+    layoutWidth = width;
+    layoutHeight = height;
+  }
 
   const nodes: WorkflowNode[] = allTasks.map((task) => {
     const flowControlConfig = getFlowControlConfig(task.type);
@@ -163,10 +281,12 @@ export function convertFlowModelToWorkflow(
       }
     }
 
-    const node: WorkflowNode = {
+    const position = nodesMap.get(task.id) || { x: 0, y: 0 };
+
+    return {
       id: task.id,
       type: task.type,
-      position: { x, y },
+      position,
       data: {
         label: task.description || task.id,
         type: task.type as WorkflowNodeType,
@@ -175,22 +295,12 @@ export function convertFlowModelToWorkflow(
         config,
       },
     };
-
-    x += NODE_WIDTH + HORIZONTAL_SPACING;
-    if (x > 2000) {
-      x = 0;
-      y += NODE_HEIGHT + VERTICAL_SPACING;
-    }
-
-    return node;
   });
 
   const CANVAS_WIDTH = 4000;
   const CANVAS_HEIGHT = 4000;
-  const maxX = Math.min(x, 2000);
-  const maxY = y + NODE_HEIGHT;
-  const offsetX = (CANVAS_WIDTH - maxX) / 2;
-  const offsetY = (CANVAS_HEIGHT - maxY) / 2;
+  const offsetX = (CANVAS_WIDTH - layoutWidth) / 2;
+  const offsetY = (CANVAS_HEIGHT - layoutHeight) / 2;
 
   const positionedNodes = nodes.map((node) => ({
     ...node,
@@ -211,6 +321,14 @@ export function convertFlowModelToWorkflow(
     updatedAt: new Date().toISOString(),
     flowId: flowId || `flow-${Date.now()}`,
   };
+}
+
+export function generateFlowLayout(nodes: WorkflowNode[]): string {
+  const layoutNodes: Record<string, { x: number; y: number }> = {};
+  for (const node of nodes) {
+    layoutNodes[node.id] = { x: node.position.x, y: node.position.y };
+  }
+  return JSON.stringify({ nodes: layoutNodes });
 }
 
 function isEmptyValue(value: any): boolean {
@@ -394,6 +512,7 @@ export function buildFlowSavePayload(
   workflowName: string,
 ) {
   const flowModel = convertWorkflowToFlowModel(workflow);
+  const flowLayout = generateFlowLayout(workflow.nodes);
 
   return {
     projectId,
@@ -401,5 +520,6 @@ export function buildFlowSavePayload(
     description: workflowName,
     flowId: workflow.flowId,
     flowModel,
+    flowLayout,
   };
 }
