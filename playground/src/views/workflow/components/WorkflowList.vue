@@ -1,9 +1,18 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { Card, Button, message, Popconfirm, Tooltip, Space, Tag } from 'antdv-next';
 import { IconifyIcon } from '@vben/icons';
+
+import {
+  Button,
+  Card,
+  message,
+  Popconfirm,
+  Space,
+  Tag,
+  Tooltip,
+} from 'antdv-next';
 
 import { useWorkflowStore } from '#/store/workflow';
 
@@ -18,7 +27,9 @@ const workflows = computed(() => {
 });
 
 function handleCreate() {
-  const newWorkflow = store.createWorkflow('未命名流程', store.selectedFolderId);
+  const folderId =
+    store.selectedFolderId === null ? undefined : store.selectedFolderId;
+  const newWorkflow = store.createWorkflow('未命名流程', folderId);
   router.push(`/workflow/editor/${newWorkflow.id}`);
 }
 
@@ -26,7 +37,7 @@ function handleEdit(workflowId: string) {
   router.push(`/workflow/editor/${workflowId}`);
 }
 
-async function handleRun(workflowId: string) {
+async function handleRun(_workflowId: string) {
   message.info('正在运行流程...');
   setTimeout(() => {
     message.success('流程运行成功');
@@ -70,7 +81,9 @@ onMounted(() => {
         >
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
+              <div
+                class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white"
+              >
                 <IconifyIcon icon="mdi:flow-tree" :size="20" />
               </div>
               <div>
@@ -87,20 +100,40 @@ onMounted(() => {
             <span class="text-xs text-gray-400">
               更新于 {{ formatDate(workflow.updatedAt) }}
             </span>
-            <Space size="small" class="opacity-0 group-hover:opacity-100 transition-opacity">
+            <Space
+              size="small"
+              class="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
               <Tooltip title="编辑">
-                <Button type="text" size="small" @click.stop="handleEdit(workflow.id)">
+                <Button
+                  type="text"
+                  size="small"
+                  @click.stop="handleEdit(workflow.id)"
+                >
                   <IconifyIcon icon="mdi:pencil" :size="16" />
                 </Button>
               </Tooltip>
               <Tooltip title="运行">
-                <Button type="text" size="small" @click.stop="handleRun(workflow.id)">
+                <Button
+                  type="text"
+                  size="small"
+                  @click.stop="handleRun(workflow.id)"
+                >
                   <IconifyIcon icon="mdi:play" :size="16" />
                 </Button>
               </Tooltip>
-              <Popconfirm title="确定删除这个工作流吗？" ok-text="确定" cancel-text="取消">
+              <Popconfirm
+                title="确定删除这个工作流吗？"
+                ok-text="确定"
+                cancel-text="取消"
+              >
                 <Tooltip title="删除">
-                  <Button type="text" size="small" danger @click.stop="handleDelete(workflow.id)">
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    @click.stop="handleDelete(workflow.id)"
+                  >
                     <IconifyIcon icon="mdi:trash-can" :size="16" />
                   </Button>
                 </Tooltip>
@@ -113,7 +146,9 @@ onMounted(() => {
 
     <div v-else class="flex-1 flex items-center justify-center">
       <div class="text-center">
-        <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <div
+          class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4"
+        >
           <IconifyIcon icon="mdi:flow-tree" :size="40" class="text-gray-400" />
         </div>
         <h3 class="text-lg font-medium text-gray-600 mb-2">暂无工作流</h3>

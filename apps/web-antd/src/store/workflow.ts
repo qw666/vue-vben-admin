@@ -208,11 +208,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
   async function loadFolders() {
     try {
       const data = await getFolderTree(projectId.value);
-      if (data && data.length > 0) {
-        folders.value = data.map((item: any) => transformFolder(item));
-      } else {
-        folders.value = [...MOCK_FOLDERS];
-      }
+      folders.value =
+        data && data.length > 0
+          ? data.map((item: any) => transformFolder(item))
+          : [...MOCK_FOLDERS];
     } catch (error) {
       console.error('Failed to load folders:', error);
       folders.value = [...MOCK_FOLDERS];
@@ -380,7 +379,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   async function loadWorkflowDetail(id: string): Promise<any | null> {
     try {
       const numericId = Number.parseInt(id.replace('workflow-', ''));
-      if (!isNaN(numericId)) {
+      if (!Number.isNaN(numericId)) {
         const data = await getFlowDetail(numericId);
         if (data) {
           return data;

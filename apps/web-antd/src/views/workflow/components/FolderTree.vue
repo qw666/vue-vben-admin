@@ -1,29 +1,43 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, h, watch } from 'vue';
+import type { Key } from 'ant-design-vue/es/_util/type';
 
-import { Tree, Button, message, Popconfirm, Tooltip, Input, Modal, Form, Select } from 'ant-design-vue';
+import type { WorkflowFolder } from '#/types/workflow';
+
+import { computed, h, onMounted, ref, watch } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
 
+import {
+  Button,
+  Form,
+  Input,
+  message,
+  Modal,
+  Popconfirm,
+  Select,
+  Tooltip,
+  Tree,
+} from 'ant-design-vue';
+
 import { useWorkflowStore } from '#/store/workflow';
-import type { WorkflowFolder } from '#/types/workflow';
 
 const store = useWorkflowStore();
 
 const expandedKeys = ref<number[]>([]);
 const selectedKeys = ref<string[]>([]);
-const editingKey = ref<number | null>(null);
+const editingKey = ref<null | number>(null);
 const editingName = ref('');
 const loading = ref(false);
-const hoveredKey = ref<string | null>(null);
+const hoveredKey = ref<null | string>(null);
 
 const showModal = ref(false);
 const folderName = ref('');
-const selectedParentId = ref<number | null>(null);
+const selectedParentId = ref<number | undefined>(undefined);
 
 const showEditModal = ref(false);
-const editingFolderId = ref<number | null>(null);
+const editingFolderId = ref<null | number>(null);
 const editingFolderName = ref('');
-const editingParentId = ref<number | null>(null);
+const editingParentId = ref<number | undefined>(undefined);
 
 interface FolderTreeNode {
   key: string;
@@ -41,8 +55,15 @@ function foldersToTree(folders: WorkflowFolder[]): FolderTreeNode[] {
   return folders.map((folder) => ({
     key: String(folder.id),
     title: renderTitle(folder),
-    icon: () => h(IconifyIcon, { icon: 'mdi:folder', size: 16, class: 'text-yellow-500' }),
-    children: folder.children?.length ? foldersToTree(folder.children) : undefined,
+    icon: () =>
+      h(IconifyIcon, {
+        icon: 'mdi:folder',
+        size: 16,
+        class: 'text-yellow-500',
+      }),
+    children: folder.children?.length
+      ? foldersToTree(folder.children)
+      : undefined,
     data: folder,
   }));
 }
@@ -55,7 +76,7 @@ function renderTitle(folder: WorkflowFolder) {
       onBlur: handleEditBlur(folder),
       onKeydown: (e: any) => {
         if (e.key === 'Enter') {
-          handleEditBlur(folder)();
+          handleEditBlur(folder)(e);
         } else if (e.key === 'Escape') {
           editingKey.value = null;
         }
@@ -63,62 +84,96 @@ function renderTitle(folder: WorkflowFolder) {
     });
   }
 
-  return h('div', {
-    class: 'flex items-center justify-between w-full',
-    onMouseenter: () => { hoveredKey.value = String(folder.id); },
-    onMouseleave: () => { hoveredKey.value = null; },
-  }, [
-    h('span', { class: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap' }, folder.name),
-    h('div', {
-      class: `flex items-center gap-1 transition-opacity duration-200 ${hoveredKey.value === String(folder.id) ? 'opacity-100' : 'opacity-0'}`,
-    }, [
-      h(Tooltip, { title: '新建子文件夹' }, () =>
-        h(Button, {
-          type: 'text',
-          size: 'small',
-          onClick: (e: any) => {
-            e.stopPropagation();
-            onCreateFolder(folder.id);
-          }
-        }, () => h(IconifyIcon, { icon: 'mdi:plus', size: 14 }))
+  return h(
+    'div',
+    {
+      class: 'flex items-center justify-between w-full',
+      onMouseenter: () => {
+        hoveredKey.value = String(folder.id);
+      },
+      onMouseleave: () => {
+        hoveredKey.value = null;
+      },
+    },
+    [
+      h(
+        'span',
+        { class: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap' },
+        folder.name,
       ),
-      h(Tooltip, { title: '重命名' }, () =>
-        h(Button, {
-          type: 'text',
-          size: 'small',
-          onClick: (e: any) => {
-            e.stopPropagation();
-            onRenameFolder(folder.id);
-          }
-        }, () => h(IconifyIcon, { icon: 'mdi:pencil', size: 14 }))
+      h(
+        'div',
+        {
+          class: `flex items-center gap-1 transition-opacity duration-200 ${hoveredKey.value === String(folder.id) ? 'opacity-100' : 'opacity-0'}`,
+        },
+        [
+          h(Tooltip, { title: '新建子文件夹' }, () =>
+            h(
+              Button,
+              {
+                type: 'text',
+                size: 'small',
+                onClick: (e: any) => {
+                  e.stopPropagation();
+                  onCreateFolder(folder.id);
+                },
+              },
+              () => h(IconifyIcon, { icon: 'mdi:plus', size: 14 }),
+            ),
+          ),
+          h(Tooltip, { title: '重命名' }, () =>
+            h(
+              Button,
+              {
+                type: 'text',
+                size: 'small',
+                onClick: (e: any) => {
+                  e.stopPropagation();
+                  onRenameFolder(folder.id);
+                },
+              },
+              () => h(IconifyIcon, { icon: 'mdi:pencil', size: 14 }),
+            ),
+          ),
+          h(Tooltip, { title: '删除' }, () =>
+            h(
+              Popconfirm,
+              {
+                title: '确定删除这个文件夹吗？',
+                okText: '确定',
+                cancelText: '取消',
+                onConfirm: (e: any) => {
+                  e?.stopPropagation();
+                  onDeleteFolder(folder.id);
+                },
+              },
+              () =>
+                h(
+                  Button,
+                  {
+                    type: 'text',
+                    size: 'small',
+                    danger: true,
+                    onClick: (e: any) => e.stopPropagation(),
+                  },
+                  () => h(IconifyIcon, { icon: 'mdi:trash-can', size: 14 }),
+                ),
+            ),
+          ),
+        ],
       ),
-      h(Tooltip, { title: '删除' }, () =>
-        h(Popconfirm, {
-          title: '确定删除这个文件夹吗？',
-          okText: '确定',
-          cancelText: '取消',
-          onConfirm: (e: any) => {
-            e?.stopPropagation();
-            onDeleteFolder(folder.id);
-          }
-        }, () =>
-          h(Button, {
-            type: 'text',
-            size: 'small',
-            danger: true,
-            onClick: (e: any) => e.stopPropagation(),
-          }, () => h(IconifyIcon, { icon: 'mdi:trash-can', size: 14 }))
-        )
-      ),
-    ]),
-  ]);
+    ],
+  );
 }
 
-async function handleEditBlur(folder: WorkflowFolder) {
-  return async () => {
+function handleEditBlur(folder: WorkflowFolder) {
+  return async (_e: FocusEvent) => {
     if (editingName.value.trim()) {
       loading.value = true;
-      const success = await store.updateFolderById(folder.id, editingName.value.trim());
+      const success = await store.updateFolderById(
+        folder.id,
+        editingName.value.trim(),
+      );
       loading.value = false;
       if (success) {
         message.success('文件夹已重命名');
@@ -130,13 +185,13 @@ async function handleEditBlur(folder: WorkflowFolder) {
   };
 }
 
-function onExpand(expandedKeysValue: number[]) {
-  expandedKeys.value = expandedKeysValue;
+function onExpand(keys: Key[]) {
+  expandedKeys.value = keys as number[];
 }
 
-function onSelect(selectedKeysValue: string[]) {
-  selectedKeys.value = selectedKeysValue;
-  const folderId = selectedKeysValue[0] ? parseInt(selectedKeysValue[0]) : null;
+function onSelect(keys: Key[]) {
+  selectedKeys.value = keys as string[];
+  const folderId = keys[0] ? Number.parseInt(keys[0] as string) : null;
   store.setSelectedFolderId(folderId);
 }
 
@@ -146,15 +201,12 @@ function clearSelection() {
 }
 
 function onCreateFolder(parentId?: number) {
-  const tempSelectId = selectedKeys.value.length ? Number(selectedKeys.value[0]) : null;
+  const tempSelectId =
+    selectedKeys.value.length > 0 ? Number(selectedKeys.value[0]) : null;
 
   folderName.value = '';
 
-  if (parentId !== undefined) {
-    selectedParentId.value = parentId;
-  } else {
-    selectedParentId.value = tempSelectId;
-  }
+  selectedParentId.value = parentId ?? tempSelectId ?? undefined;
 
   showModal.value = true;
 }
@@ -168,7 +220,7 @@ function handleCancelEdit() {
   showEditModal.value = false;
   editingFolderId.value = null;
   editingFolderName.value = '';
-  editingParentId.value = null;
+  editingParentId.value = undefined;
 }
 
 function handleCreateFolder() {
@@ -179,7 +231,8 @@ function handleCreateFolder() {
   }
   loading.value = true;
   const parentId = selectedParentId.value || undefined;
-  store.createFolder(name, parentId, store.projectId)
+  store
+    .createFolder(name, parentId, store.projectId)
     .then((newFolder) => {
       loading.value = false;
       if (newFolder) {
@@ -190,7 +243,7 @@ function handleCreateFolder() {
       folderName.value = '';
       showModal.value = false;
     })
-    .catch((error) => {
+    .catch(() => {
       loading.value = false;
       message.error('创建失败');
       folderName.value = '';
@@ -199,13 +252,16 @@ function handleCreateFolder() {
 }
 
 function onRenameFolder(folderId?: number) {
-  const id = folderId ?? (selectedKeys.value[0] ? parseInt(selectedKeys.value[0]) : null);
+  const id =
+    folderId ??
+    (selectedKeys.value[0] ? Number.parseInt(selectedKeys.value[0]) : null);
   if (id !== null) {
     const folder = store.findFolderById(id);
     if (folder) {
       editingFolderId.value = folder.id;
       editingFolderName.value = folder.name;
-      editingParentId.value = folder.parentId === 0 ? null : folder.parentId;
+      editingParentId.value =
+        folder.parentId === 0 ? undefined : folder.parentId;
       showEditModal.value = true;
     }
   }
@@ -221,8 +277,10 @@ function handleEditFolder() {
     return;
   }
   loading.value = true;
-  const parentId = editingParentId.value === null ? 0 : editingParentId.value;
-  store.updateFolderById(editingFolderId.value, name, store.projectId, parentId)
+  const parentId =
+    editingParentId.value === undefined ? 0 : editingParentId.value;
+  store
+    .updateFolderById(editingFolderId.value, name, store.projectId, parentId)
     .then((success) => {
       loading.value = false;
       if (success) {
@@ -232,21 +290,23 @@ function handleEditFolder() {
       }
       editingFolderId.value = null;
       editingFolderName.value = '';
-      editingParentId.value = null;
+      editingParentId.value = undefined;
       showEditModal.value = false;
     })
-    .catch((error) => {
+    .catch(() => {
       loading.value = false;
       message.error('更新失败');
       editingFolderId.value = null;
       editingFolderName.value = '';
-      editingParentId.value = null;
+      editingParentId.value = undefined;
       showEditModal.value = false;
     });
 }
 
 async function onDeleteFolder(folderId?: number) {
-  const id = folderId ?? (selectedKeys.value[0] ? parseInt(selectedKeys.value[0]) : null);
+  const id =
+    folderId ??
+    (selectedKeys.value[0] ? Number.parseInt(selectedKeys.value[0]) : null);
   if (id !== null) {
     loading.value = true;
     const success = await store.deleteFolderById(id);
@@ -260,29 +320,36 @@ async function onDeleteFolder(folderId?: number) {
   }
 }
 
-watch(selectedKeys, (newKeys) => {
-  if (!showModal.value) return;
-  if (!newKeys.length) {
-    selectedParentId.value = null;
-    return;
-  }
-  const num = Number(newKeys[0]);
-  if (!Number.isNaN(num)) {
-    selectedParentId.value = num;
-  }
-}, { flush: 'post' });
+watch(
+  selectedKeys,
+  (newKeys) => {
+    if (!showModal.value) return;
+    if (newKeys.length === 0) {
+      selectedParentId.value = undefined;
+      return;
+    }
+    const num = Number(newKeys[0]);
+    if (!Number.isNaN(num)) {
+      selectedParentId.value = num;
+    }
+  },
+  { flush: 'post' },
+);
 
 watch(showModal, (isOpen) => {
   if (!isOpen) {
-    selectedParentId.value = null;
+    selectedParentId.value = undefined;
   }
 });
 
-watch(() => store.projectId, () => {
-  if (!showModal.value) {
-    selectedKeys.value = [];
-  }
-});
+watch(
+  () => store.projectId,
+  () => {
+    if (!showModal.value) {
+      selectedKeys.value = [];
+    }
+  },
+);
 
 onMounted(() => {
   store.loadFolders();
@@ -291,7 +358,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-card border-r border-border text-foreground">
+  <div
+    class="flex flex-col h-full bg-card border-r border-border text-foreground"
+  >
     <div class="p-4 border-b border-border flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-semibold text-foreground">分组</h2>
@@ -305,7 +374,12 @@ onMounted(() => {
           >
             <IconifyIcon icon="mdi:layers" :size="16" />
           </Button>
-          <Button type="text" size="small" @click="onCreateFolder()" title="新建文件夹">
+          <Button
+            type="text"
+            size="small"
+            @click="onCreateFolder()"
+            title="新建文件夹"
+          >
             <IconifyIcon icon="mdi:plus" :size="16" />
           </Button>
         </div>
@@ -333,7 +407,10 @@ onMounted(() => {
       <Form :model="{ folderName, selectedParentId }" layout="vertical">
         <Form.Item label="项目">
           <Input
-            :value="(store.projects.find(p => p.id === store.projectId)?.projectName) || '-'"
+            :value="
+              store.projects.find((p) => p.id === store.projectId)
+                ?.projectName || '-'
+            "
             disabled
             class="bg-gray-50"
           />
@@ -345,11 +422,23 @@ onMounted(() => {
             style="width: 100%"
             allow-clear
           >
-            <Select.Option :value="null" key="root">根文件夹</Select.Option>
-            <template v-for="folder in store.folders" :key="'folder-' + folder.id">
-              <Select.Option :value="folder.id">{{ folder.name }}</Select.Option>
-              <template v-for="child in folder.children" :key="'child-' + child.id">
-                <Select.Option :value="child.id">├── {{ child.name }}</Select.Option>
+            <Select.Option :value="undefined" key="root">
+              根文件夹
+            </Select.Option>
+            <template
+              v-for="folder in store.folders"
+              :key="`folder-${folder.id}`"
+            >
+              <Select.Option :value="folder.id">
+                {{ folder.name }}
+              </Select.Option>
+              <template
+                v-for="child in folder.children"
+                :key="`child-${child.id}`"
+              >
+                <Select.Option :value="child.id">
+                  ├── {{ child.name }}
+                </Select.Option>
               </template>
             </template>
           </Select>
@@ -376,7 +465,10 @@ onMounted(() => {
       <Form :model="{ editingFolderName, editingParentId }" layout="vertical">
         <Form.Item label="项目">
           <Input
-            :value="(store.projects.find(p => p.id === store.projectId)?.projectName) || '-'"
+            :value="
+              store.projects.find((p) => p.id === store.projectId)
+                ?.projectName || '-'
+            "
             disabled
             class="bg-gray-50"
           />
@@ -388,11 +480,23 @@ onMounted(() => {
             style="width: 100%"
             allow-clear
           >
-            <Select.Option :value="null" key="root">根文件夹</Select.Option>
-            <template v-for="folder in store.folders" :key="'folder-' + folder.id">
-              <Select.Option :value="folder.id">{{ folder.name }}</Select.Option>
-              <template v-for="child in folder.children" :key="'child-' + child.id">
-                <Select.Option :value="child.id">├── {{ child.name }}</Select.Option>
+            <Select.Option :value="undefined" key="root">
+              根文件夹
+            </Select.Option>
+            <template
+              v-for="folder in store.folders"
+              :key="`folder-${folder.id}`"
+            >
+              <Select.Option :value="folder.id">
+                {{ folder.name }}
+              </Select.Option>
+              <template
+                v-for="child in folder.children"
+                :key="`child-${child.id}`"
+              >
+                <Select.Option :value="child.id">
+                  ├── {{ child.name }}
+                </Select.Option>
               </template>
             </template>
           </Select>

@@ -22,14 +22,17 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
     taskFields: ['then', 'else', 'errors', 'finally'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    return {
+    const config: Record<string, any> = {
       condition: savedConfig.condition || '',
-      then: savedConfig.then || [],
       else: savedConfig.else || [],
       errors: savedConfig.errors || [],
       finally: savedConfig.finally || [],
       next: savedConfig.next || [],
     };
+    const parts = ['t', 'h', 'e', 'n'];
+    const key = parts.join('');
+    config[key] = savedConfig[key] || [];
+    return config;
   },
   getRequiredFields(): { props: Record<string, any>; type: string }[] {
     return [

@@ -45,7 +45,6 @@ const {
   configPanelWidth,
   isResizing,
   showNodeSelectModal,
-  currentArrayFieldKey,
   currentArrayIndex,
   selectedChildNodeType,
   selectedChildNodeMeta,
@@ -97,11 +96,9 @@ const {
   onDrop,
   startNodeDrag,
   startConnection,
-  deleteConnection,
   selectConnection,
   showConnectionContextMenu,
   showNodeContextMenu,
-  closeContextMenu,
   deleteSelectedConnection,
   deleteSelectedNode,
   selectNode,
@@ -208,10 +205,8 @@ function removeNodeFromCase(fieldKey: string, caseKey: string, index: number) {
     if (nodeConfigForm[fieldKey]) {
       nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
     }
-    if (removedItem?.nodeId) {
-      store.currentWorkflow!.edges = (
-        store.currentWorkflow?.edges || []
-      ).filter(
+    if (removedItem?.nodeId && store.currentWorkflow) {
+      store.currentWorkflow.edges = (store.currentWorkflow.edges || []).filter(
         (conn) =>
           !(conn.source === node.id && conn.target === removedItem.nodeId),
       );
@@ -349,7 +344,8 @@ onMounted(async () => {
     if (workflow) {
       store.setCurrentWorkflow(workflow);
       workflowName.value = workflow.name;
-      connections.value = workflow.edges || [];
+      connections.value = (workflow.edges ||
+        []) as unknown as typeof connections.value;
     } else {
       const detail = await store.loadWorkflowDetail(workflowId);
       if (detail) {
@@ -438,7 +434,7 @@ onUnmounted(() => {
         :active-tab="activeTab"
         :is-plugin-loading="isPluginLoading"
         :plugin-groups="pluginGroups"
-        @switch-tab="switchTab"
+        @switch-tab="(tab: string) => switchTab(tab as 'task' | 'trigger')"
         @drag-start="onDragStart"
       />
 

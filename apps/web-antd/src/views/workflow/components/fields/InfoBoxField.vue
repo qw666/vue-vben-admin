@@ -14,17 +14,33 @@ defineProps<{
         padding: '12px',
       }"
     >
-      <div v-if="field.props.title" style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-        <IconifyIcon :icon="field.props.icon || 'mdi:information'" :size="16" :style="{ color: field.props.iconColor || '#2563eb' }" />
-        <span :style="{ fontSize: '13px', fontWeight: 600, color: field.props.titleColor || '#1e40af' }">
+      <div
+        v-if="field.props.title"
+        style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px"
+      >
+        <IconifyIcon
+          :icon="field.props.icon || 'mdi:information'"
+          :size="16"
+          :style="{ color: field.props.iconColor || '#2563eb' }"
+        />
+        <span
+          :style="{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: field.props.titleColor || '#1e40af',
+          }"
+        >
           {{ field.props.title }}
         </span>
       </div>
-      <div v-if="field.props.steps && field.props.steps.length > 0" style="display: flex; flex-direction: column; gap: 6px;">
+      <div
+        v-if="field.props.steps && field.props.steps.length > 0"
+        style="display: flex; flex-direction: column; gap: 6px"
+      >
         <div
           v-for="(step, index) in field.props.steps"
           :key="index"
-          style="display: flex; align-items: flex-start; gap: 8px;"
+          style="display: flex; gap: 8px; align-items: flex-start"
         >
           <span
             :style="{
@@ -42,14 +58,17 @@ defineProps<{
               marginTop: '1px',
             }"
           >
-            {{ index + 1 }}
+            {{ (index as number) + 1 }}
           </span>
-          <span style="font-size: 12px; color: #374151; line-height: 1.5;">
+          <span style="font-size: 12px; line-height: 1.5; color: #374151">
             {{ step }}
           </span>
         </div>
       </div>
-      <div v-else-if="field.props.content" style="font-size: 12px; color: #374151; line-height: 1.6;">
+      <div
+        v-else-if="field.props.content"
+        style="font-size: 12px; line-height: 1.6; color: #374151"
+      >
         {{ field.props.content }}
       </div>
     </div>

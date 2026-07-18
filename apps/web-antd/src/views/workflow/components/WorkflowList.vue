@@ -30,7 +30,7 @@ const filteredWorkflows = computed(() => {
     result = result.filter(
       (w) =>
         w.name.toLowerCase().includes(keyword) ||
-        w.description.toLowerCase().includes(keyword),
+        (w.description && w.description.toLowerCase().includes(keyword)),
     );
   }
   return result;
@@ -49,7 +49,7 @@ function handleCreate() {
 function handleEdit(workflowId: string) {
   router.push(`/workflow/editor/${workflowId}`);
 }
-async function handleRun(workflowId: string) {
+async function handleRun(_workflowId: string) {
   message.info('正在运行流程...');
   setTimeout(() => {
     message.success('流程运行成功');

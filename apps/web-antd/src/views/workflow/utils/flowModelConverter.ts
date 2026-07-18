@@ -53,10 +53,11 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
 
   const edgesMap = new Map<string, WorkflowEdge[]>();
   workflow.edges.forEach((edge) => {
+    const list = edgesMap.get(edge.source) || [];
     if (!edgesMap.has(edge.source)) {
-      edgesMap.set(edge.source, []);
+      edgesMap.set(edge.source, list);
     }
-    edgesMap.get(edge.source)!.push(edge);
+    list.push(edge);
   });
 
   function convertNode(node: WorkflowNode): FlowTask {
@@ -68,9 +69,10 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
       type: node.data.type,
     };
 
-    if (node.data.config) {
-      Object.keys(node.data.config).forEach((key) => {
-        const configValue = node.data.config![key];
+    const config = node.data.config;
+    if (config) {
+      Object.keys(config).forEach((key) => {
+        const configValue = config[key];
 
         if (flowControlConfig && key === 'next') {
           return;
@@ -143,12 +145,15 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
 
   const sortedNodes: WorkflowNode[] = [];
   while (queue.length > 0) {
-    const node = queue.shift()!;
+    const node = queue.shift();
+    if (!node) {
+      break;
+    }
     sortedNodes.push(node);
 
     const sourceEdges = edgesMap.get(node.id) || [];
     sourceEdges.forEach((edge) => {
-      const currentDegree = inDegree.get(edge.target)! - 1;
+      const currentDegree = (inDegree.get(edge.target) || 0) - 1;
       inDegree.set(edge.target, currentDegree);
       if (currentDegree === 0) {
         const targetNode = workflow.nodes.find((n) => n.id === edge.target);
@@ -183,7 +188,7 @@ export function buildFlowSavePayload(
     projectId,
     folderId: workflow.folderId || 0,
     description: workflowName,
-    flowId: workflow.id.replace('workflow-', ''),
+    flowId: workflow.flowId,
     flowModel,
   };
 }

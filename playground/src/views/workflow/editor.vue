@@ -1,9 +1,12 @@
 <script lang="ts" setup>
-import { ref, onMounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import type { WorkflowNodeType } from '#/types/workflow';
 
-import { Button, message, Tooltip, Drawer, Input } from 'antdv-next';
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
 import { IconifyIcon } from '@vben/icons';
+
+import { Button, Drawer, Input, message } from 'antdv-next';
 
 import { useWorkflowStore } from '#/store/workflow';
 
@@ -17,17 +20,83 @@ const isConfigOpen = ref(false);
 const selectedNode = ref<any>(null);
 const nodeLabel = ref('');
 
-const nodeTemplates = [
-  { type: 'start', label: '开始', icon: 'mdi:play-circle', category: '基础', color: 'bg-green-500' },
-  { type: 'end', label: '结束', icon: 'mdi:stop-circle', category: '基础', color: 'bg-red-500' },
-  { type: 'llm', label: 'LLM', icon: 'mdi:brain', category: 'AI', color: 'bg-purple-500' },
-  { type: 'prompt', label: '提示词', icon: 'mdi:file-text', category: 'AI', color: 'bg-blue-500' },
-  { type: 'code', label: '代码', icon: 'mdi:code', category: '工具', color: 'bg-orange-500' },
-  { type: 'condition', label: '条件', icon: 'mdi:git-branch', category: '控制', color: 'bg-yellow-500' },
-  { type: 'webhook', label: 'Webhook', icon: 'mdi:webhook', category: '工具', color: 'bg-cyan-500' },
-  { type: 'data', label: '数据', icon: 'mdi:database', category: '数据', color: 'bg-indigo-500' },
-  { type: 'input', label: '输入', icon: 'mdi:input', category: '数据', color: 'bg-teal-500' },
-  { type: 'output', label: '输出', icon: 'mdi:output', category: '数据', color: 'bg-pink-500' },
+const nodeTemplates: {
+  category: string;
+  color: string;
+  icon: string;
+  label: string;
+  type: WorkflowNodeType;
+}[] = [
+  {
+    type: 'start',
+    label: '开始',
+    icon: 'mdi:play-circle',
+    category: '基础',
+    color: 'bg-green-500',
+  },
+  {
+    type: 'end',
+    label: '结束',
+    icon: 'mdi:stop-circle',
+    category: '基础',
+    color: 'bg-red-500',
+  },
+  {
+    type: 'llm',
+    label: 'LLM',
+    icon: 'mdi:brain',
+    category: 'AI',
+    color: 'bg-purple-500',
+  },
+  {
+    type: 'prompt',
+    label: '提示词',
+    icon: 'mdi:file-text',
+    category: 'AI',
+    color: 'bg-blue-500',
+  },
+  {
+    type: 'code',
+    label: '代码',
+    icon: 'mdi:code',
+    category: '工具',
+    color: 'bg-orange-500',
+  },
+  {
+    type: 'condition',
+    label: '条件',
+    icon: 'mdi:git-branch',
+    category: '控制',
+    color: 'bg-yellow-500',
+  },
+  {
+    type: 'webhook',
+    label: 'Webhook',
+    icon: 'mdi:webhook',
+    category: '工具',
+    color: 'bg-cyan-500',
+  },
+  {
+    type: 'data',
+    label: '数据',
+    icon: 'mdi:database',
+    category: '数据',
+    color: 'bg-indigo-500',
+  },
+  {
+    type: 'input',
+    label: '输入',
+    icon: 'mdi:input',
+    category: '数据',
+    color: 'bg-teal-500',
+  },
+  {
+    type: 'output',
+    label: '输出',
+    icon: 'mdi:output',
+    category: '数据',
+    color: 'bg-pink-500',
+  },
 ];
 
 const categories = ['基础', 'AI', '工具', '控制', '数据'];
@@ -67,12 +136,12 @@ function onDrop(e: DragEvent) {
       if (template && store.currentWorkflow) {
         const newNode = {
           id: `node-${Date.now()}`,
-          type: 'custom',
+          type: 'custom' as const,
           position,
           data: {
             label: template.label,
             type: template.type,
-            icon: template.icon,
+            icon: template.icon || '',
             description: template.category,
           },
         };
@@ -110,7 +179,7 @@ async function handleSave() {
       store.saveWorkflow(store.currentWorkflow);
     }
     message.success('流程已保存');
-  } catch (error) {
+  } catch {
     message.error('保存失败');
   } finally {
     isLoading.value = false;
@@ -154,11 +223,11 @@ onMounted(() => {
 
 <template>
   <div class="h-screen flex flex-col bg-gray-100">
-    <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header
+      class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6"
+    >
       <div class="flex items-center gap-4">
-        <Button type="text" @click="handleBack">
-          返回列表
-        </Button>
+        <Button type="text" @click="handleBack"> 返回列表 </Button>
         <input
           v-model="workflowName"
           type="text"
@@ -190,8 +259,10 @@ onMounted(() => {
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-4">
           <div v-for="category in categories" :key="category">
-            <h3 class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-gray-400" />
+            <h3
+              class="text-sm font-medium text-gray-600 mb-2 flex items-center gap-2"
+            >
+              <span class="w-2 h-2 rounded-full bg-gray-400"></span>
               {{ category }}
             </h3>
             <div class="space-y-2">
@@ -209,7 +280,9 @@ onMounted(() => {
                   <IconifyIcon :icon="node.icon" :size="20" />
                 </div>
                 <div class="flex-1">
-                  <div class="text-sm font-medium text-gray-800">{{ node.label }}</div>
+                  <div class="text-sm font-medium text-gray-800">
+                    {{ node.label }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -225,20 +298,42 @@ onMounted(() => {
         <div class="absolute inset-0 pointer-events-none">
           <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="gray" stroke-width="0.5" opacity="0.3" />
+              <pattern
+                id="grid"
+                width="20"
+                height="20"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 20 0 L 0 0 0 20"
+                  fill="none"
+                  stroke="gray"
+                  stroke-width="0.5"
+                  opacity="0.3"
+                />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
           </svg>
         </div>
 
-        <div v-if="store.currentWorkflow?.nodes.length === 0" class="absolute inset-0 flex items-center justify-center">
+        <div
+          v-if="store.currentWorkflow?.nodes.length === 0"
+          class="absolute inset-0 flex items-center justify-center"
+        >
           <div class="text-center">
-            <div class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4">
-              <IconifyIcon icon="mdi:mouse-pointer-click" :size="48" class="text-gray-400" />
+            <div
+              class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4"
+            >
+              <IconifyIcon
+                icon="mdi:mouse-pointer-click"
+                :size="48"
+                class="text-gray-400"
+              />
             </div>
-            <h3 class="text-xl font-medium text-gray-600 mb-2">从左侧拖拽节点到这里</h3>
+            <h3 class="text-xl font-medium text-gray-600 mb-2">
+              从左侧拖拽节点到这里
+            </h3>
             <p class="text-gray-400">开始构建你的工作流</p>
           </div>
         </div>
@@ -247,21 +342,30 @@ onMounted(() => {
           v-for="node in store.currentWorkflow?.nodes"
           :key="node.id"
           class="absolute cursor-pointer select-none"
-          :style="{ left: node.position.x + 'px', top: node.position.y + 'px' }"
+          :style="{ left: `${node.position.x }px`, top: `${node.position.y }px` }"
           @click="handleNodeClick(node)"
         >
-          <div class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow">
+          <div
+            class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow"
+          >
             <div class="flex items-center gap-2 mb-1">
               <div
                 class="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                :class="nodeTemplates.find(t => t.type === node.data.type)?.color"
+                :class="
+                  nodeTemplates.find((t) => t.type === node.data.type)?.color
+                "
               >
-                <IconifyIcon :icon="node.data.icon" :size="16" />
+                <IconifyIcon
+                  :icon="node.data.icon || 'mdi:circle'"
+                  :size="16"
+                />
               </div>
-              <span class="font-medium text-sm text-gray-700">{{ node.data.label }}</span>
+              <span class="font-medium text-sm text-gray-700">{{
+                node.data.label
+              }}</span>
             </div>
             <div class="flex gap-1 mt-2">
-              <div class="w-2 h-2 rounded-full bg-gray-400" />
+              <div class="w-2 h-2 rounded-full bg-gray-400"></div>
             </div>
           </div>
         </div>
@@ -277,7 +381,9 @@ onMounted(() => {
       <div v-if="selectedNode" class="space-y-4">
         <div class="p-4 bg-gray-50 rounded-lg">
           <div class="text-sm text-gray-500">节点ID</div>
-          <div class="text-base font-mono text-gray-800">{{ selectedNode.id }}</div>
+          <div class="text-base font-mono text-gray-800">
+            {{ selectedNode.id }}
+          </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">节点名称</label>
