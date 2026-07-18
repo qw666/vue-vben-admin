@@ -1,20 +1,24 @@
 <script lang="ts" setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { Button, message, Input } from 'ant-design-vue';
+import type { ProjectVO } from '#/api/core/workflow';
+
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
 import { IconifyIcon } from '@vben/icons';
 
+import { Button, Input, message } from 'ant-design-vue';
+
 import { useWorkflowStore } from '#/store/workflow';
-import { usePluginMeta } from './composables/usePluginMeta';
-import { useNodeConfig } from './composables/useNodeConfig';
-import { useCanvasInteraction } from './composables/useCanvasInteraction';
-import LeftPanel from './components/LeftPanel.vue';
+
 import Canvas from './components/Canvas.vue';
 import ConfigPanel from './components/ConfigPanel.vue';
+import LeftPanel from './components/LeftPanel.vue';
 import NodeSelectModal from './components/NodeSelectModal.vue';
+import { useCanvasInteraction } from './composables/useCanvasInteraction';
+import { useNodeConfig } from './composables/useNodeConfig';
+import { usePluginMeta } from './composables/usePluginMeta';
 import { getFlowControlConfig } from './config/workflow-node-config';
 import { convertWorkflowToFlowModel } from './utils/flowModelConverter';
-import type { ProjectVO } from '#/api/core/workflow';
 
 const router = useRouter();
 const route = useRoute();
@@ -72,7 +76,13 @@ const {
   confirmAddChildNode,
   editChildNode,
   confirmEditChildNode,
-} = useNodeConfig(pluginMetaCache, loadPluginMeta, isTaskRef, resolveRef, pluginGroups);
+} = useNodeConfig(
+  pluginMetaCache,
+  loadPluginMeta,
+  isTaskRef,
+  resolveRef,
+  pluginGroups,
+);
 
 const {
   isDraggingNode,
@@ -109,31 +119,50 @@ const {
   updatePanOffset,
   updateScale,
   scale,
-} = useCanvasInteraction(pluginGroupsCache, pluginMetaCache, loadPluginMeta, (nodeId: string) => {
-  if (isConfigPanelOpen.value && selectedNode.value?.id === nodeId) {
-    handleConfigClose();
-  }
-}, nodeConfigForm, selectedNode, (node: any) => {
-  const flowControlConfig = getFlowControlConfig(node.data.type);
-  if (flowControlConfig) {
-    const freshNode = store.currentWorkflow?.nodes.find(n => n.id === node.id);
-    const config = (freshNode?.data.config || node.data.config) || {};
-
-    if (!isConfigPanelOpen.value) {
-      selectedNode.value = freshNode || node;
-      isConfigPanelOpen.value = true;
+} = useCanvasInteraction(
+  pluginGroupsCache,
+  pluginMetaCache,
+  loadPluginMeta,
+  (nodeId: string) => {
+    if (isConfigPanelOpen.value && selectedNode.value?.id === nodeId) {
+      handleConfigClose();
     }
+  },
+  nodeConfigForm,
+  selectedNode,
+  (node: any) => {
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    if (flowControlConfig) {
+      const freshNode = store.currentWorkflow?.nodes.find(
+        (n) => n.id === node.id,
+      );
+      const config = freshNode?.data.config || node.data.config || {};
 
-    const casesValue = config.cases;
-    nodeConfigForm.cases = typeof casesValue === 'object' && casesValue !== null && !Array.isArray(casesValue)
-      ? JSON.parse(JSON.stringify(casesValue))
-      : {};
-    nodeConfigForm.value = config.value || '';
-    nodeConfigForm.defaults = Array.isArray(config.defaults) ? [...config.defaults] : [];
-    nodeConfigForm.errors = Array.isArray(config.errors) ? [...config.errors] : [];
-    nodeConfigForm.finally = Array.isArray(config.finally) ? [...config.finally] : [];
-  }
-});
+      if (!isConfigPanelOpen.value) {
+        selectedNode.value = freshNode || node;
+        isConfigPanelOpen.value = true;
+      }
+
+      const casesValue = config.cases;
+      nodeConfigForm.cases =
+        typeof casesValue === 'object' &&
+        casesValue !== null &&
+        !Array.isArray(casesValue)
+          ? JSON.parse(JSON.stringify(casesValue))
+          : {};
+      nodeConfigForm.value = config.value || '';
+      nodeConfigForm.defaults = Array.isArray(config.defaults)
+        ? [...config.defaults]
+        : [];
+      nodeConfigForm.errors = Array.isArray(config.errors)
+        ? [...config.errors]
+        : [];
+      nodeConfigForm.finally = Array.isArray(config.finally)
+        ? [...config.finally]
+        : [];
+    }
+  },
+);
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
@@ -141,12 +170,21 @@ const isPageReady = ref(false);
 const isProjectsLoading = ref(false);
 
 const currentProjectName = computed(() => {
-  const project = store.projects.find((p: ProjectVO) => p.id === store.projectId);
+  const project = store.projects.find(
+    (p: ProjectVO) => p.id === store.projectId,
+  );
   return project?.projectName || '';
 });
 
-function updateNodeValue(fieldKey: string, caseKey: string, index: number, value: string) {
-  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+function updateNodeValue(
+  fieldKey: string,
+  caseKey: string,
+  index: number,
+  value: string,
+) {
+  const node = store.currentWorkflow?.nodes.find(
+    (n) => n.id === selectedNode.value?.id,
+  );
   if (node && node.data.config?.[fieldKey]?.[caseKey]) {
     node.data.config[fieldKey][caseKey][index].value = value;
     node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
@@ -158,7 +196,9 @@ function updateNodeValue(fieldKey: string, caseKey: string, index: number, value
 }
 
 function removeNodeFromCase(fieldKey: string, caseKey: string, index: number) {
-  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  const node = store.currentWorkflow?.nodes.find(
+    (n) => n.id === selectedNode.value?.id,
+  );
   if (node && node.data.config?.[fieldKey]?.[caseKey]) {
     const items = [...node.data.config[fieldKey][caseKey]];
     const removedItem = items.splice(index, 1)[0];
@@ -169,11 +209,15 @@ function removeNodeFromCase(fieldKey: string, caseKey: string, index: number) {
       nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
     }
     if (removedItem?.nodeId) {
-      store.currentWorkflow!.edges = (store.currentWorkflow?.edges || []).filter(
-        conn => !(conn.source === node.id && conn.target === removedItem.nodeId)
+      store.currentWorkflow!.edges = (
+        store.currentWorkflow?.edges || []
+      ).filter(
+        (conn) =>
+          !(conn.source === node.id && conn.target === removedItem.nodeId),
       );
       connections.value = connections.value.filter(
-        conn => !(conn.source === node.id && conn.target === removedItem.nodeId)
+        (conn) =>
+          !(conn.source === node.id && conn.target === removedItem.nodeId),
       );
       store.removeNode(removedItem.nodeId);
     }
@@ -192,9 +236,12 @@ const fieldRendererEvents = computed(() => ({
   updateArrayItemValue,
   openNodeSelectModal,
   editChildNode,
-  addCaseKey: (fieldKey: string) => addSwitchCaseKey(selectedNode.value?.id || '', fieldKey),
-  updateCaseKey: (fieldKey: string, oldKey: string, newKey: string) => updateSwitchCaseKey(selectedNode.value?.id || '', oldKey, newKey, fieldKey),
-  removeCaseKey: (fieldKey: string, caseKey: string) => removeSwitchCaseKey(selectedNode.value?.id || '', caseKey, fieldKey),
+  addCaseKey: (fieldKey: string) =>
+    addSwitchCaseKey(selectedNode.value?.id || '', fieldKey),
+  updateCaseKey: (fieldKey: string, oldKey: string, newKey: string) =>
+    updateSwitchCaseKey(selectedNode.value?.id || '', oldKey, newKey, fieldKey),
+  removeCaseKey: (fieldKey: string, caseKey: string) =>
+    removeSwitchCaseKey(selectedNode.value?.id || '', caseKey, fieldKey),
   updateNodeValue,
   removeNodeFromCase,
   addOnResumeItem,
@@ -203,7 +250,9 @@ const fieldRendererEvents = computed(() => ({
 }));
 
 function updateNodeLabel(value: string) {
-  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  const node = store.currentWorkflow?.nodes.find(
+    (n) => n.id === selectedNode.value?.id,
+  );
   if (node) {
     node.data.label = value;
     store.updateNode(node.id, { data: { ...node.data } });
@@ -211,9 +260,11 @@ function updateNodeLabel(value: string) {
 }
 
 function updateNodeId(value: string) {
-  const node = store.currentWorkflow?.nodes.find(n => n.id === selectedNode.value?.id);
+  const node = store.currentWorkflow?.nodes.find(
+    (n) => n.id === selectedNode.value?.id,
+  );
   if (node) {
-    const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '');
+    const sanitized = value.replaceAll(/[^a-zA-Z0-9_-]/g, '');
     if (sanitized !== value) {
       return;
     }
@@ -236,11 +287,11 @@ async function handleSave() {
 
     const flowModel = convertWorkflowToFlowModel(store.currentWorkflow);
 
-    const saved = await store.saveWorkflowToBackend(store.currentWorkflow.id, {
+    const saved = await store.saveWorkflowToBackend({
       projectId: store.projectId,
-      folderId: store.currentWorkflow.folderId || 0,
+      folderId: store.currentWorkflow.folderId,
       description: workflowName.value,
-      flowId: store.currentWorkflow.id.replace('workflow-', ''),
+      flowId: store.currentWorkflow.flowId,
       flowModel,
     });
 
@@ -281,7 +332,7 @@ async function loadProjects() {
   isProjectsLoading.value = true;
   try {
     await store.loadProjects();
-  } catch (error) {
+  } catch {
     message.error('加载项目列表失败');
   } finally {
     isProjectsLoading.value = false;
@@ -302,8 +353,19 @@ onMounted(async () => {
     } else {
       const detail = await store.loadWorkflowDetail(workflowId);
       if (detail) {
-        const newWorkflow = store.createWorkflow(detail.description || '未命名流程', detail.folderId, detail.description);
+        const newWorkflow = store.createWorkflow(
+          detail.description || '未命名流程',
+          detail.folderId,
+          detail.description,
+        );
         newWorkflow.id = workflowId;
+        // 从 URL 的 workflow-${id} 中解析出后端数字 ID，标记为已保存状态
+        const parsedBackendId = Number.parseInt(
+          workflowId.replace('workflow-', ''),
+        );
+        if (!Number.isNaN(parsedBackendId)) {
+          newWorkflow.backendId = parsedBackendId;
+        }
         store.setCurrentWorkflow(newWorkflow);
         workflowName.value = newWorkflow.name;
       } else {
@@ -329,7 +391,9 @@ onUnmounted(() => {
 
 <template>
   <div class="workflow-editor flex flex-col bg-gray-100 overflow-hidden">
-    <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+    <header
+      class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between"
+    >
       <div class="flex items-center gap-4 flex-nowrap">
         <Button type="text" @click="handleBack">
           <IconifyIcon icon="mdi:arrow-left" :size="16" />
@@ -338,7 +402,9 @@ onUnmounted(() => {
         <div class="h-6 w-px bg-gray-200"></div>
         <div class="flex items-center gap-2 whitespace-nowrap">
           <span class="text-sm text-gray-500">项目：</span>
-          <span class="text-sm font-medium text-gray-800">{{ currentProjectName || '加载中...' }}</span>
+          <span class="text-sm font-medium text-gray-800">{{
+            currentProjectName || '加载中...'
+          }}</span>
         </div>
         <div class="flex items-center gap-2 whitespace-nowrap">
           <span class="text-sm text-gray-500">流程名称：</span>

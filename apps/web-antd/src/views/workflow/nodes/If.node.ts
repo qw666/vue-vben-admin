@@ -1,4 +1,5 @@
 import type { FlowControlNodeStrategy } from './types';
+
 import { flowControlNodeRegistry } from './types';
 
 export const IfNodeStrategy: FlowControlNodeStrategy = {
@@ -18,7 +19,7 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
         { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['then', 'else', 'errors', 'finally', 'next'],
+    taskFields: ['then', 'else', 'errors', 'finally'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     return {
@@ -30,35 +31,77 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
       next: savedConfig.next || [],
     };
   },
-  getRequiredFields(): { type: string; props: Record<string, any> }[] {
+  getRequiredFields(): { props: Record<string, any>; type: string }[] {
     return [
       {
         type: 'Input',
-        props: { key: 'condition', label: '条件表达式', required: true, description: 'If判断条件，可填写任意能解析为布尔值的表达式', tooltip: '', dynamic: false },
+        props: {
+          key: 'condition',
+          label: '条件表达式',
+          required: true,
+          description: 'If判断条件，可填写任意能解析为布尔值的表达式',
+          tooltip: '',
+          dynamic: false,
+        },
       },
     ];
   },
-  getOptionalFields(): { type: string; props: Record<string, any> }[] {
+  getOptionalFields(): { props: Record<string, any>; type: string }[] {
     return [
       {
         type: 'ConnectionStatus',
-        props: { key: 'then', label: 'IF', required: false, description: '条件成立时执行的任务列表', tooltip: '', dynamic: false },
+        props: {
+          key: 'then',
+          label: 'IF',
+          required: false,
+          description: '条件成立时执行的任务列表',
+          tooltip: '',
+          dynamic: false,
+        },
       },
       {
         type: 'ConnectionStatus',
-        props: { key: 'else', label: 'Else', required: false, description: '条件不成立时执行的任务列表', tooltip: '', dynamic: false },
+        props: {
+          key: 'else',
+          label: 'Else',
+          required: false,
+          description: '条件不成立时执行的任务列表',
+          tooltip: '',
+          dynamic: false,
+        },
       },
       {
         type: 'ConnectionStatus',
-        props: { key: 'errors', label: 'Errors', required: false, description: '子任务执行出错时执行的任务列表', tooltip: '', dynamic: false },
+        props: {
+          key: 'errors',
+          label: 'Errors',
+          required: false,
+          description: '子任务执行出错时执行的任务列表',
+          tooltip: '',
+          dynamic: false,
+        },
       },
       {
         type: 'ConnectionStatus',
-        props: { key: 'finally', label: 'Finally', required: false, description: '分支全部执行完成后执行的收尾任务', tooltip: '', dynamic: false },
+        props: {
+          key: 'finally',
+          label: 'Finally',
+          required: false,
+          description: '分支全部执行完成后执行的收尾任务',
+          tooltip: '',
+          dynamic: false,
+        },
       },
       {
         type: 'ConnectionStatus',
-        props: { key: 'next', label: 'Next', required: false, description: '条件判断完成后继续执行的任务', tooltip: '', dynamic: false },
+        props: {
+          key: 'next',
+          label: 'Next',
+          required: false,
+          description: '条件判断完成后继续执行的任务',
+          tooltip: '',
+          dynamic: false,
+        },
       },
     ];
   },

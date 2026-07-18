@@ -72,7 +72,7 @@ export interface FlowModel {
 
 export interface FlowSaveDTO {
   projectId: number;
-  folderId: number;
+  folderId?: number;
   description: string;
   flowId: string;
   flowModel: FlowModel;
@@ -125,13 +125,18 @@ export async function addFolder(data: FolderAddRequest): Promise<ApiResponse> {
   });
 }
 
-export async function updateFolder(data: FolderUpdateRequest): Promise<ApiResponse> {
+export async function updateFolder(
+  data: FolderUpdateRequest,
+): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/folder/update`, data, {
     headers: getHeaders(),
   });
 }
 
-export async function deleteFolder(id: number, projectId: number): Promise<ApiResponse> {
+export async function deleteFolder(
+  id: number,
+  projectId: number,
+): Promise<ApiResponse> {
   return requestClient.post(
     `${BASE_URL}/folder/delete?id=${id}&projectId=${projectId}`,
     {},
@@ -141,19 +146,31 @@ export async function deleteFolder(id: number, projectId: number): Promise<ApiRe
   );
 }
 
-export async function getFolderTree(projectId: number): Promise<FolderResponse[]> {
-  return requestClient.post(`${BASE_URL}/folder/tree?projectId=${projectId}`, {}, {
-    headers: getHeaders(),
-  });
+export async function getFolderTree(
+  projectId: number,
+): Promise<FolderResponse[]> {
+  return requestClient.post(
+    `${BASE_URL}/folder/tree?projectId=${projectId}`,
+    {},
+    {
+      headers: getHeaders(),
+    },
+  );
 }
 
 export async function getProjectList(): Promise<ProjectVO[]> {
-  return requestClient.post(`${BASE_URL}/project/list`, {}, {
-    headers: getHeaders(),
-  });
+  return requestClient.post(
+    `${BASE_URL}/project/list`,
+    {},
+    {
+      headers: getHeaders(),
+    },
+  );
 }
 
-export async function getFlowPage(data: FlowPageRequest): Promise<FlowPageResponse> {
+export async function getFlowPage(
+  data: FlowPageRequest,
+): Promise<FlowPageResponse> {
   const params = new URLSearchParams();
   params.append('projectId', data.projectId.toString());
   if (data.folderId !== undefined) {
@@ -168,9 +185,13 @@ export async function getFlowPage(data: FlowPageRequest): Promise<FlowPageRespon
   if (data.pageSize) {
     params.append('pageSize', data.pageSize.toString());
   }
-  return requestClient.post(`${BASE_URL}/flow/page?${params.toString()}`, {}, {
-    headers: getHeaders(),
-  });
+  return requestClient.post(
+    `${BASE_URL}/flow/page?${params.toString()}`,
+    {},
+    {
+      headers: getHeaders(),
+    },
+  );
 }
 
 export async function addFlow(data: FlowSaveDTO): Promise<ApiResponse> {
@@ -179,32 +200,51 @@ export async function addFlow(data: FlowSaveDTO): Promise<ApiResponse> {
   });
 }
 
-export async function updateFlow(id: number, data: FlowSaveDTO): Promise<ApiResponse> {
+export async function updateFlow(
+  id: number,
+  data: FlowSaveDTO,
+): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/flow/update?id=${id}`, data, {
     headers: getHeaders(),
   });
 }
 
 export async function deleteFlow(id: number): Promise<ApiResponse> {
-  return requestClient.post(`${BASE_URL}/flow/delete?id=${id}`, {}, {
-    headers: getHeaders(),
-  });
+  return requestClient.post(
+    `${BASE_URL}/flow/delete?id=${id}`,
+    {},
+    {
+      headers: getHeaders(),
+    },
+  );
 }
 
 export async function getFlowDetail(id: number): Promise<FlowSaveDTO> {
-  return requestClient.post(`${BASE_URL}/flow/detail?id=${id}`, {}, {
-    headers: getHeaders(),
-  });
+  return requestClient.post(
+    `${BASE_URL}/flow/detail?id=${id}`,
+    {},
+    {
+      headers: getHeaders(),
+    },
+  );
 }
 
-export async function getPluginTree(nodeCategory?: string): Promise<PluginGroupTreeDTO[]> {
+export async function getPluginTree(
+  nodeCategory?: string,
+): Promise<PluginGroupTreeDTO[]> {
   const params = nodeCategory ? `?nodeCategory=${nodeCategory}` : '';
-  return requestClient.post(`${BASE_URL}/plugin/tree${params}`, {}, {
-    headers: getHeaders(),
-  });
+  return requestClient.post(
+    `${BASE_URL}/plugin/tree${params}`,
+    {},
+    {
+      headers: getHeaders(),
+    },
+  );
 }
 
-export async function getPluginMetaBatch(nodeTypes: string[]): Promise<Record<string, PluginMetaDetailDTO>> {
+export async function getPluginMetaBatch(
+  nodeTypes: string[],
+): Promise<Record<string, PluginMetaDetailDTO>> {
   return requestClient.post(`${BASE_URL}/plugin/batch/meta`, nodeTypes, {
     headers: getHeaders(),
   });

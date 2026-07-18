@@ -1,4 +1,5 @@
 import type { FlowControlNodeStrategy } from './types';
+
 import { flowControlNodeRegistry } from './types';
 
 export const ParallelNodeStrategy: FlowControlNodeStrategy = {
@@ -15,7 +16,7 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
         { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['tasks', 'next'],
+    taskFields: ['tasks'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     return {
@@ -24,22 +25,45 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
       next: savedConfig.next || [],
     };
   },
-  getRequiredFields(): { type: string; props: Record<string, any> }[] {
+  getRequiredFields(): { props: Record<string, any>; type: string }[] {
     return [];
   },
-  getOptionalFields(): { type: string; props: Record<string, any> }[] {
+  getOptionalFields(): { props: Record<string, any>; type: string }[] {
     return [
       {
         type: 'ConnectionStatus',
-        props: { key: 'tasks', label: 'Tasks', required: false, description: '并行执行的任务列表', tooltip: '', dynamic: false },
+        props: {
+          key: 'tasks',
+          label: 'Tasks',
+          required: false,
+          description: '并行执行的任务列表',
+          tooltip: '',
+          dynamic: false,
+        },
       },
       {
         type: 'Concurrent',
-        props: { key: 'concurrent', label: '并发数', required: false, description: '最大并发执行数量', tooltip: '任意时刻可以运行的并发并行任务数。如果值为0，则没有限制，所有任务将同时开始。', dynamic: false, connectionField: 'tasks' },
+        props: {
+          key: 'concurrent',
+          label: '并发数',
+          required: false,
+          description: '最大并发执行数量',
+          tooltip:
+            '任意时刻可以运行的并发并行任务数。如果值为0，则没有限制，所有任务将同时开始。',
+          dynamic: false,
+          connectionField: 'tasks',
+        },
       },
       {
         type: 'ConnectionStatus',
-        props: { key: 'next', label: 'Next', required: false, description: '并行执行完成后继续执行的任务', tooltip: '', dynamic: false },
+        props: {
+          key: 'next',
+          label: 'Next',
+          required: false,
+          description: '并行执行完成后继续执行的任务',
+          tooltip: '',
+          dynamic: false,
+        },
       },
     ];
   },

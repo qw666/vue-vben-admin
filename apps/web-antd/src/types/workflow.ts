@@ -1,14 +1,14 @@
 export type WorkflowNodeType =
-  | 'start'
-  | 'end'
-  | 'llm'
-  | 'prompt'
   | 'code'
   | 'condition'
-  | 'webhook'
   | 'data'
+  | 'end'
   | 'input'
-  | 'output';
+  | 'llm'
+  | 'output'
+  | 'prompt'
+  | 'start'
+  | 'webhook';
 
 export interface WorkflowNodeData {
   label: string;
@@ -42,6 +42,10 @@ export interface Workflow {
   edges: WorkflowEdge[];
   createdAt: string;
   updatedAt: string;
+  /** 后端真实数字 ID。新建未保存时为 undefined，保存成功后由后端返回值填充。 */
+  backendId?: number;
+  /** 传递给后端的 flowId，用于新建保存后从列表中匹配出后端数字 ID。 */
+  flowId: string;
 }
 
 export interface WorkflowFolder {

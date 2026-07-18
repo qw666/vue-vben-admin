@@ -1,25 +1,45 @@
-import { defineStore } from 'pinia';
+import type { FlowSaveDTO, FlowVO, ProjectVO } from '#/api';
+import type {
+  Workflow,
+  WorkflowEdge,
+  WorkflowFolder,
+  WorkflowNode,
+} from '#/types/workflow';
+
 import { ref } from 'vue';
 
-import type { Workflow, WorkflowNode, WorkflowEdge, WorkflowFolder } from '#/types/workflow';
+import { defineStore } from 'pinia';
+
 import {
+  addFlow,
   addFolder,
-  updateFolder,
+  deleteFlow,
   deleteFolder,
+  getFlowDetail,
+  getFlowPage,
   getFolderTree,
   getProjectList,
-  getFlowPage,
-  addFlow,
   updateFlow,
-  deleteFlow,
-  getFlowDetail,
-  type FlowSaveDTO,
-  type ProjectVO,
+  updateFolder,
 } from '#/api';
 
 const MOCK_PROJECTS: ProjectVO[] = [
-  { id: 1, projectName: '测试项目A1', namespace: 'test-a1', description: '测试项目A1', createBy: 'admin', createTime: new Date().toISOString() },
-  { id: 2, projectName: '测试项目B2', namespace: 'test-b2', description: '测试项目B2', createBy: 'admin', createTime: new Date().toISOString() },
+  {
+    id: 1,
+    projectName: '测试项目A1',
+    namespace: 'test-a1',
+    description: '测试项目A1',
+    createBy: 'admin',
+    createTime: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    projectName: '测试项目B2',
+    namespace: 'test-b2',
+    description: '测试项目B2',
+    createBy: 'admin',
+    createTime: new Date().toISOString(),
+  },
 ];
 
 const MOCK_FOLDERS: WorkflowFolder[] = [
@@ -30,24 +50,24 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const workflows = ref<Workflow[]>([]);
   const folders = ref<WorkflowFolder[]>([]);
   const projects = ref<ProjectVO[]>([]);
-  const currentWorkflow = ref<Workflow | null>(null);
-  const selectedNodeId = ref<string | null>(null);
-  const selectedFolderId = ref<number | null>(null);
-  const selectedWorkflowId = ref<string | null>(null);
+  const currentWorkflow = ref<null | Workflow>(null);
+  const selectedNodeId = ref<null | string>(null);
+  const selectedFolderId = ref<null | number>(null);
+  const selectedWorkflowId = ref<null | string>(null);
   const projectId = ref<number>(1);
   const searchKeyword = ref('');
   const totalWorkflows = ref(0);
   const isWorkflowsLoading = ref(false);
 
-  function setCurrentWorkflow(workflow: Workflow | null) {
+  function setCurrentWorkflow(workflow: null | Workflow) {
     currentWorkflow.value = workflow;
   }
 
-  function setSelectedNodeId(id: string | null) {
+  function setSelectedNodeId(id: null | string) {
     selectedNodeId.value = id;
   }
 
-  function setSelectedFolderId(id: number | null) {
+  function setSelectedFolderId(id: null | number) {
     selectedFolderId.value = id;
   }
 
@@ -63,8 +83,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   function removeNode(nodeId: string) {
     if (currentWorkflow.value) {
-      currentWorkflow.value.nodes = currentWorkflow.value.nodes.filter((n) => n.id !== nodeId);
-      currentWorkflow.value.edges = currentWorkflow.value.edges.filter((e) => e.source !== nodeId && e.target !== nodeId);
+      currentWorkflow.value.nodes = currentWorkflow.value.nodes.filter(
+        (n) => n.id !== nodeId,
+      );
+      currentWorkflow.value.edges = currentWorkflow.value.edges.filter(
+        (e) => e.source !== nodeId && e.target !== nodeId,
+      );
       if (selectedNodeId.value === nodeId) {
         selectedNodeId.value = null;
       }
@@ -73,7 +97,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   function updateNode(nodeId: string, updates: Partial<WorkflowNode>) {
     if (currentWorkflow.value) {
-      const index = currentWorkflow.value.nodes.findIndex((n) => n.id === nodeId);
+      const index = currentWorkflow.value.nodes.findIndex(
+        (n) => n.id === nodeId,
+      );
       if (index !== -1) {
         const currentNode = currentWorkflow.value.nodes[index];
         if (currentNode) {
@@ -96,14 +122,21 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   function removeEdge(edgeId: string) {
     if (currentWorkflow.value) {
-      currentWorkflow.value.edges = currentWorkflow.value.edges.filter((e) => e.id !== edgeId);
+      currentWorkflow.value.edges = currentWorkflow.value.edges.filter(
+        (e) => e.id !== edgeId,
+      );
     }
   }
 
-  function createWorkflow(name: string, folderId?: number, description?: string): Workflow {
+  function createWorkflow(
+    name: string,
+    folderId?: number,
+    description?: string,
+  ): Workflow {
     const now = new Date().toISOString();
+    const timestamp = Date.now();
     const workflow: Workflow = {
-      id: `workflow-${Date.now()}`,
+      id: `workflow-${timestamp}`,
       name,
       description: description || '',
       folderId,
@@ -111,12 +144,14 @@ export const useWorkflowStore = defineStore('workflow', () => {
       edges: [],
       createdAt: now,
       updatedAt: now,
+      // backendId 留空，saveWorkflowToBackend 据此走 addFlow 分支
+      flowId: `flow-${timestamp}`,
     };
     workflows.value.push(workflow);
     return workflow;
   }
 
-  function findWorkflowById(id: string): Workflow | undefined {
+  function findWorkflowById(id: string): undefined | Workflow {
     return workflows.value.find((w) => w.id === id);
   }
 
@@ -146,11 +181,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
       name: folder.folderName,
       parentId: folder.parentId,
       sort: folder.sort,
-      children: folder.children ? folder.children.map((child: any) => transformFolder(child)) : undefined,
+      children: folder.children
+        ? folder.children.map((child: any) => transformFolder(child))
+        : undefined,
     };
   }
 
-  function findFolderById(id: number, foldersList: WorkflowFolder[] = folders.value): WorkflowFolder | undefined {
+  function findFolderById(
+    id: number,
+    foldersList: WorkflowFolder[] = folders.value,
+  ): undefined | WorkflowFolder {
     for (const folder of foldersList) {
       if (folder.id === id) {
         return folder;
@@ -179,7 +219,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  async function createFolder(name: string, parentId?: number, selectedProjectId?: number): Promise<WorkflowFolder | null> {
+  async function createFolder(
+    name: string,
+    parentId?: number,
+    selectedProjectId?: number,
+  ): Promise<null | WorkflowFolder> {
     try {
       await addFolder({
         projectId: selectedProjectId ?? projectId.value,
@@ -194,7 +238,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  async function updateFolderById(folderId: number, name: string, newProjectId?: number, newParentId?: number): Promise<boolean> {
+  async function updateFolderById(
+    folderId: number,
+    name: string,
+    newProjectId?: number,
+    newParentId?: number,
+  ): Promise<boolean> {
     try {
       const folder = findFolderById(folderId);
       await updateFolder({
@@ -237,7 +286,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         pageSize: 100,
       });
       if (data && data.records) {
-        workflows.value = data.records.map((item: any) => ({
+        workflows.value = data.records.map((item: FlowVO) => ({
           id: `workflow-${item.id}`,
           name: item.description,
           description: item.description,
@@ -246,6 +295,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
           edges: [],
           createdAt: item.createTime || new Date().toISOString(),
           updatedAt: item.createTime || new Date().toISOString(),
+          backendId: item.id,
+          flowId: item.flowId,
         }));
         totalWorkflows.value = data.total || 0;
       } else {
@@ -265,7 +316,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
     try {
       const index = workflows.value.findIndex((w) => w.id === workflow.id);
       if (index !== -1) {
-        workflows.value[index] = { ...workflow, updatedAt: new Date().toISOString() };
+        workflows.value[index] = {
+          ...workflow,
+          updatedAt: new Date().toISOString(),
+        };
       }
       return true;
     } catch (error) {
@@ -278,9 +332,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
     try {
       const workflow = findWorkflowById(id);
       if (workflow) {
-        const numericId = parseInt(id.replace('workflow-', ''));
-        if (!isNaN(numericId)) {
-          await deleteFlow(numericId);
+        // 只有已保存到后端的流程才调用删除接口
+        if (workflow.backendId !== undefined) {
+          await deleteFlow(workflow.backendId);
         }
         workflows.value = workflows.value.filter((w) => w.id !== id);
         if (selectedWorkflowId.value === id) {
@@ -295,15 +349,27 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  async function saveWorkflowToBackend(id: string, data: FlowSaveDTO): Promise<boolean> {
+  async function saveWorkflowToBackend(data: FlowSaveDTO): Promise<boolean> {
     try {
-      const numericId = parseInt(id.replace('workflow-', ''));
-      if (!isNaN(numericId)) {
-        await updateFlow(numericId, data);
-      } else {
-        await addFlow(data);
+      const current = currentWorkflow.value;
+      if (!current) {
+        return false;
       }
-      await loadWorkflows(selectedFolderId.value || undefined);
+      // backendId 为空说明后端尚未保存，走 add；已存在则走 update
+      if (current.backendId === undefined) {
+        await addFlow(data);
+        // addFlow 只返回成功状态，需要重新加载列表并通过 flowId 匹配出后端数字 ID
+        await loadWorkflows(selectedFolderId.value || undefined);
+        const matched = workflows.value.find(
+          (w) => w.flowId === current.flowId,
+        );
+        if (matched) {
+          current.backendId = matched.backendId;
+          current.id = matched.id;
+        }
+      } else {
+        await updateFlow(current.backendId, data);
+      }
       return true;
     } catch (error) {
       console.error('Failed to save workflow:', error);
@@ -313,7 +379,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   async function loadWorkflowDetail(id: string): Promise<any | null> {
     try {
-      const numericId = parseInt(id.replace('workflow-', ''));
+      const numericId = Number.parseInt(id.replace('workflow-', ''));
       if (!isNaN(numericId)) {
         const data = await getFlowDetail(numericId);
         if (data) {
@@ -327,11 +393,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  function selectFolder(id: number | null) {
+  function selectFolder(id: null | number) {
     selectedFolderId.value = id;
   }
 
-  function selectWorkflow(id: string | null) {
+  function selectWorkflow(id: null | string) {
     selectedWorkflowId.value = id;
   }
 
