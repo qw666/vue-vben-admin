@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -29,6 +29,7 @@ const props = defineProps<{
   isConnecting: boolean;
   isDraggingNode: boolean;
   nodes: any[];
+  panOffset?: { x: number; y: number };
   scale?: number;
   selectedConnectionId: null | string;
   selectedNodeId: null | string;
@@ -78,6 +79,16 @@ const isPanning = ref(false);
 const panStart = ref({ x: 0, y: 0 });
 const panOffset = ref({ x: 0, y: 0 });
 const canvasSize = ref({ width: 4000, height: 4000 });
+
+watch(
+  () => props.panOffset,
+  (newOffset) => {
+    if (newOffset) {
+      panOffset.value = newOffset;
+    }
+  },
+  { immediate: true },
+);
 
 function showTooltip(event: MouseEvent, text: string) {
   tooltip.value = {
@@ -194,7 +205,9 @@ function handleWheel(event: WheelEvent) {
 }
 
 onMounted(() => {
-  centerCanvas();
+  if (!props.panOffset) {
+    centerCanvas();
+  }
   window.addEventListener('resize', centerCanvas);
 });
 </script>

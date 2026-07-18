@@ -297,18 +297,21 @@ export function convertFlowModelToWorkflow(
     };
   });
 
-  const CANVAS_WIDTH = 4000;
-  const CANVAS_HEIGHT = 4000;
-  const offsetX = (CANVAS_WIDTH - layoutWidth) / 2;
-  const offsetY = (CANVAS_HEIGHT - layoutHeight) / 2;
+  let positionedNodes = nodes;
 
-  const positionedNodes = nodes.map((node) => ({
-    ...node,
-    position: {
-      x: node.position.x + offsetX,
-      y: node.position.y + offsetY,
-    },
-  }));
+  if (!flowLayout && nodes.length > 0) {
+    const CANVAS_WIDTH = 4000;
+    const CANVAS_HEIGHT = 4000;
+    const offsetX = (CANVAS_WIDTH - layoutWidth) / 2;
+    const offsetY = (CANVAS_HEIGHT - layoutHeight) / 2;
+    positionedNodes = nodes.map((node) => ({
+      ...node,
+      position: {
+        x: node.position.x + offsetX,
+        y: node.position.y + offsetY,
+      },
+    }));
+  }
 
   return {
     id: workflowId,

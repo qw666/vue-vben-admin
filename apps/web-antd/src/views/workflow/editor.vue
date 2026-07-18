@@ -119,6 +119,7 @@ const {
   updatePanOffset,
   updateScale,
   scale,
+  panOffset,
 } = useCanvasInteraction(
   pluginGroupsCache,
   pluginMetaCache,
@@ -360,8 +361,26 @@ onMounted(async () => {
           []) as unknown as typeof connections.value;
         workflowLoaded.value = true;
         setTimeout(() => {
-          updatePanOffset({ x: 0, y: 0 });
-        }, 100);
+          const nodes = restoredWorkflow.nodes;
+          if (nodes.length > 0) {
+            const totalX = nodes.reduce((sum, node) => sum + node.position.x, 0);
+            const totalY = nodes.reduce((sum, node) => sum + node.position.y, 0);
+            const centerX = totalX / nodes.length + 88;
+            const centerY = totalY / nodes.length + 34;
+
+            const canvas = document.querySelector('.workflow-canvas');
+            if (canvas) {
+              const rect = canvas.getBoundingClientRect();
+              const panX = rect.width / 2 - centerX;
+              const panY = rect.height / 2 - centerY;
+              updatePanOffset({ x: panX, y: panY });
+            } else {
+              updatePanOffset({ x: 0, y: 0 });
+            }
+          } else {
+            updatePanOffset({ x: 0, y: 0 });
+          }
+        }, 200);
         return;
       }
     }
@@ -460,6 +479,7 @@ onUnmounted(() => {
           :get-temp-line-path="getTempLinePath"
           :get-group-bounds="getGroupBounds"
           :scale="scale"
+          :pan-offset="panOffset"
           :config-panel-width="isConfigPanelOpen ? configPanelWidth : 0"
           @drop="onDrop"
           @drag-over="onDragOver"
