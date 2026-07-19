@@ -103,12 +103,15 @@ export const useWorkflowStore = defineStore('workflow', () => {
       if (index !== -1) {
         const currentNode = currentWorkflow.value.nodes[index];
         if (currentNode) {
-          currentWorkflow.value.nodes[index] = {
-            id: currentNode.id,
-            type: updates.type ?? currentNode.type,
-            position: updates.position ?? currentNode.position,
-            data: updates.data ?? currentNode.data,
-          };
+          if (updates.type !== undefined) {
+            currentNode.type = updates.type;
+          }
+          if (updates.position !== undefined) {
+            currentNode.position = updates.position;
+          }
+          if (updates.data !== undefined) {
+            currentNode.data = updates.data;
+          }
         }
       }
     }

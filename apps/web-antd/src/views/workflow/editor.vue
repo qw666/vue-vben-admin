@@ -256,6 +256,12 @@ function updateNodeLabel(value: string) {
   if (node) {
     node.data.label = value;
     store.updateNode(node.id, { data: { ...node.data } });
+    const freshNode = store.currentWorkflow?.nodes.find(
+      (n) => n.id === selectedNode.value?.id,
+    );
+    if (freshNode) {
+      selectedNode.value = freshNode;
+    }
   }
 }
 
