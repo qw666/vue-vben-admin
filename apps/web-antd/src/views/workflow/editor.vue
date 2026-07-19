@@ -26,6 +26,7 @@ import {
   convertFlowModelToWorkflow,
   buildFlowSavePayload,
 } from './utils/flowModelConverter';
+import { validateAllNodes } from './composables/useNodeConfig';
 
 const router = useRouter();
 const route = useRoute();
@@ -303,6 +304,19 @@ async function handleSave() {
   try {
     if (!store.currentWorkflow) {
       message.error('请先创建流程');
+      return;
+    }
+
+    const validationResult = validateAllNodes(
+      store.currentWorkflow.nodes,
+      pluginMetaCache.value,
+    );
+
+    if (!validationResult.isValid) {
+      const errorMessages = validationResult.errors.map(
+        (err) => `${err.nodeLabel}：${err.missingFields.join('、')}`,
+      );
+      message.error(`以下节点存在未填写的必填项：\n${errorMessages.join('\n')}`);
       return;
     }
 
