@@ -33,10 +33,11 @@ function handleCreate() {
     message.warning('请先选择左侧文件夹');
     return;
   }
-  store.createWorkflow(
+  const newWorkflow = store.createWorkflow(
     '未命名流程',
     store.selectedFolderId,
   );
+  store.setCurrentWorkflow(newWorkflow);
   router.push('/workflow/editor');
 }
 function handleEdit(workflowId: string) {
