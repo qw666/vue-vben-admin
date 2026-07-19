@@ -23,7 +23,7 @@ import { useWorkflowStore } from '#/store/workflow';
 
 const store = useWorkflowStore();
 
-const expandedKeys = ref<number[]>([]);
+const expandedKeys = ref<string[]>([]);
 const selectedKeys = ref<string[]>([]);
 const editingKey = ref<null | number>(null);
 const editingName = ref('');
@@ -51,12 +51,12 @@ const treeData = computed<FolderTreeNode[]>(() => {
   return foldersToTree(store.folders);
 });
 
-function expandFirstThreeLevels(folders: WorkflowFolder[], level: number = 0): number[] {
-  const keys: number[] = [];
+function expandFirstThreeLevels(folders: WorkflowFolder[], level: number = 0): string[] {
+  const keys: string[] = [];
   if (level >= 3) return keys;
   for (const folder of folders) {
     if (level < 3) {
-      keys.push(folder.id);
+      keys.push(String(folder.id));
     }
     if (folder.children && folder.children.length > 0) {
       keys.push(...expandFirstThreeLevels(folder.children, level + 1));

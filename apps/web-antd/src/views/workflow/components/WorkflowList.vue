@@ -189,7 +189,7 @@ watch(searchInput, () => {
         v-else-if="workflows.length > 0"
         class="h-full overflow-y-auto p-2"
       >
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <Card
             v-for="workflow in workflows"
             :key="workflow.id"
@@ -199,7 +199,7 @@ watch(searchInput, () => {
                 <div
                   class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white"
                 >
-                  <IconifyIcon icon="mdi:flow-tree" :size="20" />
+                  <IconifyIcon icon="mdi:workflow" :size="20" />
                 </div>
                 <div>
                   <h3 class="font-semibold text-gray-800">
@@ -211,9 +211,6 @@ watch(searchInput, () => {
               <Tag v-else-if="workflow.status === 'deleted'" color="red">已删除</Tag>
               <Tag v-else color="green">正常</Tag>
             </div>
-            <p class="text-sm text-gray-600 mb-4 line-clamp-2">
-              {{ workflow.description || '暂无描述' }}
-            </p>
             <div class="flex items-center justify-between">
               <span class="text-xs text-gray-400">
                 更新于 {{ formatDate(workflow.updatedAt) }}
