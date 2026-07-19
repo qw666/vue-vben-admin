@@ -54,17 +54,6 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
           connectionField: 'tasks',
         },
       },
-      {
-        type: 'ConnectionStatus',
-        props: {
-          key: 'next',
-          label: 'Next',
-          required: false,
-          description: '并行执行完成后继续执行的任务',
-          tooltip: '',
-          dynamic: false,
-        },
-      },
     ];
   },
 };

@@ -81,17 +81,6 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
           dynamic: false,
         },
       },
-      {
-        type: 'ConnectionStatus',
-        props: {
-          key: 'next',
-          label: 'Next',
-          required: false,
-          description: '循环执行完成后继续执行的任务',
-          tooltip: '',
-          dynamic: false,
-        },
-      },
     ];
   },
 };

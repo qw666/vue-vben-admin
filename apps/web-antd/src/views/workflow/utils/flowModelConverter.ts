@@ -3,7 +3,7 @@ import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '#/t
 
 import { getFlowControlConfig } from '../config/workflow-node-config';
 
-function convertTaskToConfig(task: FlowTask, flowControlConfig: any): Record<string, any> {
+function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: FlowTask[]): Record<string, any> {
   const config: Record<string, any> = {};
   for (const key of Object.keys(task)) {
     if (key === 'id' || key === 'type' || key === 'description') {
@@ -14,6 +14,17 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any): Record<str
       if (Array.isArray(fieldValue)) {
         config[key] = fieldValue.map((item: any) => {
           if (item.id && item.type) {
+            const fullTask = allTasks.find(t => t.id === item.id);
+            if (fullTask) {
+              const childFlowControlConfig = getFlowControlConfig(fullTask.type);
+              const childConfig = convertTaskToConfig(fullTask, childFlowControlConfig, allTasks);
+              return {
+                type: fullTask.type,
+                nodeId: fullTask.id,
+                label: fullTask.description || fullTask.id,
+                ...childConfig,
+              };
+            }
             return { nodeId: item.id };
           }
           return item;
@@ -25,6 +36,17 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any): Record<str
           if (Array.isArray(caseItems)) {
             nestedConfig[caseKey] = caseItems.map((item: any) => {
               if (item.id && item.type) {
+                const fullTask = allTasks.find(t => t.id === item.id);
+                if (fullTask) {
+                  const childFlowControlConfig = getFlowControlConfig(fullTask.type);
+                  const childConfig = convertTaskToConfig(fullTask, childFlowControlConfig, allTasks);
+                  return {
+                    type: fullTask.type,
+                    nodeId: fullTask.id,
+                    label: fullTask.description || fullTask.id,
+                    ...childConfig,
+                  };
+                }
                 return { nodeId: item.id };
               }
               return item;
@@ -261,7 +283,7 @@ export function convertFlowModelToWorkflow(
 
   const nodes: WorkflowNode[] = allTasks.map((task) => {
     const flowControlConfig = getFlowControlConfig(task.type);
-    const config = convertTaskToConfig(task, flowControlConfig);
+    const config = convertTaskToConfig(task, flowControlConfig, allTasks);
 
     let icon = flowControlConfig?.icon || 'mdi:circle';
     let description = flowControlConfig?.description || '基础';

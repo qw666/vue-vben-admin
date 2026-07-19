@@ -193,23 +193,22 @@ watch(searchInput, () => {
           <Card
             v-for="workflow in workflows"
             :key="workflow.id"
+            :body-style="{ padding: '12px' }"
           >
             <div class="flex items-start justify-between mb-3">
-              <div class="flex items-center gap-3">
-                <div
-                  class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground"
-                >
+              <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground flex-shrink-0">
                   <IconifyIcon icon="mdi:workflow" :size="20" />
                 </div>
-                <div>
-                  <h3 class="font-semibold text-card-foreground">
+                <Tooltip :title="workflow.name">
+                  <h3 class="font-semibold text-card-foreground truncate">
                     {{ workflow.name }}
                   </h3>
-                </div>
+                </Tooltip>
               </div>
-              <Tag v-if="workflow.status === 'disabled'" color="orange">禁用</Tag>
-              <Tag v-else-if="workflow.status === 'deleted'" color="red">已删除</Tag>
-              <Tag v-else color="green">正常</Tag>
+              <Tag v-if="workflow.status === 'disabled'" color="orange" class="ml-2">禁用</Tag>
+              <Tag v-else-if="workflow.status === 'deleted'" color="red" class="ml-2">已删除</Tag>
+              <Tag v-else color="green" class="ml-2">正常</Tag>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-xs text-muted-foreground">

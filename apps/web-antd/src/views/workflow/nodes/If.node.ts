@@ -95,17 +95,6 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
           dynamic: false,
         },
       },
-      {
-        type: 'ConnectionStatus',
-        props: {
-          key: 'next',
-          label: 'Next',
-          required: false,
-          description: '条件判断完成后继续执行的任务',
-          tooltip: '',
-          dynamic: false,
-        },
-      },
     ];
   },
 };
