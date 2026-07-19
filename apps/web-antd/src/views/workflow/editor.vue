@@ -1,12 +1,16 @@
 <script lang="ts" setup>
 import type { ProjectVO } from '#/api/core/workflow';
 
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
 import { Button, Input, message } from 'ant-design-vue';
+
+import { useTitle } from '@vueuse/core';
+
+import { useTabbarStore } from '@vben/stores';
 
 import { useWorkflowStore } from '#/store/workflow';
 
@@ -170,6 +174,20 @@ const isLoading = ref(false);
 const isPageReady = ref(false);
 const isProjectsLoading = ref(false);
 const workflowLoaded = ref(false);
+
+watch(
+  workflowName,
+  (newName) => {
+    useTitle(`${newName} - 智能体开发平台`);
+    route.meta.title = newName;
+    const tabbarStore = useTabbarStore();
+    tabbarStore.addTab({
+      ...route,
+      meta: { ...route.meta, title: newName },
+    });
+  },
+  { immediate: true },
+);
 
 const currentProjectName = computed(() => {
   const project = store.projects.find(
