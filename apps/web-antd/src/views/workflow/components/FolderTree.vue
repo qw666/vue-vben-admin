@@ -51,6 +51,20 @@ const treeData = computed<FolderTreeNode[]>(() => {
   return foldersToTree(store.folders);
 });
 
+function expandFirstThreeLevels(folders: WorkflowFolder[], level: number = 0): number[] {
+  const keys: number[] = [];
+  if (level >= 3) return keys;
+  for (const folder of folders) {
+    if (level < 3) {
+      keys.push(folder.id);
+    }
+    if (folder.children && folder.children.length > 0) {
+      keys.push(...expandFirstThreeLevels(folder.children, level + 1));
+    }
+  }
+  return keys;
+}
+
 function foldersToTree(folders: WorkflowFolder[]): FolderTreeNode[] {
   return folders.map((folder) => ({
     key: String(folder.id),
@@ -195,9 +209,11 @@ function onSelect(keys: Key[]) {
   store.setSelectedFolderId(folderId);
 }
 
-function clearSelection() {
+async function handleRefresh() {
   selectedKeys.value = [];
   store.setSelectedFolderId(null);
+  await store.loadFolders();
+  await store.loadWorkflows();
 }
 
 function onCreateFolder(parentId?: number) {
@@ -351,6 +367,16 @@ watch(
   },
 );
 
+watch(
+  () => store.folders,
+  (newFolders) => {
+    if (newFolders && newFolders.length > 0) {
+      expandedKeys.value = expandFirstThreeLevels(newFolders);
+    }
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   store.loadFolders();
   store.loadProjects();
@@ -368,11 +394,10 @@ onMounted(() => {
           <Button
             type="text"
             size="small"
-            :class="{ 'text-blue-600 font-medium': !store.selectedFolderId }"
-            @click="clearSelection"
-            title="全部流程"
+            @click="handleRefresh"
+            title="刷新分组"
           >
-            <IconifyIcon icon="mdi:layers" :size="16" />
+            <IconifyIcon icon="mdi:refresh" :size="16" />
           </Button>
           <Button
             type="text"
@@ -389,7 +414,6 @@ onMounted(() => {
         :selected-keys="selectedKeys"
         :tree-data="treeData"
         block-node
-        default-expand-all
         @expand="onExpand"
         @select="onSelect"
       />

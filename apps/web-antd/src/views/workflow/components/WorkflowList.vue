@@ -193,9 +193,6 @@ watch(searchInput, () => {
           <Card
             v-for="workflow in workflows"
             :key="workflow.id"
-            hoverable
-            class="cursor-pointer group"
-            @click="handleEdit(workflow.id)"
           >
             <div class="flex items-start justify-between mb-3">
               <div class="flex items-center gap-3">
@@ -208,7 +205,6 @@ watch(searchInput, () => {
                   <h3 class="font-semibold text-gray-800">
                     {{ workflow.name }}
                   </h3>
-                  <span class="text-xs text-gray-500">{{ workflow.nodes.length }} 个节点</span>
                 </div>
               </div>
               <Tag v-if="workflow.status === 'disabled'" color="orange">禁用</Tag>
@@ -222,15 +218,12 @@ watch(searchInput, () => {
               <span class="text-xs text-gray-400">
                 更新于 {{ formatDate(workflow.updatedAt) }}
               </span>
-              <Space
-                size="small"
-                class="opacity-0 group-hover:opacity-100 transition-opacity"
-              >
+              <Space size="small">
                 <Tooltip title="编辑">
                   <Button
                     type="text"
                     size="small"
-                    @click.stop="handleEdit(workflow.id)"
+                    @click="handleEdit(workflow.id)"
                   >
                     <IconifyIcon icon="mdi:pencil" :size="16" />
                   </Button>
@@ -239,7 +232,7 @@ watch(searchInput, () => {
                   <Button
                     type="text"
                     size="small"
-                    @click.stop="handleRun(workflow.id)"
+                    @click="handleRun(workflow.id)"
                   >
                     <IconifyIcon icon="mdi:play" :size="16" />
                   </Button>
@@ -254,7 +247,7 @@ watch(searchInput, () => {
                       type="text"
                       size="small"
                       danger
-                      @click.stop="handleDelete(workflow.id)"
+                      @click="handleDelete(workflow.id)"
                     >
                       <IconifyIcon icon="mdi:trash-can" :size="16" />
                     </Button>
