@@ -46,6 +46,7 @@ export interface Workflow {
   backendId?: number;
   /** 传递给后端的 flowId，用于新建保存后从列表中匹配出后端数字 ID。 */
   flowId: string;
+  status?: 'normal' | 'disabled' | 'deleted';
 }
 
 export interface WorkflowFolder {

@@ -43,6 +43,8 @@ export interface FlowVO {
   flowId: string;
   createBy: string;
   createTime: string;
+  disabled?: boolean;
+  deleted?: boolean;
 }
 
 export interface FlowPageRequest {

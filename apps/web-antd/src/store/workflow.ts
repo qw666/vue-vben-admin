@@ -294,18 +294,26 @@ export const useWorkflowStore = defineStore('workflow', () => {
         pageSize: pageSize ?? 10,
       });
       if (data && data.records) {
-        workflows.value = data.records.map((item: FlowVO) => ({
-          id: `workflow-${item.id}`,
-          name: item.description,
-          description: item.description,
-          folderId: item.folderId,
-          nodes: [],
-          edges: [],
-          createdAt: item.createTime || new Date().toISOString(),
-          updatedAt: item.createTime || new Date().toISOString(),
-          backendId: item.id,
-          flowId: item.flowId,
-        }));
+        workflows.value = data.records.map((item: FlowVO) => {
+          const status: 'normal' | 'disabled' | 'deleted' = item.deleted
+            ? 'deleted'
+            : item.disabled
+              ? 'disabled'
+              : 'normal';
+          return {
+            id: `workflow-${item.id}`,
+            name: item.description,
+            description: item.description,
+            folderId: item.folderId,
+            nodes: [],
+            edges: [],
+            createdAt: item.createTime || new Date().toISOString(),
+            updatedAt: item.createTime || new Date().toISOString(),
+            backendId: item.id,
+            flowId: item.flowId,
+            status,
+          };
+        });
         totalWorkflows.value = data.total || 0;
       } else {
         workflows.value = [];

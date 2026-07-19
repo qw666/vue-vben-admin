@@ -210,7 +210,9 @@ watch(searchInput, () => {
                   <span class="text-xs text-gray-500">{{ workflow.nodes.length }} 个节点</span>
                 </div>
               </div>
-              <Tag color="blue">草稿</Tag>
+              <Tag v-if="workflow.status === 'disabled'" color="orange">禁用</Tag>
+              <Tag v-else-if="workflow.status === 'deleted'" color="red">已删除</Tag>
+              <Tag v-else color="green">正常</Tag>
             </div>
             <p class="text-sm text-gray-600 mb-4 line-clamp-2">
               {{ workflow.description || '暂无描述' }}
@@ -284,7 +286,7 @@ watch(searchInput, () => {
       </div>
 
       <div
-        v-if="store.totalWorkflows > pageSize"
+        v-if="store.totalWorkflows > 0"
         class="flex justify-center py-4"
       >
         <Pagination
