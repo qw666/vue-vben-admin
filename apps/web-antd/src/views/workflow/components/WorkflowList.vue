@@ -197,12 +197,12 @@ watch(searchInput, () => {
             <div class="flex items-start justify-between mb-3">
               <div class="flex items-center gap-3">
                 <div
-                  class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white"
+                  class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground"
                 >
                   <IconifyIcon icon="mdi:workflow" :size="20" />
                 </div>
                 <div>
-                  <h3 class="font-semibold text-gray-800">
+                  <h3 class="font-semibold text-card-foreground">
                     {{ workflow.name }}
                   </h3>
                 </div>
@@ -212,7 +212,7 @@ watch(searchInput, () => {
               <Tag v-else color="green">正常</Tag>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-xs text-gray-400">
+              <span class="text-xs text-muted-foreground">
                 更新于 {{ formatDate(workflow.updatedAt) }}
               </span>
               <Space size="small">

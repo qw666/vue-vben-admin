@@ -62,16 +62,8 @@ const NODE_HEIGHT = 68;
 
 const canvasRef = ref<HTMLElement | null>(null);
 
-const categoryColors: Record<string, string> = {
-  流程控制: 'bg-purple-500',
-  HTTP操作: 'bg-blue-500',
-  输出操作: 'bg-green-500',
-  触发器: 'bg-orange-500',
-  基础: 'bg-gray-500',
-};
-
-function getCategoryColor(category: string): string {
-  return categoryColors[category] || 'bg-gray-500';
+function getCategoryColor(): string {
+  return 'bg-primary';
 }
 
 const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
@@ -436,12 +428,12 @@ onMounted(() => {
           >
             <div class="flex items-center gap-2 mb-1">
               <div
-                class="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                :class="getCategoryColor(node.data.description || '基础')"
+                class="w-8 h-8 rounded-full flex items-center justify-center text-primary-foreground"
+                :class="getCategoryColor()"
               >
                 <IconifyIcon :icon="node.data.icon" :size="16" />
               </div>
-              <span class="font-medium text-sm text-gray-700">{{
+              <span class="font-medium text-sm text-card-foreground">{{
                 node.data.label
               }}</span>
             </div>

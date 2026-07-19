@@ -465,24 +465,24 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="workflow-editor flex flex-col bg-gray-100 overflow-hidden">
+  <div class="workflow-editor flex flex-col bg-background overflow-hidden">
     <header
-      class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between"
+      class="bg-header border-b border-border px-6 py-3 flex items-center justify-between"
     >
       <div class="flex items-center gap-4 flex-nowrap">
         <Button type="text" @click="handleBack">
           <IconifyIcon icon="mdi:arrow-left" :size="16" />
           返回列表
         </Button>
-        <div class="h-6 w-px bg-gray-200"></div>
+        <div class="h-6 w-px bg-border"></div>
         <div class="flex items-center gap-2 whitespace-nowrap">
-          <span class="text-sm text-gray-500">项目：</span>
-          <span class="text-sm font-medium text-gray-800">{{
+          <span class="text-sm text-muted-foreground">项目：</span>
+          <span class="text-sm font-medium text-foreground">{{
             currentProjectName || '加载中...'
           }}</span>
         </div>
         <div class="flex items-center gap-2 whitespace-nowrap">
-          <span class="text-sm text-gray-500">流程名称：</span>
+          <span class="text-sm text-muted-foreground">流程名称：</span>
           <Input
             v-model:value="workflowName"
             class="w-48 flex-shrink-0"
