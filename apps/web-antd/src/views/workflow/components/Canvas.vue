@@ -144,10 +144,14 @@ function centerCanvas() {
   const canvas = document.querySelector('.workflow-canvas');
   if (canvas) {
     const rect = canvas.getBoundingClientRect();
-    panOffset.value = {
-      x: rect.width / 2 - canvasSize.value.width / 2,
-      y: rect.height / 2 - canvasSize.value.height / 2,
-    };
+    if (props.panOffset) {
+      panOffset.value = props.panOffset;
+    } else {
+      panOffset.value = {
+        x: rect.width / 2 - canvasSize.value.width / 2,
+        y: rect.height / 2 - canvasSize.value.height / 2,
+      };
+    }
     emit('panChange', panOffset.value);
     emit('scaleChange', 1);
   }
@@ -203,6 +207,16 @@ function handleWheel(event: WheelEvent) {
 
   emit('scaleChange', newScale);
 }
+
+watch(
+  () => props.panOffset,
+  (newOffset) => {
+    if (newOffset) {
+      panOffset.value = newOffset;
+    }
+  },
+  { deep: true },
+);
 
 onMounted(() => {
   if (!props.panOffset) {

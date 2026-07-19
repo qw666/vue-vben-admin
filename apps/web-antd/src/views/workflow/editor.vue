@@ -325,6 +325,7 @@ function handleClear() {
 }
 
 function handleBack() {
+  store.setCurrentWorkflow(null);
   router.push('/workflow/list');
 }
 
@@ -401,8 +402,23 @@ onMounted(async () => {
       store.setCurrentWorkflow(newWorkflow);
     }
   } else {
-    const newWorkflow = store.createWorkflow('未命名流程');
-    store.setCurrentWorkflow(newWorkflow);
+    if (store.currentWorkflow && store.currentWorkflow.id) {
+      workflowName.value = store.currentWorkflow.name;
+      connections.value = (store.currentWorkflow.edges ||
+        []) as unknown as typeof connections.value;
+      workflowLoaded.value = true;
+    } else {
+      const newWorkflow = store.createWorkflow('未命名流程');
+      store.setCurrentWorkflow(newWorkflow);
+      workflowLoaded.value = true;
+    }
+    setTimeout(() => {
+      const canvas = document.querySelector('.workflow-canvas');
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        updatePanOffset({ x: rect.width / 2 - 2000, y: rect.height / 2 - 2000 });
+      }
+    }, 100);
   }
 
   window.addEventListener('keydown', handleKeyDown);
