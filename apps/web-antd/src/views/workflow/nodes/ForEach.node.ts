@@ -12,14 +12,14 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'do', label: 'Do', color: '#3b82f6' },
+        { field: 'tasks', label: 'Tasks', color: '#3b82f6' },
         { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['do'],
+    taskFields: ['tasks'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    const value = savedConfig.value;
+    const value = savedConfig.value || savedConfig.values;
     let valuesArray = [];
     if (Array.isArray(value)) {
       valuesArray = value;
@@ -31,9 +31,9 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
       }
     }
     return {
-      value: valuesArray,
+      values: valuesArray,
       concurrencyLimit: savedConfig.concurrencyLimit ?? 1,
-      do: savedConfig.do || [],
+      tasks: savedConfig.do || savedConfig.tasks || [],
       next: savedConfig.next || [],
     };
   },
@@ -42,7 +42,7 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
       {
         type: 'StringArray',
         props: {
-          key: 'value',
+          key: 'values',
           label: 'values',
           required: true,
           description: '要循环迭代的值列表',
@@ -65,15 +65,15 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
           tooltip:
             'values 数组中每个值对应的任务组并发执行数量。默认值为1。0=无限制，所有任务组同时并行执行；1=完全串行，每次只执行一个任务组；大于1时，最多允许指定数量的任务组并行执行。',
           dynamic: false,
-          connectionField: 'do',
+          connectionField: 'tasks',
           maxLimited: false,
         },
       },
       {
         type: 'ConnectionStatus',
         props: {
-          key: 'do',
-          label: 'Do',
+          key: 'tasks',
+          label: 'Tasks',
           required: false,
           description: '循环执行的任务列表',
           tooltip:
