@@ -22,6 +22,7 @@ import {
   updateFlow,
   updateFolder,
 } from '#/api';
+import { generateFlowId } from '#/views/workflow/utils/idGenerator';
 
 const MOCK_PROJECTS: ProjectVO[] = [
   {
@@ -148,7 +149,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       createdAt: now,
       updatedAt: now,
       // backendId 留空，saveWorkflowToBackend 据此走 addFlow 分支
-      flowId: `flow-${timestamp}`,
+      flowId: generateFlowId(),
     };
     workflows.value.push(workflow);
     return workflow;
@@ -298,7 +299,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       });
       if (data && data.records) {
         workflows.value = data.records.map((item: FlowVO) => {
-          const status: 'normal' | 'disabled' | 'deleted' = item.deleted
+          const status: 'deleted' | 'disabled' | 'normal' = item.deleted
             ? 'deleted'
             : item.disabled
               ? 'disabled'

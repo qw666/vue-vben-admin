@@ -2,6 +2,7 @@ import type { FlowModel, FlowTask } from '#/api/core/workflow';
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '#/types/workflow';
 
 import { getFlowControlConfig } from '../config/workflow-node-config';
+import { generateFlowId } from './idGenerator';
 
 function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: FlowTask[]): Record<string, any> {
   const config: Record<string, any> = {};
@@ -127,7 +128,7 @@ interface NodePosition {
   y: number;
 }
 
-function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>): { width: number; height: number } {
+function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>): { height: number; width: number } {
   const NODE_WIDTH = 176;
   const NODE_HEIGHT = 68;
   const VERTICAL_SPACING = 80;
@@ -140,8 +141,8 @@ function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>)
 
   const processed = new Set<string>();
 
-  function processTask(task: FlowTask, x: number, y: number): { width: number; height: number } {
-    if (!task || processed.has(task.id)) return { width: 0, height: 0 };
+  function processTask(task: FlowTask, x: number, y: number): { height: number; width: number } {
+    if (!task || processed.has(task.id)) return { height: 0, width: 0 };
 
     processed.add(task.id);
     nodesMap.set(task.id, { x, y });
@@ -196,7 +197,7 @@ function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>)
       }
     }
 
-    return { width: nodeWidth, height: nodeHeight };
+    return { height: nodeHeight, width: nodeWidth };
   }
 
   for (const task of tasks) {
@@ -209,7 +210,7 @@ function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>)
     currentY += result.height + VERTICAL_SPACING;
   }
 
-  return { width: maxWidth, height: maxHeight };
+  return { height: maxHeight, width: maxWidth };
 }
 
 export function convertFlowModelToWorkflow(
@@ -344,7 +345,7 @@ export function convertFlowModelToWorkflow(
     edges,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    flowId: flowId || `flow-${Date.now()}`,
+    flowId: flowId || generateFlowId(),
   };
 }
 

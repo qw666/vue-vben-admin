@@ -1,20 +1,22 @@
 <script lang="ts" setup>
-import { Button, Input, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+
+import { Button, Input, Tooltip } from 'ant-design-vue';
+
 import FieldRenderer from './FieldRenderer.vue';
 
 defineProps<{
-  isOpen: boolean;
-  width: number;
-  isResizing: boolean;
-  isMetaLoading: boolean;
-  selectedNode: any;
-  nodeConfigForm: Record<string, any>;
-  pluginGroups: any[];
   currentNodeMeta: any;
-  requiredFields: any[];
-  optionalFields: any[];
   fieldRendererEvents: Record<string, any>;
+  isMetaLoading: boolean;
+  isOpen: boolean;
+  isResizing: boolean;
+  nodeConfigForm: Record<string, any>;
+  optionalFields: any[];
+  pluginGroups: any[];
+  requiredFields: any[];
+  selectedNode: any;
+  width: number;
 }>();
 
 const emit = defineEmits<{
@@ -40,7 +42,7 @@ const emit = defineEmits<{
     </div>
     <div
       class="bg-white border-l border-gray-200 flex flex-col overflow-hidden"
-      :style="{ width: width + 'px' }"
+      :style="{ width: `${width}px` }"
     >
       <div class="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-800">节点配置</h2>
@@ -60,10 +62,9 @@ const emit = defineEmits<{
             <div class="text-sm text-gray-500">节点ID</div>
             <Input
               :value="selectedNode.id"
-              @input="(e: any) => emit('updateNodeId', e.target.value)"
               class="mt-1"
               size="small"
-              placeholder="请输入节点ID"
+              :disabled="true"
             />
           </div>
           <div class="p-4 bg-gray-50 rounded-lg">
