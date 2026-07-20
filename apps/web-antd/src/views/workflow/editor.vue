@@ -197,25 +197,6 @@ const currentProjectName = computed(() => {
   return project?.projectName || '';
 });
 
-function updateNodeValue(
-  fieldKey: string,
-  caseKey: string,
-  index: number,
-  value: string,
-) {
-  const node = store.currentWorkflow?.nodes.find(
-    (n) => n.id === selectedNode.value?.id,
-  );
-  if (node && node.data.config?.[fieldKey]?.[caseKey]) {
-    node.data.config[fieldKey][caseKey][index].value = value;
-    node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
-    store.updateNode(node.id, { data: { ...node.data } });
-    if (nodeConfigForm[fieldKey]) {
-      nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
-    }
-  }
-}
-
 function removeNodeFromCase(fieldKey: string, caseKey: string, index: number) {
   const node = store.currentWorkflow?.nodes.find(
     (n) => n.id === selectedNode.value?.id,
@@ -261,7 +242,6 @@ const fieldRendererEvents = computed(() => ({
     updateSwitchCaseKey(selectedNode.value?.id || '', oldKey, newKey, fieldKey),
   removeCaseKey: (fieldKey: string, caseKey: string) =>
     removeSwitchCaseKey(selectedNode.value?.id || '', caseKey, fieldKey),
-  updateNodeValue,
   removeNodeFromCase,
   addOnResumeItem,
   updateOnResumeField,

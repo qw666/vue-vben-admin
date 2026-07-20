@@ -454,23 +454,8 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
             Object.keys(configValue).forEach((caseKey) => {
               const caseItems = configValue[caseKey];
               if (Array.isArray(caseItems)) {
-                caseItems.forEach((item: any, index: number) => {
-                  let actualCaseKey = caseKey;
-                  if (item.value && item.value.trim()) {
-                    actualCaseKey = item.value.trim();
-                  } else {
-                    actualCaseKey = `${caseKey}_${index}`;
-                  }
-
-                  let finalCaseKey = actualCaseKey;
-                  let suffix = 1;
-                  while (nestedTasks[finalCaseKey] && nestedTasks[finalCaseKey].length > 0) {
-                    finalCaseKey = `${actualCaseKey}_${suffix}`;
-                    suffix++;
-                  }
-
-                  nestedTasks[finalCaseKey] = [];
-
+                nestedTasks[caseKey] = [];
+                caseItems.forEach((item: any) => {
                   if (item.nodeId) {
                     const childNode = workflow.nodes.find(
                       (n) => n.id === item.nodeId,
@@ -480,10 +465,10 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
                       const result: FlowTask = { ...converted };
                       delete result.nodeId;
                       delete result.label;
-                      nestedTasks[finalCaseKey].push(result);
+                      nestedTasks[caseKey].push(result);
                     }
                   } else {
-                    nestedTasks[finalCaseKey].push(item);
+                    nestedTasks[caseKey].push(item);
                   }
                 });
               }

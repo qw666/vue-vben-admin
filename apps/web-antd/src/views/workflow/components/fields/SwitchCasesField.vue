@@ -14,7 +14,6 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
 const emit = defineEmits<{
   (e: 'updateCaseKey', fieldKey: string, oldKey: string, newKey: string): void;
   (e: 'removeCaseKey', fieldKey: string, caseKey: string): void;
-  (e: 'updateNodeValue', fieldKey: string, caseKey: string, index: number, value: string): void;
   (e: 'removeNodeFromCase', fieldKey: string, caseKey: string, index: number): void;
 }>();
 
@@ -46,26 +45,29 @@ function getCaseCount() {
         <span style="font-size: 13px; font-weight: 500; color: #92400e;">{{ field.props.label }}</span>
       </div>
 
-      <div v-if="getCaseCount() > 0" style="display: flex; flex-direction: column; gap: 4px;">
-        <template v-for="(caseItems, caseKey) in (nodeConfigForm[fieldKey] || {})" :key="fieldKey + '-case-' + caseKey">
-          <div v-for="(item, index) in caseItems" :key="fieldKey + '-case-' + caseKey + '-item-' + index"
-               style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fffbeb; border-radius: 4px;">
-            <Button size="small" danger ghost circle style="padding: 2px;" @click="emit('removeNodeFromCase', fieldKey, caseKey as string, index as number)">
-              <IconifyIcon icon="mdi:minus" :size="12" />
-            </Button>
-            <Input
-              :value="item.value || ''"
-              @input="(e: any) => emit('updateNodeValue', fieldKey, caseKey as string, index as number, e.target.value)"
-              style="width: 80px;"
-              size="small"
-              placeholder="值"
-            />
-            <IconifyIcon icon="mdi:arrow-right-bottom" :size="12" class="text-green-500" />
-            <span style="font-size: 12px; color: #9ca3af;">{{ caseKey }}</span>
-            <span style="font-size: 12px; color: #374151; flex: 1;">
-              {{ pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
-            </span>
-            <span v-if="item.nodeId" style="font-size: 10px; color: #9ca3af;">画布节点</span>
+      <div v-if="getCaseCount() > 0" style="display: flex; flex-direction: column; gap: 8px;">
+        <template v-for="(caseItems, caseKey, caseIndex) in (nodeConfigForm[fieldKey] || {})" :key="fieldKey + '-case-' + caseIndex">
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <div v-for="(item, index) in caseItems" :key="fieldKey + '-case-' + caseIndex + '-item-' + index"
+                 style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fffbeb; border-radius: 4px;">
+              <Button size="small" danger ghost circle style="padding: 2px;" @click="emit('removeNodeFromCase', fieldKey, caseKey as string, index as number)">
+                <IconifyIcon icon="mdi:minus" :size="12" />
+              </Button>
+              <Input
+                v-if="index === 0"
+                :value="caseKey"
+                @blur="(e: any) => emit('updateCaseKey', fieldKey, caseKey as string, e.target.value)"
+                style="width: 80px;"
+                size="small"
+                placeholder="值"
+              />
+              <span v-else style="width: 80px; text-align: left;"></span>
+              <IconifyIcon icon="mdi:arrow-right-bottom" :size="12" class="text-green-500" />
+              <span style="font-size: 12px; color: #374151; flex: 1;">
+                {{ pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
+              </span>
+              <span v-if="item.nodeId" style="font-size: 10px; color: #9ca3af;">画布节点</span>
+            </div>
           </div>
         </template>
       </div>

@@ -44,7 +44,6 @@ const emit = defineEmits<{
   (e: 'addCaseKey', fieldKey: string): void;
   (e: 'updateCaseKey', fieldKey: string, oldKey: string, newKey: string): void;
   (e: 'removeCaseKey', fieldKey: string, caseKey: string): void;
-  (e: 'updateNodeValue', fieldKey: string, caseKey: string, index: number, value: string): void;
   (e: 'removeNodeFromCase', fieldKey: string, caseKey: string, index: number): void;
   (e: 'addOnResumeItem', fieldKey: string): void;
   (e: 'updateOnResumeField', fieldKey: string, index: number, key: string, value: any): void;
@@ -175,7 +174,6 @@ const emit = defineEmits<{
     :plugin-groups="pluginGroups"
     @update-case-key="(fk: string, oldKey: string, newKey: string) => emit('updateCaseKey', fk, oldKey, newKey)"
     @remove-case-key="(fk: string, caseKey: string) => emit('removeCaseKey', fk, caseKey)"
-    @update-node-value="(fk: string, caseKey: string, idx: number, val: string) => emit('updateNodeValue', fk, caseKey, idx, val)"
     @remove-node-from-case="(fk: string, caseKey: string, idx: number) => emit('removeNodeFromCase', fk, caseKey, idx)"
   />
   <RefObjectField
