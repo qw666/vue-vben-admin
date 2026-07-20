@@ -1,64 +1,69 @@
 import { useWorkflowStore } from '#/store/workflow';
+import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig } from '../config/workflow-node-config';
+import { UI_CONFIG } from '../config/ui-config';
+import type { NodePort, GroupBounds } from '../types/workflow';
+import { useFlowControlNode } from './useFlowControlNode';
 
-export interface Port {
-  id: string;
-  nodeId: string;
-  type: 'input' | 'output';
-  label?: string;
-  position: { x: number; y: number };
-  color?: string;
-  portGroup?: string;
-}
-
-export interface GroupBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-const NODE_WIDTH = 176;
-const NODE_HEIGHT = 68;
-const GROUP_PADDING = 24;
-const GROUP_BOTTOM_MARGIN = 32;
-const PORT_RADIUS = 8;
+const NODE_WIDTH = UI_CONFIG.node.width;
+const NODE_HEIGHT = UI_CONFIG.node.height;
+const GROUP_PADDING = UI_CONFIG.group.padding;
+const GROUP_BOTTOM_MARGIN = UI_CONFIG.group.bottomMargin;
+const PORT_RADIUS = UI_CONFIG.port.radius;
 
 function getChildNodeIds(nodeId: string): string[] {
-  const store = useWorkflowStore();
-  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
-  if (!node) return [];
+  const { getChildNodeIds: getFlowControlChildIds } = useFlowControlNode();
+  return getFlowControlChildIds(nodeId);
+}
 
-  const flowControlConfig = getFlowControlConfig(node.data.type);
-  if (!flowControlConfig) return [];
+interface OutputPortInfo {
+  field: string;
+  label: string;
+  color: string;
+  portGroup: string;
+}
 
-  const childIds: string[] = [];
-  const taskFields = flowControlConfig.taskFields || [];
-  const excludeFields = ['next', 'errors', 'finally'];
+function getOutputPortInfo(node: any, flowControlConfig: any): {
+  bottomOutputs: OutputPortInfo[];
+  rightOutputs: OutputPortInfo[];
+  nextOutput: any;
+} {
+  const bottomOutputs: OutputPortInfo[] = [];
+  const rightOutputs: OutputPortInfo[] = [];
+  const nextOutput = flowControlConfig.ports.output.find((out: any) => out.field === 'next');
 
-  taskFields.forEach(field => {
-    if (excludeFields.includes(field)) return;
-    const configValue = node.data.config?.[field];
-    if (Array.isArray(configValue)) {
-      configValue.forEach((item: any) => {
-        if (item.nodeId && !childIds.includes(item.nodeId)) {
-          childIds.push(item.nodeId);
-        }
+  flowControlConfig.ports.output.forEach((out: any) => {
+    if (out.dynamic) {
+      const cases = node.data.config?.[out.field];
+      const caseCount = typeof cases === 'object' && cases !== null && !Array.isArray(cases)
+        ? Object.keys(cases).length
+        : 0;
+      bottomOutputs.push({
+        field: `${out.field}-add`,
+        label: caseCount > 0 ? `${out.label}(${caseCount})` : '+',
+        color: out.color,
+        portGroup: out.field,
       });
-    } else if (typeof configValue === 'object' && configValue !== null) {
-      (Object.values(configValue) as any[]).forEach((cases) => {
-        if (Array.isArray(cases)) {
-          cases.forEach((item: any) => {
-            if (item.nodeId && !childIds.includes(item.nodeId)) {
-              childIds.push(item.nodeId);
-            }
-          });
-        }
-      });
+    } else {
+      if (out.field === 'errors' || out.field === 'finally') {
+        rightOutputs.push({
+          field: out.field,
+          label: out.label,
+          color: out.field === 'errors' ? '#ef4444' : '#22c55e',
+          portGroup: out.field,
+        });
+      } else if (out.field !== 'next') {
+        bottomOutputs.push({
+          field: out.field,
+          label: out.label,
+          color: out.color,
+          portGroup: out.field,
+        });
+      }
     }
   });
 
-  return childIds;
+  return { bottomOutputs, rightOutputs, nextOutput };
 }
 
 function getDescendantNodeIds(nodeId: string, visited: Set<string> = new Set()): string[] {
@@ -78,7 +83,7 @@ function getDescendantNodeIds(nodeId: string, visited: Set<string> = new Set()):
 
 export function getGroupBounds(nodeId: string): GroupBounds | null {
   const store = useWorkflowStore();
-  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+  const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
   if (!node) return null;
 
   const flowControlConfig = getFlowControlConfig(node.data.type);
@@ -108,11 +113,11 @@ export function getGroupBounds(nodeId: string): GroupBounds | null {
   };
 }
 
-export function getNodePorts(nodeId: string, nodeType: string): Port[] {
-  const node = useWorkflowStore().currentWorkflow?.nodes.find(n => n.id === nodeId);
+export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
+  const node = useWorkflowStore().currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
   if (!node) return [];
 
-  const ports: Port[] = [];
+  const ports: NodePort[] = [];
 
   const flowControlConfig = getFlowControlConfig(nodeType);
   const groupBounds = flowControlConfig ? getGroupBounds(nodeId) : null;
@@ -134,40 +139,7 @@ export function getNodePorts(nodeId: string, nodeType: string): Port[] {
   }
 
   if (flowControlConfig && flowControlConfig.ports.output) {
-    const bottomOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
-    const rightOutputs: { field: string; label: string; color: string; portGroup: string }[] = [];
-    const nextOutput = flowControlConfig.ports.output.find(out => out.field === 'next');
-
-    flowControlConfig.ports.output.forEach(out => {
-      if (out.dynamic) {
-        const cases = node.data.config?.[out.field];
-        const caseCount = typeof cases === 'object' && cases !== null && !Array.isArray(cases) 
-          ? Object.keys(cases).length 
-          : 0;
-        bottomOutputs.push({
-          field: caseCount > 0 ? `${out.field}-add` : `${out.field}-add`,
-          label: caseCount > 0 ? `${out.label}(${caseCount})` : '+',
-          color: out.color,
-          portGroup: out.field,
-        });
-      } else {
-        if (out.field === 'errors' || out.field === 'finally') {
-          rightOutputs.push({
-            field: out.field,
-            label: out.label,
-            color: out.field === 'errors' ? '#ef4444' : '#22c55e',
-            portGroup: out.field,
-          });
-        } else if (out.field !== 'next') {
-          bottomOutputs.push({
-            field: out.field,
-            label: out.label,
-            color: out.color,
-            portGroup: out.field,
-          });
-        }
-      }
-    });
+    const { bottomOutputs, rightOutputs, nextOutput } = getOutputPortInfo(node, flowControlConfig);
 
     if (bottomOutputs.length === 1) {
       const out = bottomOutputs[0]!;
@@ -256,7 +228,7 @@ export function getNodePorts(nodeId: string, nodeType: string): Port[] {
 }
 
 export function getPortPosition(nodeId: string, portId: string): { x: number; y: number } {
-  const node = useWorkflowStore().currentWorkflow?.nodes.find(n => n.id === nodeId);
+  const node = useWorkflowStore().currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
   if (!node) return { x: 0, y: 0 };
 
   const flowControlConfig = getFlowControlConfig(node.data.type);
@@ -280,28 +252,7 @@ export function getPortPosition(nodeId: string, portId: string): { x: number; y:
 
   if (flowControlConfig && flowControlConfig.ports.output && portId.startsWith(`${nodeId}-output-`)) {
     const field = portId.replace(`${nodeId}-output-`, '');
-
-    const bottomOutputs: { field: string; label: string }[] = [];
-    const rightOutputs: { field: string; label: string }[] = [];
-
-    flowControlConfig.ports.output.forEach(out => {
-      if (out.dynamic) {
-        const cases = node.data.config?.[out.field];
-        const caseCount = typeof cases === 'object' && cases !== null && !Array.isArray(cases) 
-          ? Object.keys(cases).length 
-          : 0;
-        bottomOutputs.push({ 
-          field: `${out.field}-add`, 
-          label: caseCount > 0 ? `${out.label}(${caseCount})` : '+' 
-        });
-      } else {
-        if (out.field === 'errors' || out.field === 'finally') {
-          rightOutputs.push({ field: out.field, label: out.label });
-        } else if (out.field !== 'next') {
-          bottomOutputs.push({ field: out.field, label: out.label });
-        }
-      }
-    });
+    const { bottomOutputs, rightOutputs } = getOutputPortInfo(node, flowControlConfig);
 
     if (field === 'next') {
       const nextY = groupBounds ? groupBounds.y + groupBounds.height + 6 : node.position.y + NODE_HEIGHT + 6;

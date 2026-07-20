@@ -1,19 +1,69 @@
 import { ref } from 'vue';
 import { useWorkflowStore } from '#/store/workflow';
+import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig } from '../config/workflow-node-config';
+import type { Connection, NodeConfigForm, NodeConnectedCallback, TaskItem } from '../types/workflow';
+import { getElementCanvasPosition, getMouseCanvasPosition } from '../utils/coordinateUtils';
+import { useEventCleanup } from './useEventCleanup';
 
-export interface Connection {
-  id: string;
-  source: string;
-  sourceHandle: string;
-  target: string;
-  targetHandle: string;
+function parseSourceHandle(sourceHandle: string, flowControlConfig: any): {
+  targetField: string;
+  caseKey: string | undefined;
+  isDynamic: boolean;
+} {
+  let targetField = sourceHandle;
+  let caseKey: string | undefined;
+  let isDynamic = false;
+
+  if (flowControlConfig.ports.output) {
+    const dynamicOutput = flowControlConfig.ports.output.find(
+      (o: any) => o.dynamic && sourceHandle.startsWith(o.field + '-')
+    );
+    if (dynamicOutput) {
+      targetField = dynamicOutput.field;
+      const remaining = sourceHandle.replace(dynamicOutput.field + '-', '');
+      if (remaining !== 'add') {
+        caseKey = remaining;
+      }
+      isDynamic = true;
+    } else {
+      const dynamicField = flowControlConfig.ports.output.find(
+        (o: any) => o.dynamic && sourceHandle === o.field
+      );
+      if (dynamicField) {
+        targetField = dynamicField.field;
+        isDynamic = true;
+      }
+    }
+  }
+
+  return { targetField, caseKey, isDynamic };
+}
+
+function ensureConfigObject(node: any, field: string): Record<string, any> {
+  if (!node.data.config) {
+    node.data.config = {};
+  }
+  if (!node.data.config[field]) {
+    node.data.config[field] = {};
+  }
+  return node.data.config[field];
+}
+
+function ensureConfigArray(node: any, field: string): any[] {
+  if (!node.data.config) {
+    node.data.config = {};
+  }
+  if (!Array.isArray(node.data.config[field])) {
+    node.data.config[field] = [];
+  }
+  return node.data.config[field];
 }
 
 export function useCanvasConnections(
-  nodeConfigForm?: any,
-  selectedNode?: { value: any },
-  onNodeConnected?: (node: any) => void,
+  nodeConfigForm?: NodeConfigForm,
+  _selectedNode?: any,
+  onNodeConnected?: NodeConnectedCallback,
   panOffset?: { value: { x: number; y: number } },
   scale?: { value: number }
 ) {
@@ -24,6 +74,7 @@ export function useCanvasConnections(
   const connectingFromPortId = ref<string | null>(null);
   const tempLine = ref({ x1: 0, y1: 0, x2: 0, y2: 0 });
   const selectedConnectionId = ref<string | null>(null);
+  const { addListener, removeAllListeners, removeListener } = useEventCleanup();
 
   function startConnection(e: MouseEvent, nodeId: string, portId: string) {
     e.preventDefault();
@@ -38,29 +89,33 @@ export function useCanvasConnections(
       return;
     }
     
-    const canvasRect = canvas.getBoundingClientRect();
-    const portElement = e.target as HTMLElement;
-    const portRect = portElement.getBoundingClientRect();
+    const transform = {
+      panX: panOffset?.value?.x || 0,
+      panY: panOffset?.value?.y || 0,
+      scale: scale?.value || 1,
+    };
     
-    const currentScale = scale?.value || 1;
-    const currentPanX = panOffset?.value?.x || 0;
-    const currentPanY = panOffset?.value?.y || 0;
+    const portElement = e.target as HTMLElement;
+    const portCanvasPos = getElementCanvasPosition(portElement, canvas as HTMLElement, transform);
+    const mouseCanvasPos = getMouseCanvasPosition(e, canvas as HTMLElement, transform);
     
     tempLine.value = {
-      x1: (portRect.left - canvasRect.left + portRect.width / 2 - currentPanX) / currentScale,
-      y1: (portRect.top - canvasRect.top + portRect.height / 2 - currentPanY) / currentScale,
-      x2: (e.clientX - canvasRect.left - currentPanX) / currentScale,
-      y2: (e.clientY - canvasRect.top - currentPanY) / currentScale
+      x1: portCanvasPos.x,
+      y1: portCanvasPos.y,
+      x2: mouseCanvasPos.x,
+      y2: mouseCanvasPos.y,
     };
 
     function onMouseMove(event: MouseEvent) {
       if (!isConnecting.value) return;
-      const rect = canvas!.getBoundingClientRect();
-      const currentScaleVal = scale?.value || 1;
-      const currentPanXVal = panOffset?.value?.x || 0;
-      const currentPanYVal = panOffset?.value?.y || 0;
-      tempLine.value.x2 = (event.clientX - rect.left - currentPanXVal) / currentScaleVal;
-      tempLine.value.y2 = (event.clientY - rect.top - currentPanYVal) / currentScaleVal;
+      const currentTransform = {
+        panX: panOffset?.value?.x || 0,
+        panY: panOffset?.value?.y || 0,
+        scale: scale?.value || 1,
+      };
+      const pos = getMouseCanvasPosition(event, canvas as HTMLElement, currentTransform);
+      tempLine.value.x2 = pos.x;
+      tempLine.value.y2 = pos.y;
     }
 
     function onMouseUp(event: MouseEvent) {
@@ -104,9 +159,9 @@ export function useCanvasConnections(
       
       connectingFrom.value = null;
       connectingFromPortId.value = null;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('mouseleave', onMouseLeave);
+      removeListener(document, 'mousemove', onMouseMove);
+      removeListener(document, 'mouseup', onMouseUp);
+      removeListener(document, 'mouseleave', onMouseLeave);
     }
 
     function onMouseLeave() {
@@ -115,162 +170,100 @@ export function useCanvasConnections(
       }
     }
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('mouseleave', onMouseLeave);
+    addListener(document, 'mousemove', onMouseMove);
+    addListener(document, 'mouseup', onMouseUp);
+    addListener(document, 'mouseleave', onMouseLeave);
+  }
+
+  function cleanup() {
+    removeAllListeners();
+    isConnecting.value = false;
+    connectingFrom.value = null;
+    connectingFromPortId.value = null;
   }
 
   function syncConnectionToNodeConfig(conn: Connection, isAdd: boolean) {
-    const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === conn.source);
+    const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === conn.source) as WorkflowNode | undefined;
     if (!sourceNode) return;
 
-    const sourceNodeType = sourceNode.data.type;
-    const flowControlConfig = getFlowControlConfig(sourceNodeType);
+    const flowControlConfig = getFlowControlConfig(sourceNode.data.type);
     if (!flowControlConfig) return;
 
     const sourceHandle = conn.sourceHandle.replace(`${conn.source}-output-`, '');
+    const { targetField, caseKey, isDynamic } = parseSourceHandle(sourceHandle, flowControlConfig);
 
-    let targetField = sourceHandle;
-    let caseKey: string | undefined;
-    let isAddPort = false;
-
-    if (flowControlConfig.ports.output) {
-      const dynamicOutput = flowControlConfig.ports.output.find(
-        o => o.dynamic && sourceHandle.startsWith(o.field + '-')
-      );
-      if (dynamicOutput) {
-        targetField = dynamicOutput.field;
-        const remaining = sourceHandle.replace(dynamicOutput.field + '-', '');
-        if (remaining === 'add') {
-          isAddPort = true;
-        } else {
-          caseKey = remaining;
-        }
-      } else {
-        const dynamicField = flowControlConfig.ports.output.find(
-          o => o.dynamic && sourceHandle === o.field
-        );
-        if (dynamicField) {
-          targetField = dynamicField.field;
-          isAddPort = true;
-        }
-      }
-
-      const isDynamicField = flowControlConfig.ports.output.some(
-        o => o.dynamic && (sourceHandle.startsWith(o.field + '-') || sourceHandle === o.field)
-      );
-      if (isDynamicField) {
-        isAddPort = true;
-      }
-    }
-
-    if (!sourceNode.data.config) {
-      sourceNode.data.config = {};
-    }
-
-    const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
+    const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target) as WorkflowNode | undefined;
     if (!targetNode) return;
 
-    const taskItem = {
+    const taskItem: TaskItem = {
       type: targetNode.data.type,
       nodeId: targetNode.id,
       label: targetNode.data.label,
       ...targetNode.data.config,
     };
 
-    if (isAddPort && isAdd) {
-      const currentCases = sourceNode.data.config[targetField];
-      const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
-        ? { ...currentCases }
-        : {};
-
+    if (isDynamic && isAdd && !caseKey) {
+      const casesObj = ensureConfigObject(sourceNode, targetField);
       const caseCount = Object.keys(casesObj).length + 1;
-      caseKey = `CASE_${caseCount}`;
-
-      casesObj[caseKey] = [taskItem];
-      sourceNode.data.config[targetField] = casesObj;
-
+      const newCaseKey = `CASE_${caseCount}`;
+      casesObj[newCaseKey] = [taskItem];
       conn.sourceHandle = `${conn.source}-output-${targetField}-add`;
-
       if (nodeConfigForm) {
         nodeConfigForm[targetField] = { ...casesObj };
       }
-    } else if (caseKey) {
-      const currentCases = sourceNode.data.config[targetField];
-      const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
-        ? { ...currentCases }
-        : {};
-
+    } else if (isDynamic && caseKey) {
+      const casesObj = ensureConfigObject(sourceNode, targetField);
+      let caseItems = Array.isArray(casesObj[caseKey]) ? [...casesObj[caseKey]] : [];
+      
       if (isAdd) {
-        const caseItems = casesObj[caseKey];
-        casesObj[caseKey] = Array.isArray(caseItems) ? [...caseItems] : [];
-        const existing = casesObj[caseKey].find(
-          (item: any) => item.nodeId === conn.target
-        );
+        const existing = caseItems.find((item: any) => item.nodeId === conn.target);
         if (!existing) {
-          casesObj[caseKey].push(taskItem);
+          caseItems.push(taskItem);
         }
       } else {
-        const caseItems = casesObj[caseKey];
-        if (Array.isArray(caseItems)) {
-          casesObj[caseKey] = caseItems.filter(
-            (item: any) => item.nodeId !== conn.target
-          );
-        }
+        caseItems = caseItems.filter((item: any) => item.nodeId !== conn.target);
       }
-
-      sourceNode.data.config[targetField] = casesObj;
-
+      
+      casesObj[caseKey] = caseItems;
       if (nodeConfigForm) {
         nodeConfigForm[targetField] = { ...casesObj };
+      }
+    } else if (isDynamic && !isAdd) {
+      const casesObj = ensureConfigObject(sourceNode, targetField);
+      const caseKeyToRemove = Object.keys(casesObj).find(key =>
+        Array.isArray(casesObj[key]) && casesObj[key].some((item: any) => item.nodeId === conn.target)
+      );
+      
+      if (caseKeyToRemove) {
+        casesObj[caseKeyToRemove] = casesObj[caseKeyToRemove].filter(
+          (item: any) => item.nodeId !== conn.target
+        );
+        if (casesObj[caseKeyToRemove].length === 0) {
+          delete casesObj[caseKeyToRemove];
+        }
+        if (nodeConfigForm) {
+          nodeConfigForm[targetField] = { ...casesObj };
+        }
       }
     } else {
-      if (isAddPort && !isAdd) {
-        const currentCases = sourceNode.data.config[targetField];
-        const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
-          ? { ...currentCases }
-          : {};
-
-        const caseKeyToRemove = Object.keys(casesObj).find(key => 
-          Array.isArray(casesObj[key]) && casesObj[key].some((item: any) => item.nodeId === conn.target)
-        );
-
-        if (caseKeyToRemove) {
-          casesObj[caseKeyToRemove] = casesObj[caseKeyToRemove].filter(
-            (item: any) => item.nodeId !== conn.target
-          );
-
-          if (casesObj[caseKeyToRemove].length === 0) {
-            delete casesObj[caseKeyToRemove];
-          }
-
-          sourceNode.data.config[targetField] = casesObj;
-
-          if (nodeConfigForm) {
-            nodeConfigForm[targetField] = { ...casesObj };
-          }
+      const configArray = ensureConfigArray(sourceNode, targetField);
+      
+      if (isAdd) {
+        const existing = configArray.find((item: any) => item.nodeId === conn.target);
+        if (!existing) {
+          configArray.push(taskItem);
         }
       } else {
-        if (!Array.isArray(sourceNode.data.config[targetField])) {
-          sourceNode.data.config[targetField] = [];
+        if (!sourceNode.data.config) {
+          sourceNode.data.config = {};
         }
-
-        if (isAdd) {
-          const existing = sourceNode.data.config[targetField].find(
-            (item: any) => item.nodeId === conn.target
-          );
-          if (!existing) {
-            sourceNode.data.config[targetField].push(taskItem);
-          }
-        } else {
-          sourceNode.data.config[targetField] = sourceNode.data.config[targetField].filter(
-            (item: any) => item.nodeId !== conn.target
-          );
-        }
-
-        if (nodeConfigForm) {
-          nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
-        }
+        sourceNode.data.config[targetField] = configArray.filter(
+          (item: any) => item.nodeId !== conn.target
+        );
+      }
+      
+      if (nodeConfigForm && sourceNode.data.config) {
+        nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
       }
     }
 
@@ -318,5 +311,6 @@ export function useCanvasConnections(
     getTempLinePath,
     handleCanvasMouseLeave,
     syncConnectionToNodeConfig,
+    cleanup,
   };
 }

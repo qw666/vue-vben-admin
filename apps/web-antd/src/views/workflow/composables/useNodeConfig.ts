@@ -1,39 +1,20 @@
 import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
+import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
+import { UI_CONFIG } from '../config/ui-config';
+import type { SchemaNode as ParserSchemaNode } from './useSchemaParser';
 import { internalResolveRef, initFormFieldValue, serializeFieldValue } from './useSchemaParser';
 import { renderFormField } from './useFormFieldResolver';
 import { validateAllNodes, validateNodeConfig } from './useFieldValidation';
 import { useChildNodeSelection } from './useChildNodeSelection';
 import { useFormState } from './useFormState';
 
-export interface SchemaNode {
-  type?: string;
-  title?: string;
-  description?: string;
-  properties?: Record<string, SchemaNode>;
-  required?: string[];
-  enum?: string[];
-  anyOf?: SchemaNode[];
-  $ref?: string;
-  $defs?: Record<string, SchemaNode>;
-  items?: SchemaNode;
-  minItems?: number;
-  minimum?: number;
-  maximum?: number;
-  step?: number;
-  $dynamic?: boolean;
-  $required?: boolean;
-  const?: any;
-  default?: any;
-  additionalProperties?: SchemaNode;
-}
-
 export interface FormMeta {
-  parsedSchema?: SchemaNode;
-  formProperties: Record<string, SchemaNode>;
+  parsedSchema?: ParserSchemaNode;
+  formProperties: Record<string, ParserSchemaNode>;
   formRequired: string[];
-  formDefs: Record<string, SchemaNode>;
+  formDefs: Record<string, ParserSchemaNode>;
 }
 
 export interface RenderedField {
@@ -60,8 +41,20 @@ export interface ValidationResult {
   }>;
 }
 
-export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTaskRef: any, _resolveRef: any, pluginGroups: any) {
-  const selectedNode = ref<any>(null);
+interface PluginMeta {
+  formProperties?: Record<string, ParserSchemaNode>;
+  formRequired?: string[];
+  formDefs?: Record<string, ParserSchemaNode>;
+}
+
+export function useNodeConfig(
+  pluginMetaCache: { value: Record<string, PluginMeta> },
+  loadPluginMeta: (type: string) => Promise<PluginMeta | null>,
+  _isTaskRef: any,
+  _resolveRef: any,
+  pluginGroups: any
+) {
+  const selectedNode = ref<WorkflowNode | null>(null);
 
   const {
     nodeConfigForm,
@@ -87,7 +80,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
 
   const {
     showNodeSelectModal,
-    currentArrayFieldKey,
+    currentArrayFieldKey: _currentArrayFieldKey,
     currentArrayIndex,
     selectedChildNodeType,
     selectedChildNodeMeta,
@@ -101,9 +94,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     confirmEditChildNode,
   } = useChildNodeSelection(pluginMetaCache, loadPluginMeta, pluginGroups, nodeConfigForm);
 
-  const DEFAULT_PANEL_WIDTH = 375;
+  const DEFAULT_PANEL_WIDTH = UI_CONFIG.configPanel.defaultWidth;
 
-  async function handleNodeDoubleClick(node: any) {
+  async function handleNodeDoubleClick(node: WorkflowNode) {
     selectedNode.value = node;
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;
@@ -127,12 +120,14 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         Object.keys(properties).forEach(key => {
           if (key !== '$schema') {
             const prop = properties[key];
+            if (!prop) return;
             if (savedConfig[key] !== undefined) {
               if (prop.anyOf) {
                 const savedValue = savedConfig[key];
                 let selectedIndex = 0;
                 for (let i = 0; i < prop.anyOf.length; i++) {
                   const option = prop.anyOf[i];
+                  if (!option) continue;
                   if (option.const !== undefined && option.const === savedValue) {
                     selectedIndex = i;
                     break;
@@ -198,14 +193,17 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
       .filter(key => key !== '$schema')
       .filter(key => {
         const prop = properties[key];
-        return (prop.type || prop.$ref || prop.anyOf) && (prop.$required === true || formRequired.includes(key));
+        return prop && (prop.type || prop.$ref || prop.anyOf) && (prop.$required === true || formRequired.includes(key));
       })
       .map(key => {
-        const isRequired = properties[key].$required === true || formRequired.includes(key);
+        const prop = properties[key];
+        if (!prop) return null;
+        const isRequired = prop.$required === true || formRequired.includes(key);
         const value = nodeConfigForm[key];
         const onUpdate = (val: any) => { nodeConfigForm[key] = val; };
-        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value.data.type);
-      });
+        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value!.data.type);
+      })
+      .filter(Boolean);
   });
 
   const optionalFields = computed(() => {
@@ -225,14 +223,17 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
       .filter(key => key !== '$schema')
       .filter(key => {
         const prop = properties[key];
-        return (prop.type || prop.$ref || prop.anyOf) && prop.$required !== true && !formRequired.includes(key);
+        return prop && (prop.type || prop.$ref || prop.anyOf) && prop.$required !== true && !formRequired.includes(key);
       })
       .map(key => {
-        const isRequired = properties[key].$required === true || formRequired.includes(key);
+        const prop = properties[key];
+        if (!prop) return null;
+        const isRequired = prop.$required === true || formRequired.includes(key);
         const value = nodeConfigForm[key];
         const onUpdate = (val: any) => { nodeConfigForm[key] = val; };
-        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value.data.type);
-      });
+        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value!.data.type);
+      })
+      .filter(Boolean);
   });
 
   function handleSaveConfig() {
@@ -253,6 +254,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     const missingFields: string[] = [];
 
     requiredFields.value.forEach(field => {
+      if (!field) return;
       const value = nodeConfigForm[field.props.key];
       if (value === undefined || value === null || value === '') {
         missingFields.push(field.props.label);
@@ -268,9 +270,11 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     const meta = currentNodeMeta.value;
 
     if (meta && meta.formProperties) {
-      Object.keys(meta.formProperties).forEach(key => {
+      const formProperties = meta.formProperties;
+      Object.keys(formProperties).forEach(key => {
         if (key !== '$schema') {
-          const schema = meta.formProperties[key];
+          const schema = formProperties[key];
+          if (!schema) return;
           if (schema.anyOf) {
             const selectedIndex = nodeConfigForm[key];
             if (selectedIndex !== undefined && selectedIndex !== null) {

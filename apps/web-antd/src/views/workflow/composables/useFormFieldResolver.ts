@@ -1,6 +1,6 @@
 import { getFlowControlTaskFields } from '../config/workflow-node-config';
 import type { SchemaNode } from './useSchemaParser';
-import { internalResolveRef, internalIsTaskRef, initFormFieldValue } from './useSchemaParser';
+import { internalResolveRef, internalIsTaskRef } from './useSchemaParser';
 
 export interface RenderedField {
   type: string;

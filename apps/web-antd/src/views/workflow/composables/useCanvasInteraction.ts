@@ -56,6 +56,7 @@ export function useCanvasInteraction(
     getTempLinePath,
     handleCanvasMouseLeave,
     syncConnectionToNodeConfig,
+    cleanup: cleanupConnections,
   } = useCanvasConnections(nodeConfigForm, selectedNode, onNodeConnected, panOffset, scale);
 
   const {
@@ -66,7 +67,13 @@ export function useCanvasInteraction(
     onDragOver,
     onDrop,
     startNodeDrag,
+    cleanup: cleanupDragging,
   } = useCanvasDragging(pluginGroupsCache, pluginMetaCache, loadPluginMeta, panOffset, scale);
+
+  function cleanup() {
+    cleanupConnections();
+    cleanupDragging();
+  }
 
   const {
     selectedNodeId,
@@ -148,5 +155,6 @@ export function useCanvasInteraction(
     addSwitchCaseKey,
     updatePanOffset,
     updateScale,
+    cleanup,
   };
 }

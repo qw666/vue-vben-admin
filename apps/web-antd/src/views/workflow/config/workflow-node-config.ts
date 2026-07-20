@@ -7,6 +7,7 @@ export interface WorkflowNodePort {
   label: string;
   color: string;
   dynamic?: boolean;
+  excludeFromBounds?: boolean;
 }
 
 export interface WorkflowNodeConfig {

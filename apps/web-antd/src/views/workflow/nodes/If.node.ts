@@ -14,8 +14,8 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
       output: [
         { field: 'then', label: 'IF', color: '#22c55e' },
         { field: 'else', label: 'Else', color: '#ef4444' },
-        { field: 'errors', label: 'Errors', color: '#f59e0b' },
-        { field: 'finally', label: 'Finally', color: '#64748b' },
+        { field: 'errors', label: 'Errors', color: '#f59e0b', excludeFromBounds: true },
+        { field: 'finally', label: 'Finally', color: '#64748b', excludeFromBounds: true },
         { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },

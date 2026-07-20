@@ -5,7 +5,7 @@ type ContextMenuType = { show: boolean; x: number; y: number; type: 'node' | 'co
 export function useCanvasContextMenu(
   deleteSelectedNode: (nodeId: string) => void,
   deleteSelectedConnection: (connId: string) => void,
-  selectedConnectionId: { value: string | null }
+  _selectedConnectionId: { value: string | null }
 ) {
   const contextMenu = ref<ContextMenuType>({ show: false, x: 0, y: 0, type: null, targetId: null });
 

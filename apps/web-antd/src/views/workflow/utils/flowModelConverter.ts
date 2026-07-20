@@ -465,10 +465,14 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
                       const result: FlowTask = { ...converted };
                       delete result.nodeId;
                       delete result.label;
-                      nestedTasks[caseKey].push(result);
+                      if (nestedTasks[caseKey]) {
+                        nestedTasks[caseKey].push(result);
+                      }
                     }
                   } else {
-                    nestedTasks[caseKey].push(item);
+                    if (nestedTasks[caseKey]) {
+                      nestedTasks[caseKey].push(item);
+                    }
                   }
                 });
               }

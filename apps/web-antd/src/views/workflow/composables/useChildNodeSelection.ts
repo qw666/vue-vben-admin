@@ -1,10 +1,9 @@
 import { ref, reactive } from 'vue';
 import { message } from 'ant-design-vue';
-import type { SchemaNode } from './useSchemaParser';
 import { initFormFieldValue } from './useSchemaParser';
 
 export function useChildNodeSelection(
-  pluginMetaCache: any,
+  _pluginMetaCache: any,
   loadPluginMeta: any,
   pluginGroups: any,
   nodeConfigForm: any

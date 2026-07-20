@@ -112,20 +112,21 @@ const {
   selectNode,
   handleCanvasClick,
   handleKeyDown,
-  handleCanvasMouseLeave,
-  getConnectionPath,
-  getConnectionColor,
-  getTempLinePath,
-  getNodePorts,
-  getGroupBounds,
-  updateSwitchCaseKey,
-  removeSwitchCaseKey,
-  addSwitchCaseKey,
-  updatePanOffset,
-  updateScale,
-  scale,
-  panOffset,
-} = useCanvasInteraction(
+    handleCanvasMouseLeave,
+    getConnectionPath,
+    getConnectionColor,
+    getTempLinePath,
+    getNodePorts,
+    getGroupBounds,
+    updateSwitchCaseKey,
+    removeSwitchCaseKey,
+    addSwitchCaseKey,
+    updatePanOffset,
+    updateScale,
+    scale,
+    panOffset,
+    cleanup,
+  } = useCanvasInteraction(
   pluginGroupsCache,
   pluginMetaCache,
   loadPluginMeta,
@@ -441,6 +442,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown);
+  cleanup();
 });
 </script>
 

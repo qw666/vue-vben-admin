@@ -1,12 +1,16 @@
 import { reactive, ref } from 'vue';
 import type { SchemaNode } from './useSchemaParser';
 import { initFormFieldValue } from './useSchemaParser';
+import { useEventCleanup } from './useEventCleanup';
+import { UI_CONFIG } from '../config/ui-config';
+import type { NodeConfigForm } from '../types/workflow';
 
 export function useFormState() {
-  const nodeConfigForm = reactive<any>({});
+  const nodeConfigForm = reactive<NodeConfigForm>({});
   const isConfigPanelOpen = ref(false);
-  const configPanelWidth = ref(375);
+  const configPanelWidth = ref(UI_CONFIG.configPanel.defaultWidth);
   const isResizing = ref(false);
+  const { addListener, removeAllListeners, removeListener } = useEventCleanup();
 
   function clearForm() {
     Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
@@ -104,18 +108,23 @@ export function useFormState() {
     function onMouseMove(event: MouseEvent) {
       if (!isResizing.value) return;
       const deltaX = startX - event.clientX;
-      const newWidth = Math.max(200, Math.min(600, startWidth + deltaX));
+      const newWidth = Math.max(UI_CONFIG.configPanel.minWidth, Math.min(UI_CONFIG.configPanel.maxWidth, startWidth + deltaX));
       configPanelWidth.value = newWidth;
     }
 
     function onMouseUp() {
       isResizing.value = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      removeListener(document, 'mousemove', onMouseMove);
+      removeListener(document, 'mouseup', onMouseUp);
     }
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    addListener(document, 'mousemove', onMouseMove);
+    addListener(document, 'mouseup', onMouseUp);
+  }
+
+  function cleanup() {
+    removeAllListeners();
+    isResizing.value = false;
   }
 
   function handleConfigClose() {
@@ -145,5 +154,6 @@ export function useFormState() {
     updateArrayItemValue,
     startResize,
     handleConfigClose,
+    cleanup,
   };
 }

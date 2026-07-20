@@ -1,7 +1,11 @@
 import { ref } from 'vue';
+
 import { message } from 'ant-design-vue';
+
 import { useWorkflowStore } from '#/store/workflow';
+
 import { getFlowControlConfig } from '../config/workflow-node-config';
+import { useEventCleanup } from './useEventCleanup';
 
 export function useCanvasDragging(
   pluginGroupsCache: any,
@@ -12,8 +16,9 @@ export function useCanvasDragging(
 ) {
   const store = useWorkflowStore();
   const isDraggingNode = ref(false);
-  const draggingNodeId = ref<string | null>(null);
+  const draggingNodeId = ref<null | string>(null);
   const dragOffset = ref({ x: 0, y: 0 });
+  const { addListener, removeAllListeners, removeListener } = useEventCleanup();
 
   function onDragStart(e: DragEvent, nodeType: string) {
     if (e.dataTransfer) {
@@ -132,9 +137,9 @@ export function useCanvasDragging(
     function onMouseUp() {
       isDraggingNode.value = false;
       draggingNodeId.value = null;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('mouseleave', onMouseLeave);
+      removeListener(document, 'mousemove', onMouseMove);
+      removeListener(document, 'mouseup', onMouseUp);
+      removeListener(document, 'mouseleave', onMouseLeave);
     }
 
     function onMouseLeave() {
@@ -143,9 +148,15 @@ export function useCanvasDragging(
       }
     }
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-    document.addEventListener('mouseleave', onMouseLeave);
+    addListener(document, 'mousemove', onMouseMove);
+    addListener(document, 'mouseup', onMouseUp);
+    addListener(document, 'mouseleave', onMouseLeave);
+  }
+
+  function cleanup() {
+    removeAllListeners();
+    isDraggingNode.value = false;
+    draggingNodeId.value = null;
   }
 
   return {
@@ -156,5 +167,6 @@ export function useCanvasDragging(
     onDragOver,
     onDrop,
     startNodeDrag,
+    cleanup,
   };
 }
