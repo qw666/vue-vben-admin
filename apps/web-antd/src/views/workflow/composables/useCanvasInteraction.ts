@@ -150,23 +150,15 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
     flowControlConfig.ports.output.forEach(out => {
       if (out.dynamic) {
         const cases = node.data.config?.[out.field];
-        if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
-          Object.keys(cases).forEach(caseKey => {
-            bottomOutputs.push({
-              field: `${out.field}-${caseKey}`,
-              label: 'Case',
-              color: out.color,
-              portGroup: out.field,
-            });
-          });
-        } else {
-          bottomOutputs.push({
-            field: `${out.field}-add`,
-            label: '+',
-            color: out.color,
-            portGroup: out.field,
-          });
-        }
+        const caseCount = typeof cases === 'object' && cases !== null && !Array.isArray(cases) 
+          ? Object.keys(cases).length 
+          : 0;
+        bottomOutputs.push({
+          field: caseCount > 0 ? `${out.field}-add` : `${out.field}-add`,
+          label: caseCount > 0 ? `${out.label}(${caseCount})` : '+',
+          color: out.color,
+          portGroup: out.field,
+        });
       } else {
         if (out.field === 'errors' || out.field === 'finally') {
           rightOutputs.push({
@@ -196,7 +188,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
         portGroup: out.portGroup,
         position: {
           x: node.position.x + NODE_WIDTH / 2,
-          y: node.position.y + NODE_HEIGHT + 6
+          y: node.position.y + NODE_HEIGHT + PORT_RADIUS
         },
         color: out.color
       });
@@ -211,7 +203,7 @@ function getNodePorts(nodeId: string, nodeType: string): Port[] {
           portGroup: out.portGroup,
           position: {
             x: node.position.x + spacing * (i + 1),
-            y: node.position.y + NODE_HEIGHT + 6
+            y: node.position.y + NODE_HEIGHT + PORT_RADIUS
           },
           color: out.color
         });
@@ -542,7 +534,7 @@ export function useCanvasInteraction(
       const isDynamicField = flowControlConfig.ports.output.some(
         o => o.dynamic && (sourceHandle.startsWith(o.field + '-') || sourceHandle === o.field)
       );
-      if (isDynamicField && !caseKey) {
+      if (isDynamicField) {
         isAddPort = true;
       }
     }
@@ -573,7 +565,7 @@ export function useCanvasInteraction(
       casesObj[caseKey] = [taskItem];
       sourceNode.data.config[targetField] = casesObj;
 
-      conn.sourceHandle = `${conn.source}-output-${targetField}-${caseKey}`;
+      conn.sourceHandle = `${conn.source}-output-${targetField}-add`;
 
       if (nodeConfigForm) {
         nodeConfigForm[targetField] = { ...casesObj };
@@ -608,25 +600,52 @@ export function useCanvasInteraction(
         nodeConfigForm[targetField] = { ...casesObj };
       }
     } else {
-      if (!Array.isArray(sourceNode.data.config[targetField])) {
-        sourceNode.data.config[targetField] = [];
-      }
+      if (isAddPort && !isAdd) {
+        const currentCases = sourceNode.data.config[targetField];
+        const casesObj = typeof currentCases === 'object' && currentCases !== null && !Array.isArray(currentCases)
+          ? { ...currentCases }
+          : {};
 
-      if (isAdd) {
-        const existing = sourceNode.data.config[targetField].find(
-          (item: any) => item.nodeId === conn.target
+        const caseKeyToRemove = Object.keys(casesObj).find(key => 
+          Array.isArray(casesObj[key]) && casesObj[key].some((item: any) => item.nodeId === conn.target)
         );
-        if (!existing) {
-          sourceNode.data.config[targetField].push(taskItem);
+
+        if (caseKeyToRemove) {
+          casesObj[caseKeyToRemove] = casesObj[caseKeyToRemove].filter(
+            (item: any) => item.nodeId !== conn.target
+          );
+
+          if (casesObj[caseKeyToRemove].length === 0) {
+            delete casesObj[caseKeyToRemove];
+          }
+
+          sourceNode.data.config[targetField] = casesObj;
+
+          if (nodeConfigForm) {
+            nodeConfigForm[targetField] = { ...casesObj };
+          }
         }
       } else {
-        sourceNode.data.config[targetField] = sourceNode.data.config[targetField].filter(
-          (item: any) => item.nodeId !== conn.target
-        );
-      }
+        if (!Array.isArray(sourceNode.data.config[targetField])) {
+          sourceNode.data.config[targetField] = [];
+        }
 
-      if (nodeConfigForm) {
-        nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
+        if (isAdd) {
+          const existing = sourceNode.data.config[targetField].find(
+            (item: any) => item.nodeId === conn.target
+          );
+          if (!existing) {
+            sourceNode.data.config[targetField].push(taskItem);
+          }
+        } else {
+          sourceNode.data.config[targetField] = sourceNode.data.config[targetField].filter(
+            (item: any) => item.nodeId !== conn.target
+          );
+        }
+
+        if (nodeConfigForm) {
+          nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
+        }
       }
     }
 
@@ -777,13 +796,13 @@ export function useCanvasInteraction(
       flowControlConfig.ports.output.forEach(out => {
         if (out.dynamic) {
           const cases = node.data.config?.[out.field];
-          if (typeof cases === 'object' && cases !== null && !Array.isArray(cases) && Object.keys(cases).length > 0) {
-            Object.keys(cases).forEach(caseKey => {
-              bottomOutputs.push({ field: `${out.field}-${caseKey}`, label: caseKey });
-            });
-          } else {
-            bottomOutputs.push({ field: `${out.field}-add`, label: '+' });
-          }
+          const caseCount = typeof cases === 'object' && cases !== null && !Array.isArray(cases) 
+            ? Object.keys(cases).length 
+            : 0;
+          bottomOutputs.push({ 
+            field: `${out.field}-add`, 
+            label: caseCount > 0 ? `${out.label}(${caseCount})` : '+' 
+          });
         } else {
           if (out.field === 'errors' || out.field === 'finally') {
             rightOutputs.push({ field: out.field, label: out.label });
@@ -802,7 +821,13 @@ export function useCanvasInteraction(
         };
       }
 
-      const bottomIndex = bottomOutputs.findIndex(o => o.field === field);
+      let bottomIndex = bottomOutputs.findIndex(o => o.field === field);
+      if (bottomIndex < 0) {
+        const dynamicField = flowControlConfig.ports.output.find(o => o.dynamic && field.startsWith(o.field + '-'));
+        if (dynamicField) {
+          bottomIndex = bottomOutputs.findIndex(o => o.field === `${dynamicField.field}-add`);
+        }
+      }
       if (bottomIndex >= 0) {
         if (bottomOutputs.length === 1) {
           return {
@@ -902,17 +927,14 @@ export function useCanvasInteraction(
       }
     }
 
-    const edges = store.currentWorkflow?.edges || [];
-    edges.forEach(conn => {
-      if (conn.source === nodeId && conn.sourceHandle === `${nodeId}-output-${fieldKey}-${oldKey}`) {
-        conn.sourceHandle = `${nodeId}-output-${fieldKey}-${newKeyTrimmed}`;
-      }
-    });
   }
 
   function removeSwitchCaseKey(nodeId: string, caseKey: string, fieldKey: string = 'cases') {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node || !node.data.config?.[fieldKey]) return;
+
+    const caseItems = node.data.config[fieldKey][caseKey];
+    const caseNodeIds = Array.isArray(caseItems) ? caseItems.map((item: any) => item.nodeId) : [];
 
     delete node.data.config[fieldKey][caseKey];
     node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
@@ -925,7 +947,7 @@ export function useCanvasInteraction(
     }
 
     store.currentWorkflow!.edges = (store.currentWorkflow?.edges || []).filter(
-      conn => !(conn.source === nodeId && conn.sourceHandle === `${nodeId}-output-${fieldKey}-${caseKey}`)
+      conn => !(conn.source === nodeId && conn.sourceHandle === `${nodeId}-output-${fieldKey}-add` && caseNodeIds.includes(conn.target))
     );
   }
 
