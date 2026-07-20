@@ -1,6 +1,11 @@
-import { ref, computed, reactive } from 'vue';
+import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
-import { getFlowControlTaskFields, getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
+import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
+import { internalResolveRef, initFormFieldValue, serializeFieldValue } from './useSchemaParser';
+import { renderFormField } from './useFormFieldResolver';
+import { validateAllNodes, validateNodeConfig } from './useFieldValidation';
+import { useChildNodeSelection } from './useChildNodeSelection';
+import { useFormState } from './useFormState';
 
 export interface SchemaNode {
   type?: string;
@@ -46,120 +51,6 @@ export interface RenderedField {
   };
 }
 
-export interface AnyOfOption {
-  value: number;
-  label: string;
-  schema?: SchemaNode;
-  subFields?: RenderedField[];
-}
-
-function internalResolveRef(refPath: string, defs: Record<string, SchemaNode>): SchemaNode | undefined {
-  const parts = refPath.split('/');
-  const key = parts[parts.length - 1];
-  return key ? defs[key] : undefined;
-}
-
-function internalIsTaskRef(schema: SchemaNode): boolean {
-  return schema.$ref?.endsWith('idp_core_models_tasks_Task') === true;
-}
-
-function createFieldProps(
-  fieldKey: string,
-  fieldSchema: SchemaNode,
-  isRequired: boolean,
-  value: any,
-  onUpdate: (val: any) => void
-): RenderedField['props'] {
-  return {
-    key: fieldKey,
-    label: fieldSchema.title || fieldKey,
-    tooltip: fieldSchema.description || '',
-    required: isRequired,
-    dynamic: fieldSchema.$dynamic === true,
-    fieldType: fieldSchema.type,
-    modelValue: value,
-    'onUpdate:modelValue': onUpdate,
-  };
-}
-
-function initFormFieldValue(schema: SchemaNode, defs: Record<string, SchemaNode> = {}): any {
-  if (schema.$ref) {
-    const refSchema = internalResolveRef(schema.$ref, defs);
-    if (refSchema) {
-      return initFormFieldValue(refSchema, { ...defs, ...(refSchema.$defs || {}) });
-    }
-    return {};
-  }
-
-  if (schema.anyOf) {
-    return null;
-  }
-
-  switch (schema.type) {
-    case 'boolean':
-      return false;
-    case 'object':
-      return [];
-    case 'array':
-      return [];
-    case 'string':
-      return '';
-    case 'number':
-    case 'integer':
-      return undefined;
-    default:
-      return undefined;
-  }
-}
-
-function serializeFieldValue(schema: SchemaNode, value: any, defs: Record<string, SchemaNode> = {}): any {
-  if (schema.$ref) {
-    const refSchema = internalResolveRef(schema.$ref, defs);
-    if (refSchema) {
-      return serializeFieldValue(refSchema, value, { ...defs, ...(refSchema.$defs || {}) });
-    }
-    return value;
-  }
-
-  if (schema.anyOf) {
-    return value;
-  }
-
-  if (schema.type === 'object') {
-    if (Array.isArray(value)) {
-      const obj: Record<string, any> = {};
-      value.forEach((item: any) => {
-        if (item.key) {
-          obj[item.key] = item.value;
-        }
-      });
-      return obj;
-    }
-    if (typeof value === 'object' && value !== null) {
-      const result: Record<string, any> = {};
-      Object.keys(value).forEach(key => {
-        if (schema.properties && schema.properties[key]) {
-          result[key] = serializeFieldValue(schema.properties[key], value[key], defs);
-        } else {
-          result[key] = value[key];
-        }
-      });
-      return result;
-    }
-  }
-
-  if (schema.type === 'array' && value && Array.isArray(value)) {
-    return value.map((item: any) => {
-      if (schema.items) {
-        return serializeFieldValue(schema.items, item, defs);
-      }
-      return item;
-    });
-  }
-
-  return value;
-}
-
 export interface ValidationResult {
   isValid: boolean;
   errors: Array<{
@@ -169,444 +60,60 @@ export interface ValidationResult {
   }>;
 }
 
-function isEmptyValue(value: any): boolean {
-  if (value === '' || value === null || value === undefined) {
-    return true;
-  }
-  if (Array.isArray(value) && value.length === 0) {
-    return true;
-  }
-  if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
-    return true;
-  }
-  return false;
-}
-
-export function validateNodeConfig(node: any, pluginMetaCache: Record<string, any>): { isValid: boolean; missingFields: string[] } {
-  const missingFields: string[] = [];
-
-  const strategy = flowControlNodeRegistry.get(node.data.type);
-  if (strategy) {
-    const requiredFieldKeys = strategy.getRequiredFields();
-    const config = node.data.config || {};
-    requiredFieldKeys.forEach(field => {
-      if (field.props && isEmptyValue(config[field.props.key])) {
-        missingFields.push(field.props.label);
-      }
-    });
-    return { isValid: missingFields.length === 0, missingFields };
-  }
-
-  const meta = pluginMetaCache[node.data.type];
-  if (!meta || !meta.formProperties) {
-    return { isValid: true, missingFields };
-  }
-
-  const properties = meta.formProperties;
-  const formRequired = meta.formRequired || [];
-  const config = node.data.config || {};
-
-  Object.keys(properties).forEach(key => {
-    if (key === '$schema') return;
-    const prop = properties[key];
-    const isRequired = prop.$required === true || formRequired.includes(key);
-    if (isRequired && isEmptyValue(config[key])) {
-      const label = prop.title || key;
-      missingFields.push(label);
-    }
-  });
-
-  return { isValid: missingFields.length === 0, missingFields };
-}
-
-export function validateAllNodes(nodes: any[], pluginMetaCache: Record<string, any>): ValidationResult {
-  const errors: ValidationResult['errors'] = [];
-
-  nodes.forEach(node => {
-    const result = validateNodeConfig(node, pluginMetaCache);
-    if (!result.isValid) {
-      errors.push({
-        nodeId: node.id,
-        nodeLabel: node.data.label || node.id,
-        missingFields: result.missingFields,
-      });
-    }
-  });
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
-}
-
 export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTaskRef: any, _resolveRef: any, pluginGroups: any) {
   const selectedNode = ref<any>(null);
-  const nodeConfigForm = reactive<any>({});
-  const isConfigPanelOpen = ref(false);
-  const configPanelWidth = ref(500);
-  const isResizing = ref(false);
 
-  const showNodeSelectModal = ref(false);
-  const currentArrayFieldKey = ref('');
-  const currentArrayIndex = ref(-1);
-  const selectedChildNodeType = ref('');
-  const selectedChildNodeMeta = ref<any>(null);
-  const childNodeConfigForm = reactive<any>({});
-  const selectedChildNodeLabel = ref('');
+  const {
+    nodeConfigForm,
+    isConfigPanelOpen,
+    configPanelWidth,
+    isResizing,
+    clearForm,
+    addArrayItem,
+    removeArrayItem,
+    addStringArrayItem,
+    addNumberArrayItem,
+    addObjectItem,
+    updateObjectKey,
+    updateObjectValue,
+    removeObjectItem,
+    addOnResumeItem,
+    updateOnResumeField,
+    removeOnResumeItem,
+    updateArrayItemValue,
+    startResize,
+    handleConfigClose,
+  } = useFormState();
 
-  function extractSubFields(schema: SchemaNode, defs: Record<string, SchemaNode>): RenderedField[] {
-    if (!schema.properties) return [];
-    const mergedDefs = { ...defs, ...(schema.$defs || {}) };
-    return Object.keys(schema.properties)
-      .filter(key => key !== '$schema')
-      .map(subKey => {
-        const subIsRequired = (schema.required || []).includes(subKey);
-        return renderFormField(schema.properties!, subKey, subIsRequired, mergedDefs);
-      });
-  }
+  const {
+    showNodeSelectModal,
+    currentArrayFieldKey,
+    currentArrayIndex,
+    selectedChildNodeType,
+    selectedChildNodeMeta,
+    childNodeConfigForm,
+    selectedChildNodeLabel,
+    openNodeSelectModal,
+    closeNodeSelectModal,
+    selectChildNode,
+    confirmAddChildNode,
+    editChildNode,
+    confirmEditChildNode,
+  } = useChildNodeSelection(pluginMetaCache, loadPluginMeta, pluginGroups, nodeConfigForm);
 
-  function resolveStringField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void
-  ): RenderedField {
-    if (fieldSchema.enum) {
-      return {
-        type: 'EnumSelect',
-        props: {
-          ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-          options: fieldSchema.enum,
-          placeholder: fieldSchema.description || '请选择',
-        },
-      };
-    }
-    return {
-      type: 'Input',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-        placeholder: fieldSchema.description || '请输入',
-      },
-    };
-  }
-
-  function resolveNumericField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void
-  ): RenderedField {
-    return {
-      type: 'InputNumber',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-        min: fieldSchema.minimum,
-      },
-    };
-  }
-
-  function resolveBooleanField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void
-  ): RenderedField {
-    return {
-      type: 'Switch',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-        checked: value,
-        onChange: onUpdate,
-      },
-    };
-  }
-
-  function resolveArrayField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void,
-    defs: Record<string, SchemaNode>
-  ): RenderedField {
-    const itemsSchema = fieldSchema.items;
-
-    if (itemsSchema && internalIsTaskRef(itemsSchema)) {
-      const taskFields = getFlowControlTaskFields(selectedNode.value?.data?.type || '');
-      if (taskFields.includes(fieldKey)) {
-        return {
-          type: 'ConnectionStatus',
-          props: {
-            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-            itemsSchema,
-            minItems: fieldSchema.minItems,
-          },
-        };
-      } else {
-        return {
-          type: 'NodeArray',
-          props: {
-            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-            itemsSchema,
-            minItems: fieldSchema.minItems,
-          },
-        };
-      }
-    }
-
-    if (itemsSchema && itemsSchema.$ref) {
-      const refSchema = internalResolveRef(itemsSchema.$ref, defs);
-      if (refSchema && refSchema.properties) {
-        return {
-          type: 'ArrayTable',
-          props: {
-            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-            itemsSchema: refSchema,
-            minItems: fieldSchema.minItems,
-          },
-        };
-      }
-    }
-
-    if (itemsSchema && itemsSchema.type === 'object') {
-      return {
-        type: 'ArrayTable',
-        props: {
-          ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-          itemsSchema,
-          minItems: fieldSchema.minItems,
-        },
-      };
-    }
-
-    if (itemsSchema && itemsSchema.type === 'string') {
-      return {
-        type: 'StringArray',
-        props: {
-          ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-          minItems: fieldSchema.minItems,
-        },
-      };
-    }
-
-    if (itemsSchema && (itemsSchema.type === 'integer' || itemsSchema.type === 'number')) {
-      return {
-        type: 'NumberArray',
-        props: {
-          ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-          minItems: fieldSchema.minItems,
-        },
-      };
-    }
-
-    return {
-      type: 'Textarea',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, typeof value === 'string' ? value : JSON.stringify(value, null, 2), onUpdate),
-        placeholder: fieldSchema.minItems && fieldSchema.minItems > 0 ? `至少${fieldSchema.minItems}项，JSON数组格式` : fieldSchema.description || '请输入JSON数组',
-        rows: 4,
-      },
-    };
-  }
-
-  function resolveObjectField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void
-  ): RenderedField {
-    const additionalProps = fieldSchema.additionalProperties;
-    if (additionalProps && additionalProps.type === 'array') {
-      const itemsSchema = additionalProps.items;
-      if (itemsSchema && internalIsTaskRef(itemsSchema)) {
-        return {
-          type: 'SwitchCases',
-          props: {
-            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || {}, onUpdate),
-            additionalProps,
-          },
-        };
-      }
-    }
-
-    return {
-      type: 'ObjectInput',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-        placeholder: '请添加键值对',
-      },
-    };
-  }
-
-  function resolveAnyOfField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void,
-    defs: Record<string, SchemaNode>
-  ): RenderedField {
-    const options: AnyOfOption[] = fieldSchema.anyOf!.map((opt: SchemaNode, index: number) => {
-      if (opt.$ref) {
-        const refSchema = internalResolveRef(opt.$ref, defs);
-        const refTitle = refSchema?.title || opt.title || '未命名';
-        return {
-          value: index,
-          label: refTitle,
-          schema: refSchema,
-          subFields: refSchema ? extractSubFields(refSchema, { ...defs, ...(refSchema.$defs || {}) }) : [],
-        };
-      }
-      return {
-        value: index,
-        label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || `选项 ${index + 1}`),
-        schema: opt,
-        subFields: extractSubFields(opt, defs),
-      };
-    });
-
-    return {
-      type: 'AnyOfRadio',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-        options,
-      },
-    };
-  }
-
-  function resolveRefField(
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void,
-    defs: Record<string, SchemaNode>
-  ): RenderedField {
-    if (internalIsTaskRef(fieldSchema)) {
-      return {
-        type: 'ConnectionStatus',
-        props: {
-          ...createFieldProps(fieldKey, fieldSchema, isRequired, value || [], onUpdate),
-          itemsSchema: fieldSchema,
-          minItems: 0,
-        },
-      };
-    }
-
-    const refSchema = internalResolveRef(fieldSchema.$ref!, defs);
-    if (refSchema) {
-      if (refSchema.properties) {
-        return {
-          type: 'RefObject',
-          props: {
-            ...createFieldProps(fieldKey, fieldSchema, isRequired, value || {}, onUpdate),
-            subFields: extractSubFields(refSchema, { ...defs, ...(refSchema.$defs || {}) }),
-          },
-        };
-      }
-
-      if (refSchema.type) {
-        const mergedSchema: SchemaNode = {
-          ...refSchema,
-          title: fieldSchema.title || refSchema.title,
-          description: fieldSchema.description || refSchema.description,
-          $dynamic: fieldSchema.$dynamic,
-          $required: fieldSchema.$required,
-        };
-        const tempProperties: Record<string, SchemaNode> = { [fieldKey]: mergedSchema };
-        return renderFormField(tempProperties, fieldKey, isRequired, { ...defs, ...(refSchema.$defs || {}) });
-      }
-    }
-
-    return {
-      type: 'Input',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-        placeholder: fieldSchema.description || `未解析的引用: ${fieldSchema.$ref}`,
-      },
-    };
-  }
-
-  const TYPE_RESOLVERS: Record<string, (
-    fieldKey: string,
-    fieldSchema: SchemaNode,
-    isRequired: boolean,
-    value: any,
-    onUpdate: (val: any) => void,
-    defs: Record<string, SchemaNode>
-  ) => RenderedField> = {
-    string: resolveStringField,
-    number: resolveNumericField,
-    integer: resolveNumericField,
-    boolean: resolveBooleanField,
-    array: resolveArrayField,
-    object: resolveObjectField,
-  };
-
-  function renderFormField(
-    properties: Record<string, SchemaNode>,
-    fieldKey: string,
-    isRequired: boolean,
-    defs: Record<string, SchemaNode> = {}
-  ): RenderedField {
-    const fieldSchema = properties[fieldKey];
-    if (!fieldSchema) {
-      return {
-        type: 'Input',
-        props: {
-          key: fieldKey,
-          label: fieldKey,
-          tooltip: '',
-          required: isRequired,
-          dynamic: false,
-          modelValue: undefined,
-          'onUpdate:modelValue': () => {},
-          placeholder: '未知字段',
-        },
-      };
-    }
-
-    const value = nodeConfigForm[fieldKey];
-    const onUpdate = (val: any) => { nodeConfigForm[fieldKey] = val; };
-
-    if (fieldSchema.anyOf) {
-      return resolveAnyOfField(fieldKey, fieldSchema, isRequired, value, onUpdate, defs);
-    }
-
-    if (fieldSchema.$ref) {
-      return resolveRefField(fieldKey, fieldSchema, isRequired, value, onUpdate, defs);
-    }
-
-    if (fieldSchema.type) {
-      const resolver = TYPE_RESOLVERS[fieldSchema.type];
-      if (resolver) {
-        return resolver(fieldKey, fieldSchema, isRequired, value, onUpdate, defs);
-      }
-    }
-
-    return {
-      type: 'Input',
-      props: {
-        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
-        placeholder: fieldSchema.description || '请输入',
-      },
-    };
-  }
+  const DEFAULT_PANEL_WIDTH = 375;
 
   async function handleNodeDoubleClick(node: any) {
     selectedNode.value = node;
     isConfigPanelOpen.value = true;
+    configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 
     const strategy = flowControlNodeRegistry.get(node.data.type);
     if (strategy) {
       const savedConfig = node.data.config || {};
       const newConfig = strategy.initConfig(savedConfig);
 
-      Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
+      clearForm();
       Object.assign(nodeConfigForm, newConfig);
     } else {
       const meta = await loadPluginMeta(node.data.type);
@@ -615,7 +122,7 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
         const properties = meta.formProperties || {};
         const formDefs = meta.formDefs || {};
 
-        Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
+        clearForm();
 
         Object.keys(properties).forEach(key => {
           if (key !== '$schema') {
@@ -669,110 +176,6 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     }
   }
 
-  function handleConfigClose() {
-    isConfigPanelOpen.value = false;
-    selectedNode.value = null;
-    Object.keys(nodeConfigForm).forEach(key => delete nodeConfigForm[key]);
-  }
-
-  function startResize(e: MouseEvent) {
-    isResizing.value = true;
-    const startX = e.clientX;
-    const startWidth = configPanelWidth.value;
-
-    function onMouseMove(event: MouseEvent) {
-      if (!isResizing.value) return;
-      const deltaX = startX - event.clientX;
-      const newWidth = Math.max(200, Math.min(600, startWidth + deltaX));
-      configPanelWidth.value = newWidth;
-    }
-
-    function onMouseUp() {
-      isResizing.value = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  }
-
-  function addArrayItem(fieldKey: string, itemsSchema: SchemaNode) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    const newItem: Record<string, any> = {};
-
-    const props = itemsSchema?.properties;
-    if (props) {
-      Object.keys(props).forEach(key => {
-        const propSchema = props[key];
-        if (propSchema) {
-          newItem[key] = initFormFieldValue(propSchema);
-        }
-      });
-    }
-
-    nodeConfigForm[fieldKey] = [...currentValue, newItem];
-  }
-
-  function removeArrayItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
-  }
-
-  function addStringArrayItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, ''];
-  }
-
-  function addNumberArrayItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, 0];
-  }
-
-  function addObjectItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, { key: '', value: '' }];
-  }
-
-  function updateObjectKey(fieldKey: string, index: number, newKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index].key = newKey;
-    nodeConfigForm[fieldKey] = [...currentValue];
-  }
-
-  function updateObjectValue(fieldKey: string, index: number, value: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index].value = value;
-    nodeConfigForm[fieldKey] = [...currentValue];
-  }
-
-  function removeObjectItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
-  }
-
-  function addOnResumeItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', displayName: '', required: false, itemType: 'STRING', defaults: '' }];
-  }
-
-  function updateOnResumeField(fieldKey: string, index: number, key: string, value: any) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index] = { ...currentValue[index], [key]: value };
-    nodeConfigForm[fieldKey] = [...currentValue];
-  }
-
-  function removeOnResumeItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
-  }
-
-  function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index][itemKey] = value;
-    nodeConfigForm[fieldKey] = [...currentValue];
-  }
-
   const currentNodeMeta = computed(() => {
     if (!selectedNode.value) return null;
     return pluginMetaCache.value[selectedNode.value.data.type] || null;
@@ -799,7 +202,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
       })
       .map(key => {
         const isRequired = properties[key].$required === true || formRequired.includes(key);
-        return renderFormField(properties, key, isRequired, formDefs);
+        const value = nodeConfigForm[key];
+        const onUpdate = (val: any) => { nodeConfigForm[key] = val; };
+        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value.data.type);
       });
   });
 
@@ -824,7 +229,9 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
       })
       .map(key => {
         const isRequired = properties[key].$required === true || formRequired.includes(key);
-        return renderFormField(properties, key, isRequired, formDefs);
+        const value = nodeConfigForm[key];
+        const onUpdate = (val: any) => { nodeConfigForm[key] = val; };
+        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value.data.type);
       });
   });
 
@@ -885,94 +292,6 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     handleConfigClose();
   }
 
-  function openNodeSelectModal(fieldKey: string) {
-    currentArrayFieldKey.value = fieldKey;
-    currentArrayIndex.value = -1;
-    selectedChildNodeType.value = '';
-    selectedChildNodeMeta.value = null;
-    Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
-    showNodeSelectModal.value = true;
-  }
-
-  function closeNodeSelectModal() {
-    showNodeSelectModal.value = false;
-    currentArrayFieldKey.value = '';
-    currentArrayIndex.value = -1;
-    selectedChildNodeType.value = '';
-    selectedChildNodeMeta.value = null;
-    Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
-  }
-
-  async function selectChildNode(nodeType: string) {
-    selectedChildNodeType.value = nodeType;
-    const template = pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === nodeType);
-    selectedChildNodeLabel.value = template?.nodeName || '';
-
-    const meta = await loadPluginMeta(nodeType);
-    if (meta && meta.formProperties) {
-      selectedChildNodeMeta.value = meta;
-      Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
-
-      Object.keys(meta.formProperties).forEach(key => {
-        if (key !== '$schema') {
-          childNodeConfigForm[key] = initFormFieldValue(meta.formProperties[key], meta.formDefs || {});
-        }
-      });
-    }
-  }
-
-  function confirmAddChildNode() {
-    if (!selectedChildNodeType.value) {
-      message.error('请选择一个节点');
-      return;
-    }
-
-    const currentValue = nodeConfigForm[currentArrayFieldKey.value] || [];
-    const newItem = {
-      type: selectedChildNodeType.value,
-      ...childNodeConfigForm,
-    };
-
-    nodeConfigForm[currentArrayFieldKey.value] = [...currentValue, newItem];
-    message.success(`已添加 ${selectedChildNodeLabel.value} 节点`);
-    closeNodeSelectModal();
-  }
-
-  function editChildNode(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    const item = currentValue[index];
-    if (!item || !item.type) return;
-
-    currentArrayFieldKey.value = fieldKey;
-    currentArrayIndex.value = index;
-    selectedChildNodeType.value = item.type;
-
-    const template = pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type);
-    selectedChildNodeLabel.value = template?.nodeName || '';
-
-    loadPluginMeta(item.type).then((meta: any) => {
-      if (meta && meta.formProperties) {
-        selectedChildNodeMeta.value = meta;
-        Object.keys(childNodeConfigForm).forEach(key => delete childNodeConfigForm[key]);
-        Object.assign(childNodeConfigForm, item);
-        showNodeSelectModal.value = true;
-      }
-    });
-  }
-
-  function confirmEditChildNode() {
-    if (!selectedChildNodeType.value || currentArrayIndex.value < 0) return;
-
-    const currentValue = nodeConfigForm[currentArrayFieldKey.value] || [];
-    currentValue[currentArrayIndex.value] = {
-      type: selectedChildNodeType.value,
-      ...childNodeConfigForm,
-    };
-    nodeConfigForm[currentArrayFieldKey.value] = [...currentValue];
-    message.success('节点配置已更新');
-    closeNodeSelectModal();
-  }
-
   return {
     selectedNode,
     nodeConfigForm,
@@ -980,7 +299,6 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     configPanelWidth,
     isResizing,
     showNodeSelectModal,
-    currentArrayFieldKey,
     currentArrayIndex,
     selectedChildNodeType,
     selectedChildNodeMeta,
@@ -1013,3 +331,5 @@ export function useNodeConfig(pluginMetaCache: any, loadPluginMeta: any, _isTask
     confirmEditChildNode,
   };
 }
+
+export { validateAllNodes, validateNodeConfig };

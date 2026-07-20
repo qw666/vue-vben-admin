@@ -315,7 +315,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="absolute inset-0 pointer-events-none" style="z-index: 5">
+        <div class="absolute inset-0 pointer-events-none" style="z-index: 12">
           <svg class="w-full h-full">
             <defs>
               <marker
