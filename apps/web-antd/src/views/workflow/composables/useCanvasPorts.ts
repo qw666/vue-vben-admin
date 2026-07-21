@@ -81,13 +81,16 @@ function getDescendantNodeIds(nodeId: string, visited: Set<string> = new Set()):
   return allDescendants;
 }
 
-export function getGroupBounds(nodeId: string): GroupBounds | null {
+export function getGroupBounds(nodeId: string, visited: Set<string> = new Set()): GroupBounds | null {
   const store = useWorkflowStore();
   const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
   if (!node) return null;
 
   const flowControlConfig = getFlowControlConfig(node.data.type);
   if (!flowControlConfig || !flowControlConfig.taskFields || flowControlConfig.taskFields.length === 0) return null;
+
+  if (visited.has(nodeId)) return null;
+  visited.add(nodeId);
 
   const descendantIds = getDescendantNodeIds(nodeId);
   const allNodes = [node, ...descendantIds.map(id => store.currentWorkflow?.nodes.find(n => n.id === id)).filter(Boolean)];
@@ -99,6 +102,19 @@ export function getGroupBounds(nodeId: string): GroupBounds | null {
 
   allNodes.forEach(n => {
     if (!n) return;
+    
+    const childFlowControlConfig = getFlowControlConfig(n.data.type);
+    if (childFlowControlConfig && childFlowControlConfig.taskFields && childFlowControlConfig.taskFields.length > 0) {
+      const childGroupBounds = getGroupBounds(n.id, visited);
+      if (childGroupBounds) {
+        minX = Math.min(minX, childGroupBounds.x);
+        minY = Math.min(minY, childGroupBounds.y);
+        maxX = Math.max(maxX, childGroupBounds.x + childGroupBounds.width);
+        maxY = Math.max(maxY, childGroupBounds.y + childGroupBounds.height);
+        return;
+      }
+    }
+    
     minX = Math.min(minX, n.position.x);
     minY = Math.min(minY, n.position.y);
     maxX = Math.max(maxX, n.position.x + NODE_WIDTH);
