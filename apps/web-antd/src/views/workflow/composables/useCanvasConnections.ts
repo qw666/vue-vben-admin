@@ -133,7 +133,40 @@ export function useCanvasConnections(
           const existingConnection = connections.value.find(
             c => c.target === targetNodeId && c.targetHandle === targetPortId
           );
+          
           if (!existingConnection) {
+            const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === connectingFrom.value);
+            const isPortAllowMultipleConnections = (portId: string, node: any): boolean => {
+              if (!node) return false;
+              const flowControlConfig = getFlowControlConfig(node.data.type);
+              if (!flowControlConfig?.ports?.output) return false;
+              const sourceHandle = portId.replace(`${node.id}-output-`, '');
+              const port = flowControlConfig.ports.output.find((p: any) => 
+                sourceHandle === p.field || sourceHandle.startsWith(p.field + '-')
+              );
+              if (!port) return false;
+              if (port.dynamic) return true;
+              if (flowControlConfig.taskFields?.includes(port.field)) return true;
+              return false;
+            };
+            
+            const sourceHandle = connectingFromPortId.value;
+            const hasMultipleConnectionAllow = isPortAllowMultipleConnections(sourceHandle, sourceNode);
+            
+            if (!hasMultipleConnectionAllow) {
+              const sourcePortConnections = connections.value.filter(
+                c => c.source === connectingFrom.value && c.sourceHandle === sourceHandle
+              );
+              if (sourcePortConnections.length > 0) {
+                connectingFrom.value = null;
+                connectingFromPortId.value = null;
+                removeListener(document, 'mousemove', onMouseMove);
+                removeListener(document, 'mouseup', onMouseUp);
+                removeListener(document, 'mouseleave', onMouseLeave);
+                return;
+              }
+            }
+            
             const newConnection: Connection = {
               id: `conn-${Date.now()}`,
               source: connectingFrom.value,
@@ -149,7 +182,6 @@ export function useCanvasConnections(
 
             syncConnectionToNodeConfig(newConnection, true);
 
-            const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === connectingFrom.value);
             if (sourceNode && onNodeConnected) {
               onNodeConnected(sourceNode);
             }

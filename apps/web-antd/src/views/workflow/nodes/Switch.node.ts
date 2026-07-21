@@ -14,8 +14,8 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
       output: [
         { field: 'cases', label: 'Cases', color: '#3b82f6', dynamic: true },
         { field: 'defaults', label: 'Default', color: '#64748b' },
-        { field: 'errors', label: 'Errors', color: '#f59e0b' },
-        { field: 'finally', label: 'Finally', color: '#64748b' },
+        { field: 'errors', label: 'Errors', color: '#f59e0b', excludeFromBounds: true },
+        { field: 'finally', label: 'Finally', color: '#64748b', excludeFromBounds: true },
         { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
