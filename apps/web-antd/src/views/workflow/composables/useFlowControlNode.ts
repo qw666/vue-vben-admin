@@ -59,13 +59,38 @@ export function useFlowControlNode(
     for (const node of store.currentWorkflow.nodes) {
       if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
 
-      const childIds = getChildNodeIds(node.id);
-      if (childIds.includes(nodeId)) {
+      const directChildIds = getDirectChildNodeIds(node.id);
+      if (directChildIds.includes(nodeId)) {
         return node.id;
       }
     }
 
     return null;
+  }
+
+  function getDirectChildNodeIds(nodeId: string): string[] {
+    const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
+    if (!node) return [];
+
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+
+    const childIds: string[] = [];
+    const taskFields = flowControlConfig.taskFields || [];
+    const excludeFields = getExcludeFields(flowControlConfig);
+
+    taskFields.forEach(field => {
+      if (excludeFields.includes(field)) return;
+      const configValue = node.data.config?.[field];
+      forEachTaskField(configValue, (item) => {
+        if (item.nodeId) {
+          if (!childIds.includes(item.nodeId)) {
+            childIds.push(item.nodeId);
+          }
+        }
+      });
+    });
+
+    return childIds;
   }
 
   function addChildNode(nodeId: string, fieldKey: string, childNode: WorkflowNode) {

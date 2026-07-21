@@ -129,27 +129,6 @@ export function useCanvasConnections(
 
             syncConnectionToNodeConfig(newConnection, true);
 
-            const targetNode = store.currentWorkflow?.nodes.find(n => n.id === targetNodeId);
-            const { getParentNodeId } = useFlowControlNode();
-            const parentNodeId = getParentNodeId(targetNodeId);
-            if (parentNodeId && targetNode) {
-              const parentBounds = getGroupBounds(parentNodeId);
-              if (parentBounds) {
-                const nodeWidth = 176;
-                const nodeHeight = 72;
-                const padding = 16;
-                
-                const newX = Math.max(parentBounds.x + padding, Math.min(targetNode.position.x, parentBounds.x + parentBounds.width - nodeWidth - padding));
-                const newY = Math.max(parentBounds.y + nodeHeight + padding, Math.min(targetNode.position.y, parentBounds.y + parentBounds.height - nodeHeight - padding));
-                
-                if (newX !== targetNode.position.x || newY !== targetNode.position.y) {
-                  store.updateNode(targetNodeId, {
-                    position: { x: newX, y: newY }
-                  });
-                }
-              }
-            }
-
             if (sourceNode && onNodeConnected) {
               onNodeConnected(sourceNode);
             }
