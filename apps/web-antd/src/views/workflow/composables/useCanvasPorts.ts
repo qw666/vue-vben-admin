@@ -87,7 +87,7 @@ export function getGroupBounds(nodeId: string): GroupBounds | null {
   if (!node) return null;
 
   const flowControlConfig = getFlowControlConfig(node.data.type);
-  if (!flowControlConfig) return null;
+  if (!flowControlConfig || !flowControlConfig.taskFields || flowControlConfig.taskFields.length === 0) return null;
 
   const descendantIds = getDescendantNodeIds(nodeId);
   const allNodes = [node, ...descendantIds.map(id => store.currentWorkflow?.nodes.find(n => n.id === id)).filter(Boolean)];

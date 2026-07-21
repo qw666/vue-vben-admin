@@ -480,6 +480,11 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
             });
             task[key] = nestedTasks;
           }
+        } else if (key === 'onResume') {
+          task[key] = configValue.map((item: any) => {
+            const { itemType, required, ...rest } = item;
+            return rest;
+          });
         } else {
           task[key] = configValue;
         }

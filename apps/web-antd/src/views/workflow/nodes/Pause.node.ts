@@ -1,4 +1,5 @@
 import type { FlowControlNodeStrategy } from './types';
+
 import { flowControlNodeRegistry } from './types';
 
 export const PauseNodeStrategy: FlowControlNodeStrategy = {
@@ -11,23 +12,31 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'resume', label: 'Resume', color: '#22c55e' },
+        { field: 'next', label: 'Next', color: '#8b5cf6' },
       ],
     },
-    taskFields: ['resume'],
+    taskFields: [],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
+    const onResume = savedConfig.onResume || [];
+    const cleanedOnResume = onResume.map((item: any) => {
+      const { itemType, ...rest } = item;
+      return {
+        ...rest,
+        required: rest.required !== undefined ? rest.required : true,
+      };
+    });
     return {
       pauseDuration: savedConfig.pauseDuration || '',
       behavior: savedConfig.behavior || 'RESUME',
-      onResume: savedConfig.onResume || [],
-      resume: savedConfig.resume || [],
+      onResume: cleanedOnResume,
+      next: savedConfig.next || savedConfig.resume || [],
     };
   },
-  getRequiredFields(): { type: string; props: Record<string, any> }[] {
+  getRequiredFields(): { props: Record<string, any>; type: string; }[] {
     return [];
   },
-  getOptionalFields(): { type: string; props: Record<string, any> }[] {
+  getOptionalFields(): { props: Record<string, any>; type: string; }[] {
     return [
       {
         type: 'InfoBox',
@@ -44,7 +53,7 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
             '在「暂停时长」中设置等待时间；不设置则永久等待，直到手动恢复',
             '在「超时行为」中设置到达时长后的行为：继续/警告/失败/取消',
             '在「onResume」中添加恢复时需要用户填写的输入字段，后续任务可通过 {{outputs.pause_task_id.onResume.field_id}} 引用',
-            '从节点底部的 Resume 端口拖线，连接恢复后要执行的下游任务',
+            '从节点底部的 Next 端口拖线，连接恢复后要执行的下游任务',
           ],
         },
       },
@@ -64,10 +73,6 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
       {
         type: 'OnResume',
         props: { key: 'onResume', label: 'onResume', required: false, description: '恢复时需要填写的输入字段', tooltip: '在恢复执行前，用户需要填写的输入字段。支持 STRING、INT、LONG、FLOAT、DOUBLE、BOOL、DATE、TIME、DATETIME、DURATION、ARRAY、JSON、URI 等类型。这些输入可以在后续任务中通过 {{outputs.pause_task_id.onResume.field_id}} 访问。', dynamic: false },
-      },
-      {
-        type: 'ConnectionStatus',
-        props: { key: 'resume', label: '恢复后执行', required: false, description: '恢复后执行的任务', tooltip: '暂停结束或手动恢复后继续执行的子任务。', dynamic: false },
       },
     ];
   },
