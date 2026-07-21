@@ -12,7 +12,7 @@ export const SubflowNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'tasks', label: 'Tasks', color: '#8b5cf6', connectionType: 'list' },
+        { field: 'tasks', label: 'Tasks', color: '#8b5cf6', connectionType: 'list', connectionMode: 'sequential' },
       ],
     },
     taskFields: ['tasks'],

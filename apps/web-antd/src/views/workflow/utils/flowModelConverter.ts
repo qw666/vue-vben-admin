@@ -11,7 +11,7 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: F
     if (key === 'id' || key === 'type' || key === 'description') {
       continue;
     }
-    if (flowControlConfig && flowControlConfig.taskFields?.includes(key)) {
+    if (flowControlConfig.taskFields?.includes(key)) {
       const fieldValue = task[key];
       const mapped = mapTaskField(fieldValue, (item) => {
         if (item.id && item.type) {
@@ -48,7 +48,7 @@ function extractAllTasks(tasks: FlowTask[], allTasks: FlowTask[] = []): FlowTask
       allTasks.push(task);
     }
     const flowControlConfig = getFlowControlConfig(task.type);
-    if (flowControlConfig && flowControlConfig.taskFields) {
+    if (flowControlConfig.taskFields) {
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
         forEachTaskField(fieldValue, (item) => {
@@ -77,14 +77,15 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
       });
     }
     const flowControlConfig = getFlowControlConfig(task.type);
-    if (flowControlConfig && flowControlConfig.taskFields) {
+    if (flowControlConfig.taskFields) {
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
         
-        const isParallelField = flowControlConfig.nodeType.includes('Parallel') && field === 'tasks';
+        const port = flowControlConfig.ports.output?.find((p: any) => p.field === field);
+        const connectionMode = port?.connectionMode || 'sequential';
         
         if (Array.isArray(fieldValue)) {
-          if (isParallelField) {
+          if (connectionMode === 'parallel') {
             fieldValue.forEach(item => {
               if (item.id && item.type) {
                 buildEdges([item], task, edges, field, undefined);
@@ -176,7 +177,7 @@ function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>)
     let nodeHeight = NODE_HEIGHT;
 
     const flowControlConfig = getFlowControlConfig(task.type);
-    if (flowControlConfig && flowControlConfig.taskFields) {
+    if (flowControlConfig.taskFields) {
       const childY = y + NODE_HEIGHT + VERTICAL_SPACING;
       const branchItems: FlowTask[][] = [];
 
@@ -300,10 +301,10 @@ export function convertFlowModelToWorkflow(
     const flowControlConfig = getFlowControlConfig(task.type);
     const config = convertTaskToConfig(task, flowControlConfig, allTasks);
 
-    let icon = flowControlConfig?.icon || 'mdi:circle';
-    let description = flowControlConfig?.description || '基础';
+    let icon = flowControlConfig.icon || 'mdi:circle';
+    let description = flowControlConfig.description || '基础';
 
-    if (!flowControlConfig) {
+    if (!flowControlNodeRegistry.isFlowControlNode(task.type)) {
       for (const category of Object.values(pluginGroupsCache)) {
         for (const group of category) {
           if (group.pluginList) {
@@ -445,11 +446,11 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
       Object.keys(serializedConfig).forEach((key) => {
         const configValue = serializedConfig[key];
 
-        if (flowControlConfig && key === 'next') {
+        if (key === 'next') {
           return;
         }
 
-        if (flowControlConfig && flowControlConfig.taskFields?.includes(key)) {
+        if (flowControlConfig.taskFields?.includes(key)) {
           const mapped = mapTaskField(configValue, (item) => {
             if (item.nodeId) {
               const childNode = workflow.nodes.find(

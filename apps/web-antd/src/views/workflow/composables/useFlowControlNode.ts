@@ -1,6 +1,6 @@
 import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
-import { getFlowControlConfig } from '../config/workflow-node-config';
+import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
 import type { NodeConfigForm, SelectedNode, TaskItem } from '../types/workflow';
 import { forEachTaskField, filterTaskField, findTaskField } from '../nodes/types';
 
@@ -27,7 +27,6 @@ export function useFlowControlNode(
     if (!node) return [];
 
     const flowControlConfig = getFlowControlConfig(node.data.type);
-    if (!flowControlConfig) return [];
 
     const childIds: string[] = [];
     const taskFields = flowControlConfig.taskFields || [];
@@ -58,8 +57,7 @@ export function useFlowControlNode(
     if (!store.currentWorkflow) return null;
 
     for (const node of store.currentWorkflow.nodes) {
-      const flowControlConfig = getFlowControlConfig(node.data.type);
-      if (!flowControlConfig) continue;
+      if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
 
       const childIds = getChildNodeIds(node.id);
       if (childIds.includes(nodeId)) {
@@ -79,7 +77,6 @@ export function useFlowControlNode(
     }
 
     const flowControlConfig = getFlowControlConfig(node.data.type);
-    if (!flowControlConfig) return;
 
     const taskFields = flowControlConfig.taskFields || [];
     if (!taskFields.includes(fieldKey)) return;

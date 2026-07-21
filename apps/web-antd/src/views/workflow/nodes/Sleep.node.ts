@@ -12,7 +12,7 @@ export const SleepNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: '_next', label: 'Next', color: '#22c55e', connectionType: 'single' },
+        { field: '_next', label: 'Next', color: '#22c55e', connectionType: 'single', connectionMode: 'sequential' },
       ],
     },
     taskFields: [],

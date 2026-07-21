@@ -88,7 +88,7 @@ export function useCanvasConnections(
             const isPortAllowMultipleConnections = (portId: string, node: any): boolean => {
               if (!node) return false;
               const flowControlConfig = getFlowControlConfig(node.data.type);
-              if (!flowControlConfig?.ports?.output) return false;
+              if (!flowControlConfig.ports?.output) return false;
               const sourceHandle = portId.replace(`${node.id}-output-`, '');
               const port = flowControlConfig.ports.output.find((p: any) => 
                 sourceHandle === p.field || sourceHandle.startsWith(p.field + '-')
@@ -205,7 +205,7 @@ export function useCanvasConnections(
       if (targetNode) {
         const flowControlConfig = getFlowControlConfig(parentNode.data.type);
         
-        if (flowControlConfig && flowControlConfig.taskFields) {
+        if (flowControlConfig.taskFields) {
           const taskFields = flowControlConfig.taskFields.filter(f => f !== 'next');
           let targetField = 'next';
           let caseKey: string | undefined;

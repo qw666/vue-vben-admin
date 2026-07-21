@@ -1,4 +1,5 @@
 export type ConnectionType = 'single' | 'list' | 'cases';
+export type ConnectionMode = 'parallel' | 'sequential';
 
 export interface WorkflowNodePort {
   field: string;
@@ -7,6 +8,7 @@ export interface WorkflowNodePort {
   dynamic?: boolean;
   excludeFromBounds?: boolean;
   connectionType: ConnectionType;
+  connectionMode: ConnectionMode;
 }
 
 export interface FlowControlNodeConfig {
@@ -39,13 +41,17 @@ export interface FlowControlNodeStrategy {
 
 class FlowControlNodeRegistry {
   private strategies: Map<string, FlowControlNodeStrategy> = new Map();
+  private defaultStrategy: FlowControlNodeStrategy | null = null;
 
   register(strategy: FlowControlNodeStrategy): void {
+    if (strategy.nodeType === 'default') {
+      this.defaultStrategy = strategy;
+    }
     this.strategies.set(strategy.nodeType, strategy);
   }
 
-  get(nodeType: string): FlowControlNodeStrategy | undefined {
-    return this.strategies.get(nodeType);
+  get(nodeType: string): FlowControlNodeStrategy {
+    return this.strategies.get(nodeType) || this.defaultStrategy!;
   }
 
   getAll(): FlowControlNodeStrategy[] {
@@ -57,24 +63,26 @@ class FlowControlNodeRegistry {
   }
 
   getFlowControlNodes(): { type: string; nodeName: string; icon: string; description: string }[] {
-    return Array.from(this.strategies.entries()).map(([type, strategy]) => ({
-      type,
-      nodeName: strategy.config.nodeName,
-      icon: strategy.config.icon,
-      description: strategy.config.description,
-    }));
+    return Array.from(this.strategies.entries())
+      .filter(([type]) => type !== 'default')
+      .map(([type, strategy]) => ({
+        type,
+        nodeName: strategy.config.nodeName,
+        icon: strategy.config.icon,
+        description: strategy.config.description,
+      }));
   }
 
-  getConfig(nodeType: string): FlowControlNodeConfig | undefined {
-    return this.strategies.get(nodeType)?.config;
+  getConfig(nodeType: string): FlowControlNodeConfig {
+    return this.get(nodeType).config;
   }
 
   getTaskFields(nodeType: string): string[] {
-    return this.strategies.get(nodeType)?.config.taskFields || [];
+    return this.get(nodeType).config.taskFields || [];
   }
 
   serializeConfig(nodeType: string, config: Record<string, any>): Record<string, any> {
-    const strategy = this.strategies.get(nodeType);
+    const strategy = this.get(nodeType);
     if (strategy?.serializeConfig) {
       return strategy.serializeConfig(config);
     }
@@ -82,7 +90,7 @@ class FlowControlNodeRegistry {
   }
 
   deserializeConfig(nodeType: string, config: Record<string, any>): Record<string, any> {
-    const strategy = this.strategies.get(nodeType);
+    const strategy = this.get(nodeType);
     if (strategy?.deserializeConfig) {
       return strategy.deserializeConfig(config);
     }
@@ -95,7 +103,7 @@ class FlowControlNodeRegistry {
     nodeConfigForm?: any;
     store?: any;
   }): void {
-    const strategy = this.strategies.get(nodeType);
+    const strategy = this.get(nodeType);
     if (strategy?.handleConnection) {
       strategy.handleConnection(params);
     }

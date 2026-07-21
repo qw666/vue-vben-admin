@@ -1,6 +1,6 @@
 import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
-import { getFlowControlConfig } from '../config/workflow-node-config';
+import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
 import { UI_CONFIG } from '../config/ui-config';
 import type { NodePort, GroupBounds } from '../types/workflow';
 import { useFlowControlNode } from './useFlowControlNode';
@@ -87,7 +87,7 @@ export function getGroupBounds(nodeId: string, visited: Set<string> = new Set())
   if (!node) return null;
 
   const flowControlConfig = getFlowControlConfig(node.data.type);
-  if (!flowControlConfig || !flowControlConfig.taskFields || flowControlConfig.taskFields.length === 0) return null;
+  if (!flowControlConfig.taskFields || flowControlConfig.taskFields.length === 0) return null;
 
   if (visited.has(nodeId)) return null;
   visited.add(nodeId);
@@ -104,7 +104,7 @@ export function getGroupBounds(nodeId: string, visited: Set<string> = new Set())
     if (!n) return;
     
     const childFlowControlConfig = getFlowControlConfig(n.data.type);
-    if (childFlowControlConfig && childFlowControlConfig.taskFields && childFlowControlConfig.taskFields.length > 0) {
+    if (childFlowControlConfig.taskFields && childFlowControlConfig.taskFields.length > 0) {
       const childGroupBounds = getGroupBounds(n.id, visited);
       if (childGroupBounds) {
         minX = Math.min(minX, childGroupBounds.x);
@@ -136,9 +136,9 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
   const ports: NodePort[] = [];
 
   const flowControlConfig = getFlowControlConfig(nodeType);
-  const groupBounds = flowControlConfig ? getGroupBounds(nodeId) : null;
+  const groupBounds = flowControlNodeRegistry.isFlowControlNode(nodeType) ? getGroupBounds(nodeId) : null;
 
-  if (!flowControlConfig || flowControlConfig.ports.input !== 0) {
+  if (!flowControlNodeRegistry.isFlowControlNode(nodeType) || flowControlConfig.ports.input !== 0) {
     const inputX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
     const inputY = groupBounds ? groupBounds.y - PORT_RADIUS : node.position.y - PORT_RADIUS;
     ports.push({

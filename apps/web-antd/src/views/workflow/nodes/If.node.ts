@@ -12,11 +12,11 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'then', label: 'IF', color: '#22c55e', connectionType: 'list' },
-        { field: 'else', label: 'Else', color: '#ef4444', connectionType: 'list' },
-        { field: 'errors', label: 'Errors', color: '#f59e0b', excludeFromBounds: true, connectionType: 'list' },
-        { field: 'finally', label: 'Finally', color: '#64748b', excludeFromBounds: true, connectionType: 'list' },
-        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single' },
+        { field: 'then', label: 'IF', color: '#22c55e', connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'else', label: 'Else', color: '#ef4444', connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'errors', label: 'Errors', color: '#f59e0b', excludeFromBounds: true, connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'finally', label: 'Finally', color: '#64748b', excludeFromBounds: true, connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single', connectionMode: 'sequential' },
       ],
     },
     taskFields: ['then', 'else', 'errors', 'finally'],

@@ -12,8 +12,8 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'tasks', label: 'Tasks', color: '#06b6d4', connectionType: 'list' },
-        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single' },
+        { field: 'tasks', label: 'Tasks', color: '#06b6d4', connectionType: 'list', connectionMode: 'parallel' },
+        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single', connectionMode: 'sequential' },
       ],
     },
     taskFields: ['tasks'],

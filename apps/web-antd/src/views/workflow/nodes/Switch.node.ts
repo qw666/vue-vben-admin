@@ -12,11 +12,11 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'cases', label: 'Cases', color: '#3b82f6', dynamic: true, connectionType: 'cases' },
-        { field: 'defaults', label: 'Default', color: '#64748b', connectionType: 'list' },
-        { field: 'errors', label: 'Errors', color: '#f59e0b', excludeFromBounds: true, connectionType: 'list' },
-        { field: 'finally', label: 'Finally', color: '#64748b', excludeFromBounds: true, connectionType: 'list' },
-        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single' },
+        { field: 'cases', label: 'Cases', color: '#3b82f6', dynamic: true, connectionType: 'cases', connectionMode: 'sequential' },
+        { field: 'defaults', label: 'Default', color: '#64748b', connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'errors', label: 'Errors', color: '#f59e0b', excludeFromBounds: true, connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'finally', label: 'Finally', color: '#64748b', excludeFromBounds: true, connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single', connectionMode: 'sequential' },
       ],
     },
     taskFields: ['cases', 'defaults', 'errors', 'finally'],

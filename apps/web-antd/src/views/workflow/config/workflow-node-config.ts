@@ -34,7 +34,7 @@ export function isFlowControlNode(nodeType: string): boolean {
   return flowControlNodeRegistry.isFlowControlNode(nodeType);
 }
 
-export function getFlowControlConfig(nodeType: string): FlowControlNodeConfig | undefined {
+export function getFlowControlConfig(nodeType: string): FlowControlNodeConfig {
   return flowControlNodeRegistry.getConfig(nodeType);
 }
 

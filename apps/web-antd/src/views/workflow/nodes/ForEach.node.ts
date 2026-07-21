@@ -12,8 +12,8 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'tasks', label: 'Tasks', color: '#3b82f6', connectionType: 'list' },
-        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single' },
+        { field: 'tasks', label: 'Tasks', color: '#3b82f6', connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single', connectionMode: 'sequential' },
       ],
     },
     taskFields: ['tasks'],

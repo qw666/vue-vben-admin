@@ -4,7 +4,7 @@ import { message } from 'ant-design-vue';
 
 import { useWorkflowStore } from '#/store/workflow';
 
-import { getFlowControlConfig } from '../config/workflow-node-config';
+import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
 import { useEventCleanup } from './useEventCleanup';
 
 export function useCanvasDragging(
@@ -55,7 +55,7 @@ export function useCanvasDragging(
         let template: any = null;
 
         const flowControlConfig = getFlowControlConfig(nodeType);
-        if (flowControlConfig) {
+        if (flowControlNodeRegistry.isFlowControlNode(nodeType)) {
           template = {
             nodeName: flowControlConfig.nodeName,
             type: nodeType,
