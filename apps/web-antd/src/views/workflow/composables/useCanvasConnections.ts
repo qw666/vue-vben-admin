@@ -6,6 +6,8 @@ import type { Connection, NodeConfigForm, NodeConnectedCallback } from '../types
 import { getElementCanvasPosition, getMouseCanvasPosition } from '../utils/coordinateUtils';
 import { useEventCleanup } from './useEventCleanup';
 import { flowControlNodeRegistry } from '../nodes/types';
+import { useFlowControlNode } from './useFlowControlNode';
+import { getGroupBounds } from './useCanvasPorts';
 
 export function useCanvasConnections(
   nodeConfigForm?: NodeConfigForm,
@@ -127,6 +129,27 @@ export function useCanvasConnections(
 
             syncConnectionToNodeConfig(newConnection, true);
 
+            const targetNode = store.currentWorkflow?.nodes.find(n => n.id === targetNodeId);
+            const { getParentNodeId } = useFlowControlNode();
+            const parentNodeId = getParentNodeId(targetNodeId);
+            if (parentNodeId && targetNode) {
+              const parentBounds = getGroupBounds(parentNodeId);
+              if (parentBounds) {
+                const nodeWidth = 176;
+                const nodeHeight = 72;
+                const padding = 16;
+                
+                const newX = Math.max(parentBounds.x + padding, Math.min(targetNode.position.x, parentBounds.x + parentBounds.width - nodeWidth - padding));
+                const newY = Math.max(parentBounds.y + nodeHeight + padding, Math.min(targetNode.position.y, parentBounds.y + parentBounds.height - nodeHeight - padding));
+                
+                if (newX !== targetNode.position.x || newY !== targetNode.position.y) {
+                  store.updateNode(targetNodeId, {
+                    position: { x: newX, y: newY }
+                  });
+                }
+              }
+            }
+
             if (sourceNode && onNodeConnected) {
               onNodeConnected(sourceNode);
             }
@@ -164,14 +187,65 @@ export function useCanvasConnections(
     if (!sourceNode) return;
 
     const nodeType = sourceNode.data.type;
-    if (!flowControlNodeRegistry.isFlowControlNode(nodeType)) return;
+    if (flowControlNodeRegistry.isFlowControlNode(nodeType)) {
+      flowControlNodeRegistry.handleConnection(nodeType, {
+        conn,
+        isAdd,
+        nodeConfigForm,
+        store,
+      });
+      return;
+    }
 
-    flowControlNodeRegistry.handleConnection(nodeType, {
-      conn,
-      isAdd,
-      nodeConfigForm,
-      store,
-    });
+    const { getParentNodeId } = useFlowControlNode();
+    const parentNodeId = getParentNodeId(conn.source);
+    if (parentNodeId) {
+      const parentNode = store.currentWorkflow?.nodes.find(n => n.id === parentNodeId);
+      if (parentNode && flowControlNodeRegistry.isFlowControlNode(parentNode.data.type)) {
+        const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
+        if (targetNode) {
+          const flowControlConfig = getFlowControlConfig(parentNode.data.type);
+          
+          if (flowControlConfig && flowControlConfig.taskFields) {
+            const taskFields = flowControlConfig.taskFields.filter(f => f !== 'next');
+            let targetField = 'next';
+            let caseKey: string | undefined;
+            
+            for (const field of taskFields) {
+              const fieldValue = parentNode.data.config?.[field];
+              if (fieldValue) {
+                if (Array.isArray(fieldValue)) {
+                  if (fieldValue.some(item => item.nodeId === conn.source)) {
+                    targetField = field;
+                    break;
+                  }
+                } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+                  for (const [key, value] of Object.entries(fieldValue)) {
+                    if (Array.isArray(value) && value.some((item: any) => item.nodeId === conn.source)) {
+                      targetField = field;
+                      caseKey = key;
+                      break;
+                    }
+                  }
+                  if (caseKey) break;
+                }
+              }
+            }
+            
+            flowControlNodeRegistry.handleConnection(parentNode.data.type, {
+              conn: {
+                ...conn,
+                source: parentNodeId,
+                sourceHandle: caseKey ? `${parentNodeId}-output-${targetField}-${caseKey}` : `${parentNodeId}-output-${targetField}`,
+              },
+              isAdd,
+              nodeConfigForm,
+              store,
+            });
+          }
+        }
+      }
+    }
   }
 
   function deleteConnection(connId: string) {

@@ -80,11 +80,58 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
     if (flowControlConfig && flowControlConfig.taskFields) {
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
-        forEachTaskField(fieldValue, (item, caseKey) => {
-          if (item.id && item.type) {
-            buildEdges([item], task, edges, field, caseKey);
+        if (Array.isArray(fieldValue)) {
+          let prevItem: FlowTask | null = null;
+          for (const item of fieldValue) {
+            if (item.id && item.type) {
+              if (!prevItem) {
+                buildEdges([item], task, edges, field, undefined);
+              } else {
+                const prevFlowControlConfig = getFlowControlConfig(prevItem.type);
+                const sourceHandle = prevFlowControlConfig
+                  ? `${prevItem.id}-output-next`
+                  : `${prevItem.id}-output`;
+                edges.push({
+                  id: `edge-${prevItem.id}-${item.id}`,
+                  source: prevItem.id,
+                  target: item.id,
+                  sourceHandle,
+                  targetHandle: `${item.id}-input`,
+                });
+                buildEdges([item], undefined, edges, field, undefined);
+              }
+              prevItem = item;
+            }
           }
-        });
+        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+          for (const caseKey of Object.keys(fieldValue)) {
+            const caseItems = fieldValue[caseKey];
+            if (Array.isArray(caseItems)) {
+              let prevItem: FlowTask | null = null;
+              for (const item of caseItems) {
+                if (item.id && item.type) {
+                  if (!prevItem) {
+                    buildEdges([item], task, edges, field, caseKey);
+                  } else {
+                    const prevFlowControlConfig = getFlowControlConfig(prevItem.type);
+                    const sourceHandle = prevFlowControlConfig
+                      ? `${prevItem.id}-output-next`
+                      : `${prevItem.id}-output`;
+                    edges.push({
+                      id: `edge-${prevItem.id}-${item.id}`,
+                      source: prevItem.id,
+                      target: item.id,
+                      sourceHandle,
+                      targetHandle: `${item.id}-input`,
+                    });
+                    buildEdges([item], undefined, edges, field, caseKey);
+                  }
+                  prevItem = item;
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

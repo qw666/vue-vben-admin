@@ -37,13 +37,37 @@ export function useFlowControlNode(
       if (excludeFields.includes(field)) return;
       const configValue = node.data.config?.[field];
       forEachTaskField(configValue, (item) => {
-        if (item.nodeId && !childIds.includes(item.nodeId)) {
-          childIds.push(item.nodeId);
+        if (item.nodeId) {
+          if (!childIds.includes(item.nodeId)) {
+            childIds.push(item.nodeId);
+          }
+          const nestedChildIds = getChildNodeIds(item.nodeId);
+          nestedChildIds.forEach(nestedId => {
+            if (!childIds.includes(nestedId)) {
+              childIds.push(nestedId);
+            }
+          });
         }
       });
     });
 
     return childIds;
+  }
+
+  function getParentNodeId(nodeId: string): string | null {
+    if (!store.currentWorkflow) return null;
+
+    for (const node of store.currentWorkflow.nodes) {
+      const flowControlConfig = getFlowControlConfig(node.data.type);
+      if (!flowControlConfig) continue;
+
+      const childIds = getChildNodeIds(node.id);
+      if (childIds.includes(nodeId)) {
+        return node.id;
+      }
+    }
+
+    return null;
   }
 
   function addChildNode(nodeId: string, fieldKey: string, childNode: WorkflowNode) {
@@ -148,6 +172,7 @@ export function useFlowControlNode(
 
   return {
     getChildNodeIds,
+    getParentNodeId,
     addChildNode,
     removeChildNode,
     updateChildNodeLabel,
