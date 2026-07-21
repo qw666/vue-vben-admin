@@ -1,6 +1,6 @@
 import type { FlowControlNodeStrategy } from './types';
-
 import { flowControlNodeRegistry } from './types';
+import { getFlowControlConfig } from '../config/workflow-node-config';
 
 export const ForEachNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_ForEach',
@@ -66,12 +66,15 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
     const sourceNode = store.currentWorkflow?.nodes.find((n: any) => n.id === conn.source);
     if (!sourceNode) return;
 
+    const flowControlConfig = getFlowControlConfig(sourceNode.data.type);
+    if (!flowControlConfig) return;
+
     const sourceHandle = conn.sourceHandle.replace(`${conn.source}-output-`, '');
     let targetField = sourceHandle;
     let connectionType: 'single' | 'list' | 'cases' | undefined;
 
-    if (this.config.ports.output) {
-      const port = this.config.ports.output.find((p: any) =>
+    if (flowControlConfig.ports.output) {
+      const port = flowControlConfig.ports.output.find((p: any) =>
         sourceHandle === p.field || sourceHandle.startsWith(p.field + '-')
       );
       if (port) {
