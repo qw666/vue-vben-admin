@@ -3,6 +3,7 @@ import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '#/t
 
 import { getFlowControlConfig } from '../config/workflow-node-config';
 import { generateFlowId } from './idGenerator';
+import { flowControlNodeRegistry, mapTaskField, forEachTaskField } from '../nodes/types';
 
 function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: FlowTask[]): Record<string, any> {
   const config: Record<string, any> = {};
@@ -12,49 +13,25 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: F
     }
     if (flowControlConfig && flowControlConfig.taskFields?.includes(key)) {
       const fieldValue = task[key];
-      if (Array.isArray(fieldValue)) {
-        config[key] = fieldValue.map((item: any) => {
-          if (item.id && item.type) {
-            const fullTask = allTasks.find(t => t.id === item.id);
-            if (fullTask) {
-              const childFlowControlConfig = getFlowControlConfig(fullTask.type);
-              const childConfig = convertTaskToConfig(fullTask, childFlowControlConfig, allTasks);
-              return {
-                type: fullTask.type,
-                nodeId: fullTask.id,
-                label: fullTask.description || fullTask.id,
-                ...childConfig,
-              };
-            }
-            return { nodeId: item.id };
+      const mapped = mapTaskField(fieldValue, (item) => {
+        if (item.id && item.type) {
+          const fullTask = allTasks.find(t => t.id === item.id);
+          if (fullTask) {
+            const childFlowControlConfig = getFlowControlConfig(fullTask.type);
+            const childConfig = convertTaskToConfig(fullTask, childFlowControlConfig, allTasks);
+            return {
+              type: fullTask.type,
+              nodeId: fullTask.id,
+              label: fullTask.description || fullTask.id,
+              ...childConfig,
+            };
           }
-          return item;
-        });
-      } else if (typeof fieldValue === 'object' && fieldValue !== null) {
-        const nestedConfig: Record<string, any[]> = {};
-        for (const caseKey of Object.keys(fieldValue)) {
-          const caseItems = fieldValue[caseKey];
-          if (Array.isArray(caseItems)) {
-            nestedConfig[caseKey] = caseItems.map((item: any) => {
-              if (item.id && item.type) {
-                const fullTask = allTasks.find(t => t.id === item.id);
-                if (fullTask) {
-                  const childFlowControlConfig = getFlowControlConfig(fullTask.type);
-                  const childConfig = convertTaskToConfig(fullTask, childFlowControlConfig, allTasks);
-                  return {
-                    type: fullTask.type,
-                    nodeId: fullTask.id,
-                    label: fullTask.description || fullTask.id,
-                    ...childConfig,
-                  };
-                }
-                return { nodeId: item.id };
-              }
-              return item;
-            });
-          }
+          return { nodeId: item.id };
         }
-        config[key] = nestedConfig;
+        return item;
+      });
+      if (mapped !== undefined) {
+        config[key] = mapped;
       } else {
         config[key] = fieldValue;
       }
@@ -62,7 +39,7 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: F
       config[key] = task[key];
     }
   }
-  return config;
+  return flowControlNodeRegistry.deserializeConfig(task.type, config);
 }
 
 function extractAllTasks(tasks: FlowTask[], allTasks: FlowTask[] = []): FlowTask[] {
@@ -74,16 +51,11 @@ function extractAllTasks(tasks: FlowTask[], allTasks: FlowTask[] = []): FlowTask
     if (flowControlConfig && flowControlConfig.taskFields) {
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
-        if (Array.isArray(fieldValue)) {
-          extractAllTasks(fieldValue.filter((item: any) => item.id && item.type), allTasks);
-        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
-          for (const caseKey of Object.keys(fieldValue)) {
-            const caseItems = fieldValue[caseKey];
-            if (Array.isArray(caseItems)) {
-              extractAllTasks(caseItems.filter((item: any) => item.id && item.type), allTasks);
-            }
+        forEachTaskField(fieldValue, (item) => {
+          if (item.id && item.type) {
+            extractAllTasks([item], allTasks);
           }
-        }
+        });
       }
     }
   }
@@ -108,16 +80,11 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
     if (flowControlConfig && flowControlConfig.taskFields) {
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
-        if (Array.isArray(fieldValue)) {
-          buildEdges(fieldValue.filter((item: any) => item.id && item.type), task, edges, field);
-        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
-          for (const caseKey of Object.keys(fieldValue)) {
-            const caseItems = fieldValue[caseKey];
-            if (Array.isArray(caseItems)) {
-              buildEdges(caseItems.filter((item: any) => item.id && item.type), task, edges, field, caseKey);
-            }
+        forEachTaskField(fieldValue, (item, caseKey) => {
+          if (item.id && item.type) {
+            buildEdges([item], task, edges, field, caseKey);
           }
-        }
+        });
       }
     }
   }
@@ -157,22 +124,11 @@ function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>)
 
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
-        if (Array.isArray(fieldValue)) {
-          const childTasks = fieldValue.filter((item: any) => item.id && item.type);
-          if (childTasks.length > 0) {
-            branchItems.push(childTasks);
+        forEachTaskField(fieldValue, (item) => {
+          if (item.id && item.type) {
+            branchItems.push([item]);
           }
-        } else if (typeof fieldValue === 'object' && fieldValue !== null) {
-          for (const caseKey of Object.keys(fieldValue)) {
-            const caseItems = fieldValue[caseKey];
-            if (Array.isArray(caseItems)) {
-              const childTasks = caseItems.filter((item: any) => item.id && item.type);
-              if (childTasks.length > 0) {
-                branchItems.push(childTasks);
-              }
-            }
-          }
-        }
+        });
       }
 
       const numBranches = branchItems.length;
@@ -426,65 +382,34 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
 
     const config = node.data.config;
     if (config) {
-      Object.keys(config).forEach((key) => {
-        const configValue = config[key];
+      const serializedConfig = flowControlNodeRegistry.serializeConfig(node.data.type, config);
+
+      Object.keys(serializedConfig).forEach((key) => {
+        const configValue = serializedConfig[key];
 
         if (flowControlConfig && key === 'next') {
           return;
         }
 
         if (flowControlConfig && flowControlConfig.taskFields?.includes(key)) {
-          if (Array.isArray(configValue)) {
-            task[key] = configValue.map((item: any) => {
-              if (item.nodeId) {
-                const childNode = workflow.nodes.find(
-                  (n) => n.id === item.nodeId,
-                );
-                if (childNode && !visited.has(childNode.id)) {
-                  const converted = convertNode(childNode);
-                  const result: FlowTask = { ...converted };
-                  delete result.nodeId;
-                  delete result.label;
-                  return result;
-                }
+          const mapped = mapTaskField(configValue, (item) => {
+            if (item.nodeId) {
+              const childNode = workflow.nodes.find(
+                (n) => n.id === item.nodeId,
+              );
+              if (childNode && !visited.has(childNode.id)) {
+                const converted = convertNode(childNode);
+                const result: FlowTask = { ...converted };
+                delete result.nodeId;
+                delete result.label;
+                return result;
               }
-              return item;
-            });
-          } else if (typeof configValue === 'object' && configValue !== null) {
-            const nestedTasks: Record<string, FlowTask[]> = {};
-            Object.keys(configValue).forEach((caseKey) => {
-              const caseItems = configValue[caseKey];
-              if (Array.isArray(caseItems)) {
-                nestedTasks[caseKey] = [];
-                caseItems.forEach((item: any) => {
-                  if (item.nodeId) {
-                    const childNode = workflow.nodes.find(
-                      (n) => n.id === item.nodeId,
-                    );
-                    if (childNode && !visited.has(childNode.id)) {
-                      const converted = convertNode(childNode);
-                      const result: FlowTask = { ...converted };
-                      delete result.nodeId;
-                      delete result.label;
-                      if (nestedTasks[caseKey]) {
-                        nestedTasks[caseKey].push(result);
-                      }
-                    }
-                  } else {
-                    if (nestedTasks[caseKey]) {
-                      nestedTasks[caseKey].push(item);
-                    }
-                  }
-                });
-              }
-            });
-            task[key] = nestedTasks;
-          }
-        } else if (key === 'onResume') {
-          task[key] = configValue.map((item: any) => {
-            const { itemType, required, ...rest } = item;
-            return rest;
+            }
+            return item;
           });
+          if (mapped !== undefined) {
+            task[key] = mapped;
+          }
         } else {
           task[key] = configValue;
         }

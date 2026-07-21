@@ -2,63 +2,10 @@ import { ref } from 'vue';
 import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig } from '../config/workflow-node-config';
-import type { Connection, NodeConfigForm, NodeConnectedCallback, TaskItem } from '../types/workflow';
+import type { Connection, NodeConfigForm, NodeConnectedCallback } from '../types/workflow';
 import { getElementCanvasPosition, getMouseCanvasPosition } from '../utils/coordinateUtils';
 import { useEventCleanup } from './useEventCleanup';
-
-function parseSourceHandle(sourceHandle: string, flowControlConfig: any): {
-  targetField: string;
-  caseKey: string | undefined;
-  isDynamic: boolean;
-} {
-  let targetField = sourceHandle;
-  let caseKey: string | undefined;
-  let isDynamic = false;
-
-  if (flowControlConfig.ports.output) {
-    const dynamicOutput = flowControlConfig.ports.output.find(
-      (o: any) => o.dynamic && sourceHandle.startsWith(o.field + '-')
-    );
-    if (dynamicOutput) {
-      targetField = dynamicOutput.field;
-      const remaining = sourceHandle.replace(dynamicOutput.field + '-', '');
-      if (remaining !== 'add') {
-        caseKey = remaining;
-      }
-      isDynamic = true;
-    } else {
-      const dynamicField = flowControlConfig.ports.output.find(
-        (o: any) => o.dynamic && sourceHandle === o.field
-      );
-      if (dynamicField) {
-        targetField = dynamicField.field;
-        isDynamic = true;
-      }
-    }
-  }
-
-  return { targetField, caseKey, isDynamic };
-}
-
-function ensureConfigObject(node: any, field: string): Record<string, any> {
-  if (!node.data.config) {
-    node.data.config = {};
-  }
-  if (!node.data.config[field]) {
-    node.data.config[field] = {};
-  }
-  return node.data.config[field];
-}
-
-function ensureConfigArray(node: any, field: string): any[] {
-  if (!node.data.config) {
-    node.data.config = {};
-  }
-  if (!Array.isArray(node.data.config[field])) {
-    node.data.config[field] = [];
-  }
-  return node.data.config[field];
-}
+import { flowControlNodeRegistry } from '../nodes/types';
 
 export function useCanvasConnections(
   nodeConfigForm?: NodeConfigForm,
@@ -145,9 +92,7 @@ export function useCanvasConnections(
                 sourceHandle === p.field || sourceHandle.startsWith(p.field + '-')
               );
               if (!port) return false;
-              if (port.dynamic) return true;
-              if (flowControlConfig.taskFields?.includes(port.field)) return true;
-              return false;
+              return port.connectionType !== 'single';
             };
             
             const sourceHandle = connectingFromPortId.value;
@@ -218,88 +163,15 @@ export function useCanvasConnections(
     const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === conn.source) as WorkflowNode | undefined;
     if (!sourceNode) return;
 
-    const flowControlConfig = getFlowControlConfig(sourceNode.data.type);
-    if (!flowControlConfig) return;
+    const nodeType = sourceNode.data.type;
+    if (!flowControlNodeRegistry.isFlowControlNode(nodeType)) return;
 
-    const sourceHandle = conn.sourceHandle.replace(`${conn.source}-output-`, '');
-    const { targetField, caseKey, isDynamic } = parseSourceHandle(sourceHandle, flowControlConfig);
-
-    const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target) as WorkflowNode | undefined;
-    if (!targetNode) return;
-
-    const taskItem: TaskItem = {
-      type: targetNode.data.type,
-      nodeId: targetNode.id,
-      label: targetNode.data.label,
-      ...targetNode.data.config,
-    };
-
-    if (isDynamic && isAdd && !caseKey) {
-      const casesObj = ensureConfigObject(sourceNode, targetField);
-      const caseCount = Object.keys(casesObj).length + 1;
-      const newCaseKey = `CASE_${caseCount}`;
-      casesObj[newCaseKey] = [taskItem];
-      conn.sourceHandle = `${conn.source}-output-${targetField}-add`;
-      if (nodeConfigForm) {
-        nodeConfigForm[targetField] = { ...casesObj };
-      }
-    } else if (isDynamic && caseKey) {
-      const casesObj = ensureConfigObject(sourceNode, targetField);
-      let caseItems = Array.isArray(casesObj[caseKey]) ? [...casesObj[caseKey]] : [];
-      
-      if (isAdd) {
-        const existing = caseItems.find((item: any) => item.nodeId === conn.target);
-        if (!existing) {
-          caseItems.push(taskItem);
-        }
-      } else {
-        caseItems = caseItems.filter((item: any) => item.nodeId !== conn.target);
-      }
-      
-      casesObj[caseKey] = caseItems;
-      if (nodeConfigForm) {
-        nodeConfigForm[targetField] = { ...casesObj };
-      }
-    } else if (isDynamic && !isAdd) {
-      const casesObj = ensureConfigObject(sourceNode, targetField);
-      const caseKeyToRemove = Object.keys(casesObj).find(key =>
-        Array.isArray(casesObj[key]) && casesObj[key].some((item: any) => item.nodeId === conn.target)
-      );
-      
-      if (caseKeyToRemove) {
-        casesObj[caseKeyToRemove] = casesObj[caseKeyToRemove].filter(
-          (item: any) => item.nodeId !== conn.target
-        );
-        if (casesObj[caseKeyToRemove].length === 0) {
-          delete casesObj[caseKeyToRemove];
-        }
-        if (nodeConfigForm) {
-          nodeConfigForm[targetField] = { ...casesObj };
-        }
-      }
-    } else {
-      const configArray = ensureConfigArray(sourceNode, targetField);
-      
-      if (isAdd) {
-        const existing = configArray.find((item: any) => item.nodeId === conn.target);
-        if (!existing) {
-          configArray.push(taskItem);
-        }
-      } else {
-        if (!sourceNode.data.config) {
-          sourceNode.data.config = {};
-        }
-        sourceNode.data.config[targetField] = configArray.filter(
-          (item: any) => item.nodeId !== conn.target
-        );
-      }
-      
-      if (nodeConfigForm && sourceNode.data.config) {
-        nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
-      }
-    }
-
-    store.updateNode(conn.source, { data: { ...sourceNode.data } });
+    flowControlNodeRegistry.handleConnection(nodeType, {
+      conn,
+      isAdd,
+      nodeConfigForm,
+      store,
+    });
   }
 
   function deleteConnection(connId: string) {

@@ -12,14 +12,32 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'tasks', label: 'Tasks', color: '#3b82f6' },
-        { field: 'next', label: 'Next', color: '#8b5cf6' },
+        { field: 'tasks', label: 'Tasks', color: '#3b82f6', connectionType: 'list' },
+        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single' },
       ],
     },
     taskFields: ['tasks'],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    const value = savedConfig.value || savedConfig.values;
+    const deserialized = this.deserializeConfig?.(savedConfig) || savedConfig;
+    return {
+      values: deserialized.values,
+      concurrencyLimit: deserialized.concurrencyLimit ?? 1,
+      tasks: deserialized.tasks,
+      next: deserialized.next,
+    };
+  },
+
+  serializeConfig(config: Record<string, any>): Record<string, any> {
+    return {
+      values: config.values,
+      concurrencyLimit: config.concurrencyLimit,
+      tasks: config.tasks,
+    };
+  },
+
+  deserializeConfig(config: Record<string, any>): Record<string, any> {
+    const value = config.value || config.values;
     let valuesArray = [];
     if (Array.isArray(value)) {
       valuesArray = value;
@@ -31,11 +49,74 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
       }
     }
     return {
+      ...config,
       values: valuesArray,
-      concurrencyLimit: savedConfig.concurrencyLimit ?? 1,
-      tasks: savedConfig.do || savedConfig.tasks || [],
-      next: savedConfig.next || [],
+      tasks: config.do || config.tasks || [],
+      next: Array.isArray(config.next) ? [...config.next] : [],
     };
+  },
+
+  handleConnection(params: {
+    conn: any;
+    isAdd: boolean;
+    nodeConfigForm?: any;
+    store?: any;
+  }): void {
+    const { conn, isAdd, nodeConfigForm, store } = params;
+    const sourceNode = store.currentWorkflow?.nodes.find((n: any) => n.id === conn.source);
+    if (!sourceNode) return;
+
+    const sourceHandle = conn.sourceHandle.replace(`${conn.source}-output-`, '');
+    let targetField = sourceHandle;
+    let connectionType: 'single' | 'list' | 'cases' | undefined;
+
+    if (this.config.ports.output) {
+      const port = this.config.ports.output.find((p: any) =>
+        sourceHandle === p.field || sourceHandle.startsWith(p.field + '-')
+      );
+      if (port) {
+        connectionType = port.connectionType;
+        targetField = port.field;
+      }
+    }
+
+    const targetNode = store.currentWorkflow?.nodes.find((n: any) => n.id === conn.target);
+    if (!targetNode) return;
+
+    const taskItem = {
+      type: targetNode.data.type,
+      nodeId: targetNode.id,
+      label: targetNode.data.label,
+      ...targetNode.data.config,
+    };
+
+    if (!sourceNode.data.config) {
+      sourceNode.data.config = {};
+    }
+
+    if (connectionType === 'list' || connectionType === 'single') {
+      if (!Array.isArray(sourceNode.data.config[targetField])) {
+        sourceNode.data.config[targetField] = [];
+      }
+      const configArray = sourceNode.data.config[targetField];
+
+      if (isAdd) {
+        const existing = configArray.find((item: any) => item.nodeId === conn.target);
+        if (!existing) {
+          configArray.push(taskItem);
+        }
+      } else {
+        sourceNode.data.config[targetField] = configArray.filter(
+          (item: any) => item.nodeId !== conn.target
+        );
+      }
+
+      if (nodeConfigForm && sourceNode.data.config) {
+        nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
+      }
+    }
+
+    store.updateNode(conn.source, { data: { ...sourceNode.data } });
   },
   getRequiredFields(): { props: Record<string, any>; type: string }[] {
     return [

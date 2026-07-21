@@ -1,14 +1,6 @@
 import '../nodes';
 import { flowControlNodeRegistry } from '../nodes/types';
-import type { FlowControlNodeConfig } from '../nodes/types';
-
-export interface WorkflowNodePort {
-  field: string;
-  label: string;
-  color: string;
-  dynamic?: boolean;
-  excludeFromBounds?: boolean;
-}
+import type { FlowControlNodeConfig, WorkflowNodePort } from '../nodes/types';
 
 export interface WorkflowNodeConfig {
   type: 'executor' | 'flow_control';

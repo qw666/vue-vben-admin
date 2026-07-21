@@ -2,6 +2,7 @@ import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig } from '../config/workflow-node-config';
 import type { NodeConfigForm, SelectedNode, TaskItem } from '../types/workflow';
+import { forEachTaskField, filterTaskField, findTaskField } from '../nodes/types';
 
 export function useFlowControlNode(
   nodeConfigForm?: NodeConfigForm,
@@ -35,23 +36,11 @@ export function useFlowControlNode(
     taskFields.forEach(field => {
       if (excludeFields.includes(field)) return;
       const configValue = node.data.config?.[field];
-      if (Array.isArray(configValue)) {
-        configValue.forEach((item: any) => {
-          if (item.nodeId && !childIds.includes(item.nodeId)) {
-            childIds.push(item.nodeId);
-          }
-        });
-      } else if (typeof configValue === 'object' && configValue !== null) {
-        Object.values(configValue).forEach((caseItems: any) => {
-          if (Array.isArray(caseItems)) {
-            caseItems.forEach((item: any) => {
-              if (item.nodeId && !childIds.includes(item.nodeId)) {
-                childIds.push(item.nodeId);
-              }
-            });
-          }
-        });
-      }
+      forEachTaskField(configValue, (item) => {
+        if (item.nodeId && !childIds.includes(item.nodeId)) {
+          childIds.push(item.nodeId);
+        }
+      });
     });
 
     return childIds;
@@ -78,46 +67,36 @@ export function useFlowControlNode(
       ...(childNode.data.config || {}),
     };
 
-    const currentValue = node.data.config[fieldKey];
-    if (Array.isArray(currentValue)) {
-      const existing = currentValue.find((item: any) => item.nodeId === childNode.id);
-      if (!existing) {
-        node.data.config[fieldKey] = [...currentValue, taskItem];
-      }
-    } else if (typeof currentValue === 'object' && currentValue !== null) {
-      Object.keys(currentValue).forEach(key => {
-        const caseItems = currentValue[key];
-        if (Array.isArray(caseItems)) {
-          const existing = caseItems.find((item: any) => item.nodeId === childNode.id);
-          if (!existing) {
-            caseItems.push(taskItem);
-          }
-        }
-      });
-    } else {
-      node.data.config[fieldKey] = [taskItem];
-    }
-
-    if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
-      const formValue = nodeConfigForm[fieldKey];
-      if (Array.isArray(formValue)) {
-        const existing = formValue.find((item: any) => item.nodeId === childNode.id);
+    const addToField = (target: any) => {
+      const currentValue = target[fieldKey];
+      if (Array.isArray(currentValue)) {
+        const existing = currentValue.find((item: any) => item.nodeId === childNode.id);
         if (!existing) {
-          nodeConfigForm[fieldKey] = [...formValue, taskItem];
+          target[fieldKey] = [...currentValue, taskItem];
         }
-      } else if (typeof formValue === 'object' && formValue !== null) {
-        Object.keys(formValue).forEach(key => {
-          const caseItems = formValue[key];
+      } else if (typeof currentValue === 'object' && currentValue !== null) {
+        forEachTaskField(currentValue, (item) => {
+          if (item.nodeId === childNode.id) {
+            throw new Error('already_exists');
+          }
+        });
+        Object.keys(currentValue).forEach(key => {
+          const caseItems = currentValue[key];
           if (Array.isArray(caseItems)) {
-            const existing = caseItems.find((item: any) => item.nodeId === childNode.id);
-            if (!existing) {
-              caseItems.push(taskItem);
-            }
+            caseItems.push(taskItem);
           }
         });
       } else {
-        nodeConfigForm[fieldKey] = [taskItem];
+        target[fieldKey] = [taskItem];
       }
+    };
+
+    try {
+      addToField(node.data.config);
+      if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
+        addToField(nodeConfigForm);
+      }
+    } catch {
     }
   }
 
@@ -125,35 +104,22 @@ export function useFlowControlNode(
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    const currentValue = node.data.config?.[fieldKey];
     if (!node.data.config) {
       node.data.config = {};
     }
-    if (Array.isArray(currentValue)) {
-      node.data.config[fieldKey] = currentValue.filter((item: any) => item.nodeId !== childNodeId);
-    } else if (typeof currentValue === 'object' && currentValue !== null) {
-      Object.keys(currentValue).forEach(key => {
-        const caseItems = currentValue[key];
-        if (Array.isArray(caseItems)) {
-          currentValue[key] = caseItems.filter((item: any) => item.nodeId !== childNodeId);
-        }
-      });
-      node.data.config[fieldKey] = { ...currentValue };
-    }
+
+    const removeFromField = (target: any) => {
+      const currentValue = target[fieldKey];
+      const filtered = filterTaskField(currentValue, (item) => item.nodeId !== childNodeId);
+      if (filtered !== undefined) {
+        target[fieldKey] = filtered;
+      }
+    };
+
+    removeFromField(node.data.config);
 
     if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
-      const formValue = nodeConfigForm[fieldKey];
-      if (Array.isArray(formValue)) {
-        nodeConfigForm[fieldKey] = formValue.filter((item: any) => item.nodeId !== childNodeId);
-      } else if (typeof formValue === 'object' && formValue !== null) {
-        Object.keys(formValue).forEach(key => {
-          const caseItems = formValue[key];
-          if (Array.isArray(caseItems)) {
-            formValue[key] = caseItems.filter((item: any) => item.nodeId !== childNodeId);
-          }
-        });
-        nodeConfigForm[fieldKey] = { ...formValue };
-      }
+      removeFromField(nodeConfigForm);
     }
 
     store.currentWorkflow!.edges = (store.currentWorkflow?.edges || []).filter(
@@ -165,42 +131,18 @@ export function useFlowControlNode(
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    const currentValue = node.data.config?.[fieldKey];
-    if (Array.isArray(currentValue)) {
-      const item = currentValue.find((item: any) => item.nodeId === childNodeId);
+    const updateInField = (target: any) => {
+      const currentValue = target[fieldKey];
+      const item = findTaskField(currentValue, (item) => item.nodeId === childNodeId);
       if (item) {
         item.label = newLabel;
       }
-    } else if (typeof currentValue === 'object' && currentValue !== null) {
-      Object.keys(currentValue).forEach(key => {
-        const caseItems = currentValue[key];
-        if (Array.isArray(caseItems)) {
-          const item = caseItems.find((item: any) => item.nodeId === childNodeId);
-          if (item) {
-            item.label = newLabel;
-          }
-        }
-      });
-    }
+    };
+
+    updateInField(node.data.config);
 
     if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
-      const formValue = nodeConfigForm[fieldKey];
-      if (Array.isArray(formValue)) {
-        const item = formValue.find((item: any) => item.nodeId === childNodeId);
-        if (item) {
-          item.label = newLabel;
-        }
-      } else if (typeof formValue === 'object' && formValue !== null) {
-        Object.keys(formValue).forEach(key => {
-          const caseItems = formValue[key];
-          if (Array.isArray(caseItems)) {
-            const item = caseItems.find((item: any) => item.nodeId === childNodeId);
-            if (item) {
-              item.label = newLabel;
-            }
-          }
-        });
-      }
+      updateInField(nodeConfigForm);
     }
   }
 

@@ -1,9 +1,12 @@
+export type ConnectionType = 'single' | 'list' | 'cases';
+
 export interface WorkflowNodePort {
   field: string;
   label: string;
   color: string;
   dynamic?: boolean;
   excludeFromBounds?: boolean;
+  connectionType: ConnectionType;
 }
 
 export interface FlowControlNodeConfig {
@@ -24,6 +27,14 @@ export interface FlowControlNodeStrategy {
   initConfig(savedConfig: Record<string, any>): Record<string, any>;
   getRequiredFields(): { type: string; props: Record<string, any> }[];
   getOptionalFields(): { type: string; props: Record<string, any> }[];
+  serializeConfig?(config: Record<string, any>): Record<string, any>;
+  deserializeConfig?(config: Record<string, any>): Record<string, any>;
+  handleConnection?(params: {
+    conn: any;
+    isAdd: boolean;
+    nodeConfigForm?: any;
+    store?: any;
+  }): void;
 }
 
 class FlowControlNodeRegistry {
@@ -61,6 +72,106 @@ class FlowControlNodeRegistry {
   getTaskFields(nodeType: string): string[] {
     return this.strategies.get(nodeType)?.config.taskFields || [];
   }
+
+  serializeConfig(nodeType: string, config: Record<string, any>): Record<string, any> {
+    const strategy = this.strategies.get(nodeType);
+    if (strategy?.serializeConfig) {
+      return strategy.serializeConfig(config);
+    }
+    return config;
+  }
+
+  deserializeConfig(nodeType: string, config: Record<string, any>): Record<string, any> {
+    const strategy = this.strategies.get(nodeType);
+    if (strategy?.deserializeConfig) {
+      return strategy.deserializeConfig(config);
+    }
+    return config;
+  }
+
+  handleConnection(nodeType: string, params: {
+    conn: any;
+    isAdd: boolean;
+    nodeConfigForm?: any;
+    store?: any;
+  }): void {
+    const strategy = this.strategies.get(nodeType);
+    if (strategy?.handleConnection) {
+      strategy.handleConnection(params);
+    }
+  }
 }
 
 export const flowControlNodeRegistry = new FlowControlNodeRegistry();
+
+export function mapTaskField<T>(
+  fieldValue: any,
+  callback: (item: any, caseKey?: string) => T,
+): T[] | Record<string, T[]> | undefined {
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.map((item) => callback(item));
+  } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+    const result: Record<string, T[]> = {};
+    for (const caseKey of Object.keys(fieldValue)) {
+      const caseItems = fieldValue[caseKey];
+      if (Array.isArray(caseItems)) {
+        result[caseKey] = caseItems.map((item) => callback(item, caseKey));
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  return undefined;
+}
+
+export function filterTaskField(
+  fieldValue: any,
+  predicate: (item: any, caseKey?: string) => boolean,
+): any[] | Record<string, any[]> | undefined {
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.filter((item) => predicate(item));
+  } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+    const result: Record<string, any[]> = {};
+    for (const caseKey of Object.keys(fieldValue)) {
+      const caseItems = fieldValue[caseKey];
+      if (Array.isArray(caseItems)) {
+        result[caseKey] = caseItems.filter((item) => predicate(item, caseKey));
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  return undefined;
+}
+
+export function forEachTaskField(
+  fieldValue: any,
+  callback: (item: any, caseKey?: string) => void,
+): void {
+  if (Array.isArray(fieldValue)) {
+    fieldValue.forEach((item) => callback(item));
+  } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+    for (const caseKey of Object.keys(fieldValue)) {
+      const caseItems = fieldValue[caseKey];
+      if (Array.isArray(caseItems)) {
+        caseItems.forEach((item) => callback(item, caseKey));
+      }
+    }
+  }
+}
+
+export function findTaskField(
+  fieldValue: any,
+  predicate: (item: any, caseKey?: string) => boolean,
+): any | undefined {
+  if (Array.isArray(fieldValue)) {
+    return fieldValue.find((item) => predicate(item));
+  } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+    for (const caseKey of Object.keys(fieldValue)) {
+      const caseItems = fieldValue[caseKey];
+      if (Array.isArray(caseItems)) {
+        const found = caseItems.find((item) => predicate(item, caseKey));
+        if (found) return found;
+      }
+    }
+  }
+  return undefined;
+}
