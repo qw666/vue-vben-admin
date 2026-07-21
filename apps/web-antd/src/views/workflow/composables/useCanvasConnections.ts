@@ -172,13 +172,70 @@ export function useCanvasConnections(
     
     let flowControlNodeId = flowControlNodeRegistry.isFlowControlNode(nodeType) ? conn.source : parentNodeId;
     
+    const isNextPort = conn.sourceHandle?.endsWith('-next');
+    
     if (flowControlNodeRegistry.isFlowControlNode(nodeType)) {
-      flowControlNodeRegistry.handleConnection(nodeType, {
-        conn,
-        isAdd,
-        nodeConfigForm,
-        store,
-      });
+      if (isNextPort && parentNodeId && parentNode && flowControlNodeRegistry.isFlowControlNode(parentNode.data.type)) {
+        const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
+        if (targetNode) {
+          const flowControlConfig = getFlowControlConfig(parentNode.data.type);
+          
+          if (flowControlConfig.taskFields) {
+            const taskFields = flowControlConfig.taskFields.filter(f => f !== 'next');
+            let targetField: string | undefined;
+            let caseKey: string | undefined;
+            
+            for (const field of taskFields) {
+              const fieldValue = parentNode.data.config?.[field];
+              if (fieldValue) {
+                if (Array.isArray(fieldValue)) {
+                  if (fieldValue.some(item => item.nodeId === conn.source)) {
+                    targetField = field;
+                    break;
+                  }
+                } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+                  for (const [key, value] of Object.entries(fieldValue)) {
+                    if (Array.isArray(value) && value.some((item: any) => item.nodeId === conn.source)) {
+                      targetField = field;
+                      caseKey = key;
+                      break;
+                    }
+                  }
+                  if (caseKey) break;
+                }
+              }
+            }
+            
+            if (targetField) {
+              flowControlNodeRegistry.handleConnection(parentNode.data.type, {
+                conn: {
+                  ...conn,
+                  source: parentNodeId,
+                  sourceHandle: caseKey ? `${parentNodeId}-output-${targetField}-${caseKey}` : `${parentNodeId}-output-${targetField}`,
+                },
+                isAdd,
+                nodeConfigForm,
+                store,
+              });
+              flowControlNodeId = parentNodeId;
+            } else {
+              flowControlNodeRegistry.handleConnection(nodeType, {
+                conn,
+                isAdd,
+                nodeConfigForm,
+                store,
+              });
+            }
+          }
+        }
+      } else {
+        flowControlNodeRegistry.handleConnection(nodeType, {
+          conn,
+          isAdd,
+          nodeConfigForm,
+          store,
+        });
+      }
     } else if (parentNodeId && parentNode && flowControlNodeRegistry.isFlowControlNode(parentNode.data.type)) {
       const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
       if (targetNode) {
@@ -186,7 +243,7 @@ export function useCanvasConnections(
         
         if (flowControlConfig.taskFields) {
           const taskFields = flowControlConfig.taskFields.filter(f => f !== 'next');
-          let targetField = 'next';
+          let targetField: string | undefined;
           let caseKey: string | undefined;
           
           for (const field of taskFields) {
@@ -210,16 +267,18 @@ export function useCanvasConnections(
             }
           }
           
-          flowControlNodeRegistry.handleConnection(parentNode.data.type, {
-            conn: {
-              ...conn,
-              source: parentNodeId,
-              sourceHandle: caseKey ? `${parentNodeId}-output-${targetField}-${caseKey}` : `${parentNodeId}-output-${targetField}`,
-            },
-            isAdd,
-            nodeConfigForm,
-            store,
-          });
+          if (targetField) {
+            flowControlNodeRegistry.handleConnection(parentNode.data.type, {
+              conn: {
+                ...conn,
+                source: parentNodeId,
+                sourceHandle: caseKey ? `${parentNodeId}-output-${targetField}-${caseKey}` : `${parentNodeId}-output-${targetField}`,
+              },
+              isAdd,
+              nodeConfigForm,
+              store,
+            });
+          }
         }
       }
     }
