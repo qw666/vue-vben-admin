@@ -76,7 +76,8 @@ function getCategoryColor(): string {
           <div class="space-y-2">
             <div
               v-for="plugin in group.pluginList"
-              :key="plugin.type"
+              :key="plugin?.type"
+              v-show="plugin && plugin.type"
               class="flex items-center justify-start px-3 py-2 rounded-xl cursor-grab active:cursor-grabbing transition-all duration-200 border border-gray-200 hover:border-primary/50 hover:bg-primary/5 w-full"
               draggable="true"
               @dragstart="(e) => emit('dragStart', e, plugin.type)"

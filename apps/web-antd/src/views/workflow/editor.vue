@@ -137,38 +137,7 @@ const {
   },
   nodeConfigForm,
   selectedNode,
-  (node: any) => {
-    const flowControlConfig = getFlowControlConfig(node.data.type);
-    if (flowControlConfig) {
-      const freshNode = store.currentWorkflow?.nodes.find(
-        (n) => n.id === node.id,
-      );
-      const config = freshNode?.data.config || node.data.config || {};
-
-      if (!isConfigPanelOpen.value) {
-        selectedNode.value = freshNode || node;
-        isConfigPanelOpen.value = true;
-      }
-
-      const casesValue = config.cases;
-      nodeConfigForm.cases =
-        typeof casesValue === 'object' &&
-        casesValue !== null &&
-        !Array.isArray(casesValue)
-          ? JSON.parse(JSON.stringify(casesValue))
-          : {};
-      nodeConfigForm.value = config.value || '';
-      nodeConfigForm.defaults = Array.isArray(config.defaults)
-        ? [...config.defaults]
-        : [];
-      nodeConfigForm.errors = Array.isArray(config.errors)
-        ? [...config.errors]
-        : [];
-      nodeConfigForm.finally = Array.isArray(config.finally)
-        ? [...config.finally]
-        : [];
-    }
-  },
+  () => {},
 );
 
 const workflowName = ref('未命名流程');

@@ -410,7 +410,7 @@ onMounted(() => {
           class="absolute cursor-move select-none z-10"
           :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
           :style="{ left: `${node.position.x }px`, top: `${node.position.y }px` }"
-          @mousedown="(e) => emit('startNodeDrag', e, node.id)"
+          @mousedown="(e) => { emit('selectNode', node.id); emit('startNodeDrag', e, node.id); }"
           @click="emit('selectNode', node.id)"
           @dblclick="
             () => {
