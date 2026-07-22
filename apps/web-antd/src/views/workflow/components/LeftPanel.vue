@@ -19,7 +19,7 @@ function getCategoryColor(): string {
 </script>
 
 <template>
-  <div class="w-64 bg-sidebar border-r border-border flex flex-col overflow-hidden">
+  <div class="w-48 bg-sidebar border-r border-border flex flex-col overflow-hidden">
     <div class="border-b border-border flex-shrink-0">
       <div class="flex">
         <button
@@ -41,12 +41,12 @@ function getCategoryColor(): string {
       </div>
       <p class="text-xs text-muted-foreground px-4 py-2">拖拽{{ activeTab === 'task' ? '节点' : '触发器' }}到画布</p>
     </div>
-    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+    <div class="flex-1 overflow-y-auto p-4 space-y-6">
       <div v-if="isPluginLoading" class="flex items-center justify-center py-8">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
       <div v-else>
-        <div>
+        <div class="group-section">
           <h3 class="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-primary" />
             流程控制
@@ -55,22 +55,23 @@ function getCategoryColor(): string {
             <div
               v-for="node in getFlowControlNodes()"
               :key="node.type"
-              class="flex items-center gap-3 p-3 rounded-lg bg-primary-background-lightest hover:bg-primary-background-lighter cursor-grab active:cursor-grabbing transition-colors border border-primary-border-light"
+              class="flex items-center justify-start px-2 py-1.5 rounded-lg bg-primary-background-lightest hover:bg-primary-background-lighter cursor-grab active:cursor-grabbing transition-colors border border-primary-border-light w-36"
               draggable="true"
               @dragstart="(e) => emit('dragStart', e, node.type)"
             >
-              <div
-                class="w-10 h-10 rounded-lg flex items-center justify-center text-primary-foreground bg-primary"
-              >
-                <IconifyIcon :icon="node.icon" :size="20" />
-              </div>
-              <div class="flex-1">
-                <div class="text-sm font-medium text-card-foreground">{{ node.nodeName }}</div>
+              <div class="flex items-center gap-1.5">
+                <div
+                  class="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground bg-primary"
+                >
+                  <IconifyIcon :icon="node.icon" :size="14" />
+                </div>
+                <span class="font-medium text-xs text-card-foreground">{{ node.nodeName }}</span>
               </div>
             </div>
           </div>
         </div>
-        <div v-for="group in pluginGroups" :key="group.groupKey">
+        <div v-for="group in pluginGroups" :key="group.groupKey" class="group-section">
+          <div class="h-px bg-border my-4" />
           <h3 class="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-primary" />
             {{ group.groupName }}
@@ -79,17 +80,17 @@ function getCategoryColor(): string {
             <div
               v-for="plugin in group.pluginList"
               :key="plugin.type"
-              class="flex items-center gap-3 p-3 rounded-lg bg-primary-background-lightest hover:bg-primary-background-lighter cursor-grab active:cursor-grabbing transition-colors border border-primary-border-light"
+              class="flex items-center justify-start px-2 py-1.5 rounded-lg bg-primary-background-lightest hover:bg-primary-background-lighter cursor-grab active:cursor-grabbing transition-colors border border-primary-border-light w-36"
               draggable="true"
               @dragstart="(e) => emit('dragStart', e, plugin.type)"
             >
-              <div
-                class="w-10 h-10 rounded-lg flex items-center justify-center text-primary-foreground bg-primary"
-              >
-                <IconifyIcon :icon="plugin.icon" :size="20" />
-              </div>
-              <div class="flex-1">
-                <div class="text-sm font-medium text-card-foreground">{{ plugin.nodeName }}</div>
+              <div class="flex items-center gap-1.5">
+                <div
+                  class="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground bg-primary"
+                >
+                  <IconifyIcon :icon="plugin.icon" :size="14" />
+                </div>
+                <span class="font-medium text-xs text-card-foreground">{{ plugin.nodeName }}</span>
               </div>
             </div>
           </div>

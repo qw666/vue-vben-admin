@@ -10,6 +10,7 @@ const NODE_HEIGHT = UI_CONFIG.node.height;
 const GROUP_PADDING = UI_CONFIG.group.padding;
 const GROUP_BOTTOM_MARGIN = UI_CONFIG.group.bottomMargin;
 const PORT_RADIUS = UI_CONFIG.port.radius;
+const PORT_MARGIN = UI_CONFIG.port.margin;
 
 function getChildNodeIds(nodeId: string): string[] {
   const { getChildNodeIds: getFlowControlChildIds } = useFlowControlNode();
@@ -140,7 +141,7 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
 
   if (!flowControlNodeRegistry.isFlowControlNode(nodeType) || flowControlConfig.ports.input !== 0) {
     const inputX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
-    const inputY = groupBounds ? groupBounds.y - PORT_RADIUS : node.position.y - PORT_RADIUS;
+    const inputY = groupBounds ? groupBounds.y - PORT_MARGIN : node.position.y - PORT_MARGIN;
     ports.push({
       id: `${nodeId}-input`,
       nodeId,
@@ -167,7 +168,7 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
         portGroup: out.portGroup,
         position: {
           x: node.position.x + NODE_WIDTH / 2,
-          y: node.position.y + NODE_HEIGHT + PORT_RADIUS
+          y: node.position.y + NODE_HEIGHT + PORT_MARGIN
         },
         color: out.color
       });
@@ -182,7 +183,7 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
           portGroup: out.portGroup,
           position: {
             x: node.position.x + spacing * (i + 1),
-            y: node.position.y + NODE_HEIGHT + PORT_RADIUS
+            y: node.position.y + NODE_HEIGHT + PORT_MARGIN
           },
           color: out.color
         });
@@ -190,7 +191,7 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
     }
 
     if (nextOutput) {
-      const nextY = groupBounds ? groupBounds.y + groupBounds.height - PORT_RADIUS : node.position.y + NODE_HEIGHT + PORT_RADIUS;
+      const nextY = groupBounds ? groupBounds.y + groupBounds.height + PORT_MARGIN : node.position.y + NODE_HEIGHT + PORT_MARGIN;
       const nextX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
       ports.push({
         id: `${nodeId}-output-${nextOutput.field}`,
@@ -210,7 +211,7 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
       const containerHeight = groupBounds ? groupBounds.height : NODE_HEIGHT;
       const containerY = groupBounds ? groupBounds.y : node.position.y;
       const spacing = containerHeight / (rightOutputs.length + 1);
-      const rightX = groupBounds ? groupBounds.x + groupBounds.width + PORT_RADIUS : node.position.x + NODE_WIDTH + PORT_RADIUS;
+      const rightX = groupBounds ? groupBounds.x + groupBounds.width + PORT_MARGIN : node.position.x + NODE_WIDTH + PORT_MARGIN;
       rightOutputs.forEach((out, i) => {
         ports.push({
           id: `${nodeId}-output-${out.field}`,
@@ -252,7 +253,7 @@ export function getPortPosition(nodeId: string, portId: string): { x: number; y:
 
   if (portId === `${nodeId}-input`) {
     const inputX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
-    const inputY = groupBounds ? groupBounds.y - PORT_RADIUS : node.position.y - PORT_RADIUS;
+    const inputY = groupBounds ? groupBounds.y - PORT_MARGIN : node.position.y - PORT_MARGIN;
     return {
       x: inputX,
       y: inputY
@@ -271,7 +272,7 @@ export function getPortPosition(nodeId: string, portId: string): { x: number; y:
     const { bottomOutputs, rightOutputs } = getOutputPortInfo(node, flowControlConfig);
 
     if (field === 'next') {
-      const nextY = groupBounds ? groupBounds.y + groupBounds.height + 6 : node.position.y + NODE_HEIGHT + 6;
+      const nextY = groupBounds ? groupBounds.y + groupBounds.height + PORT_MARGIN : node.position.y + NODE_HEIGHT + PORT_MARGIN;
       const nextX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
       return {
         x: nextX,
@@ -290,13 +291,13 @@ export function getPortPosition(nodeId: string, portId: string): { x: number; y:
       if (bottomOutputs.length === 1) {
         return {
           x: node.position.x + NODE_WIDTH / 2,
-          y: node.position.y + NODE_HEIGHT + PORT_RADIUS
+          y: node.position.y + NODE_HEIGHT + PORT_MARGIN
         };
       }
       const spacing = NODE_WIDTH / (bottomOutputs.length + 1);
       return {
         x: node.position.x + spacing * (bottomIndex + 1),
-        y: node.position.y + NODE_HEIGHT + PORT_RADIUS
+        y: node.position.y + NODE_HEIGHT + PORT_MARGIN
       };
     }
 
@@ -304,7 +305,7 @@ export function getPortPosition(nodeId: string, portId: string): { x: number; y:
     if (rightIndex >= 0) {
       const containerHeight = groupBounds ? groupBounds.height : NODE_HEIGHT;
       const containerY = groupBounds ? groupBounds.y : node.position.y;
-      const rightX = groupBounds ? groupBounds.x + groupBounds.width + PORT_RADIUS : node.position.x + NODE_WIDTH + PORT_RADIUS;
+      const rightX = groupBounds ? groupBounds.x + groupBounds.width + PORT_MARGIN : node.position.x + NODE_WIDTH + PORT_MARGIN;
       const spacing = containerHeight / (rightOutputs.length + 1);
       return {
         x: rightX,

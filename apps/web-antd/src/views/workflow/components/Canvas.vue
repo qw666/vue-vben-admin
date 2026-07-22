@@ -57,8 +57,8 @@ const emit = defineEmits<{
   (e: 'panChange', offset: { x: number; y: number }): void;
   (e: 'scaleChange', value: number): void;
 }>();
-const NODE_WIDTH = 176;
-const NODE_HEIGHT = 68;
+const NODE_WIDTH = 144;
+const NODE_HEIGHT = 56;
 
 const canvasRef = ref<HTMLElement | null>(null);
 
@@ -420,20 +420,20 @@ onMounted(() => {
           @contextmenu.prevent="(e) => emit('nodeContextMenu', e, node.id)"
         >
           <div
-            class="flex flex-col items-center justify-center px-4 py-3 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-44"
+            class="flex flex-col items-center justify-center px-2 py-1.5 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-36 h-14"
             :class="{
               'border-blue-500 ring-2 ring-blue-200':
                 selectedNodeId === node.id,
             }"
           >
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-1.5 mb-0.5">
               <div
-                class="w-8 h-8 rounded-full flex items-center justify-center text-primary-foreground"
+                class="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground"
                 :class="getCategoryColor()"
               >
-                <IconifyIcon :icon="node.data.icon" :size="16" />
+                <IconifyIcon :icon="node.data.icon" :size="14" />
               </div>
-              <span class="font-medium text-sm text-card-foreground">{{
+              <span class="font-medium text-xs text-card-foreground">{{
                 node.data.label
               }}</span>
             </div>
@@ -445,10 +445,10 @@ onMounted(() => {
             <div
               v-for="port in getNodePorts(node.id, node.data.type)"
               :key="port.id"
-              class="node-port absolute w-4 h-4 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all shadow-sm flex items-center justify-center pointer-events-auto"
+              class="node-port absolute w-3 h-3 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all shadow-sm flex items-center justify-center pointer-events-auto"
               :style="{
-                left: `${port.position.x - 8 }px`,
-                top: `${port.position.y - 8 }px`,
+                left: `${port.position.x - 6 }px`,
+                top: `${port.position.y - 6 }px`,
                 backgroundColor: port.color || '#3b82f6',
               }"
               :data-node-id="node.id"

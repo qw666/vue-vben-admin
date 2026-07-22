@@ -99,8 +99,8 @@ export function useCanvasInteraction(
   } = useSwitchNode(nodeConfigForm, selectedNode);
 
   function getNodeCenter(nodeId: string): { x: number; y: number } {
-    const NODE_WIDTH = 176;
-    const NODE_HEIGHT = 68;
+    const NODE_WIDTH = 144;
+    const NODE_HEIGHT = 56;
     const store = useWorkflowStore();
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (node) {

@@ -155,10 +155,10 @@ interface NodePosition {
 }
 
 function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>): { height: number; width: number } {
-  const NODE_WIDTH = 176;
-  const NODE_HEIGHT = 68;
-  const VERTICAL_SPACING = 80;
-  const BRANCH_SPACING = 200;
+  const NODE_WIDTH = 144;
+  const NODE_HEIGHT = 56;
+  const VERTICAL_SPACING = 40;
+  const BRANCH_SPACING = 150;
 
   let currentX = 0;
   let currentY = 0;

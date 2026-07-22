@@ -5,14 +5,15 @@ export const UI_CONFIG = {
     maxWidth: 600,
   },
   node: {
-    width: 176,
-    height: 68,
+    width: 144,
+    height: 56,
   },
   group: {
-    padding: 24,
-    bottomMargin: 32,
+    padding: 12,
+    bottomMargin: 16,
   },
   port: {
-    radius: 8,
+    radius: 6,
+    margin: 4,
   },
 };
