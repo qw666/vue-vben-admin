@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
+import { UI_CONFIG } from '../config/ui-config';
 
 const props = defineProps<{
   configPanelWidth?: number;
@@ -57,8 +58,8 @@ const emit = defineEmits<{
   (e: 'panChange', offset: { x: number; y: number }): void;
   (e: 'scaleChange', value: number): void;
 }>();
-const NODE_WIDTH = 144;
-const NODE_HEIGHT = 56;
+const NODE_WIDTH = UI_CONFIG.node.width;
+const NODE_HEIGHT = UI_CONFIG.node.height;
 
 const canvasRef = ref<HTMLElement | null>(null);
 
@@ -420,7 +421,7 @@ onMounted(() => {
           @contextmenu.prevent="(e) => emit('nodeContextMenu', e, node.id)"
         >
           <div
-            class="flex flex-col items-center justify-center px-2 py-1.5 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-36 h-14"
+            class="flex flex-col items-center justify-center px-2 py-1 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-36 h-12"
             :class="{
               'border-blue-500 ring-2 ring-blue-200':
                 selectedNodeId === node.id,

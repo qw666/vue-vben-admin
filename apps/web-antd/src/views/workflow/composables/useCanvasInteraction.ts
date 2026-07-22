@@ -1,4 +1,5 @@
 import { useWorkflowStore } from '#/store/workflow';
+import { UI_CONFIG } from '../config/ui-config';
 import { getNodePorts, getPortPosition, getConnectionPath, getConnectionColor, getGroupBounds } from './useCanvasPorts';
 import { useCanvasConnections } from './useCanvasConnections';
 import { useCanvasDragging } from './useCanvasDragging';
@@ -99,8 +100,8 @@ export function useCanvasInteraction(
   } = useSwitchNode(nodeConfigForm, selectedNode);
 
   function getNodeCenter(nodeId: string): { x: number; y: number } {
-    const NODE_WIDTH = 144;
-    const NODE_HEIGHT = 56;
+    const NODE_WIDTH = UI_CONFIG.node.width;
+    const NODE_HEIGHT = UI_CONFIG.node.height;
     const store = useWorkflowStore();
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (node) {
