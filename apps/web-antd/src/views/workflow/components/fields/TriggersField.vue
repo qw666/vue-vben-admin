@@ -44,6 +44,11 @@ const frontendTriggers = [
   },
 ];
 
+const usedTypes = computed(() => {
+  const triggers = props.nodeConfigForm[fieldKey.value] || [];
+  return new Set(triggers.map((t: any) => t.type).filter(Boolean));
+});
+
 const triggerOptions = computed(() => {
   const options: {
     value: string;
@@ -291,7 +296,12 @@ function getEnumOptions(enumValues: string[]): { value: string; label: string }[
           margin-bottom: 10px;
         "
       >
-        <Button type="text" size="small" @click="addTriggersItem">
+        <Tooltip v-if="usedTypes.size >= triggerOptions.length" title="所有触发器类型已配置完毕">
+          <Button type="text" size="small" :disabled="usedTypes.size >= triggerOptions.length" @click="addTriggersItem">
+            <IconifyIcon icon="mdi:plus" :size="14" /> 添加触发器
+          </Button>
+        </Tooltip>
+        <Button v-else type="text" size="small" @click="addTriggersItem">
           <IconifyIcon icon="mdi:plus" :size="14" /> 添加触发器
         </Button>
       </div>
@@ -366,9 +376,10 @@ function getEnumOptions(enumValues: string[]): { value: string; label: string }[
                   v-for="option in triggerOptions"
                   :key="option.value"
                   :value="option.value"
-                  >
+                  :disabled="usedTypes.has(option.value) && option.value !== trigger.type"
+                >
 {{ option.label }}
-</Select.Option>
+                </Select.Option>
               </Select>
             </div>
             <div v-if="trigger.type === 'idp_core_trigger_Schedule'" style="margin-top: 4px;">
