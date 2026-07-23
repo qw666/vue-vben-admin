@@ -109,24 +109,42 @@ const emit = defineEmits<{
             </div>
           </div>
           <div v-if="optionalFields.length > 0">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-              <span class="text-sm font-semibold text-gray-700">选填项</span>
-            </div>
-            <div class="space-y-4">
-              <div
-                v-for="field in optionalFields"
-                :key="field.props.key"
-                :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
-              >
-                <FieldRenderer
-                  :field="field"
-                  :node-config-form="nodeConfigForm"
-                  :plugin-groups="pluginGroups"
-                  v-on="fieldRendererEvents"
-                />
+            <template v-if="selectedNode.data.type === 'idp_core_flow_Start' || selectedNode.data.type === 'idp_core_flow_End'">
+              <div class="space-y-4">
+                <div
+                  v-for="field in optionalFields"
+                  :key="field.props.key"
+                  :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
+                >
+                  <FieldRenderer
+                    :field="field"
+                    :node-config-form="nodeConfigForm"
+                    :plugin-groups="pluginGroups"
+                    v-on="fieldRendererEvents"
+                  />
+                </div>
               </div>
-            </div>
+            </template>
+            <template v-else>
+              <div class="flex items-center gap-2 mb-3">
+                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                <span class="text-sm font-semibold text-gray-700">选填项</span>
+              </div>
+              <div class="space-y-4">
+                <div
+                  v-for="field in optionalFields"
+                  :key="field.props.key"
+                  :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
+                >
+                  <FieldRenderer
+                    :field="field"
+                    :node-config-form="nodeConfigForm"
+                    :plugin-groups="pluginGroups"
+                    v-on="fieldRendererEvents"
+                  />
+                </div>
+              </div>
+            </template>
           </div>
           <div v-if="requiredFields.length === 0 && optionalFields.length === 0" class="text-center text-gray-500 py-4">
             该节点暂无配置项

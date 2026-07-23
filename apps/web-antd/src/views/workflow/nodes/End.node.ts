@@ -45,7 +45,7 @@ export const EndNodeStrategy: FlowControlNodeStrategy = {
         type: 'Output',
         props: {
           key: 'outputs',
-          label: 'Flow outputs',
+          label: '流程输出',
           required: false,
           description: '流程输出，定义流程执行完成后产生的输出值',
           tooltip: '流程可以产生强类型输出。id 是输出属性的名称（必须唯一），value 是输出值，可以使用表达式如 "{{ outputs.mytask.value }}"。支持 ARRAY、BOOLEAN、FLOAT、INT、STRING、JSON 等类型。',

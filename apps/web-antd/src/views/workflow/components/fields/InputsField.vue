@@ -43,6 +43,29 @@ const inputTypes = [
   { value: 'JSON', label: 'JSON' },
 ];
 
+const fieldLabels: Record<string, { label: string; tooltip: string }> = {
+  id: {
+    label: '标识',
+    tooltip: '字段唯一标识，用于在流程中引用该输入参数。',
+  },
+  displayName: {
+    label: '显示名',
+    tooltip: '字段显示名称，用于在用户界面中展示。',
+  },
+  type: {
+    label: '类型',
+    tooltip: '字段数据类型，决定了输入值的格式和验证规则。',
+  },
+  required: {
+    label: '必填',
+    tooltip: '是否必填字段，必填字段必须提供值才能启动流程。',
+  },
+  defaults: {
+    label: '默认值',
+    tooltip: '字段默认值，仅在必填字段时可用。',
+  },
+};
+
 function addInputsItem() {
   emit('addInputsItem', fieldKey.value);
 }
@@ -93,7 +116,7 @@ function formatDefaultValue(item: any): any {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 4px;
+        margin-bottom: 8px;
       "
     >
       <label style="font-size: 14px; font-weight: 500; color: #374151">
@@ -113,35 +136,35 @@ function formatDefaultValue(item: any): any {
         </Tooltip>
       </div>
     </div>
-    <div style=" padding: 12px;background: #f9fafb; border-radius: 8px">
+    <div style="padding: 12px; background: #f9fafb; border-radius: 8px;">
       <div
         style="
           display: flex;
           align-items: center;
           justify-content: flex-end;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
         "
       >
         <Button type="text" size="small" @click="addInputsItem">
           <IconifyIcon icon="mdi:plus" :size="14" /> 添加输入字段
         </Button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
         <div
           v-for="(item, index) in nodeConfigForm[fieldKey] || []"
           :key="`${fieldKey }-inputs-${ index}`"
           style="
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            padding: 8px;
+            gap: 10px;
+            padding: 12px;
             background: white;
             border: 1px solid #e5e7eb;
             border-radius: 6px;
           "
         >
-          <div style="display: flex; gap: 8px; align-items: center">
-            <span style="font-size: 12px; font-weight: 500; color: #6b7280">字段 {{ (index as number) + 1 }}</span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size: 12px; font-weight: 500; color: #6b7280;">字段 {{ (index as number) + 1 }}</span>
             <Switch
               v-model:checked="item.required"
               @change="
@@ -160,9 +183,14 @@ function formatDefaultValue(item: any): any {
               <IconifyIcon icon="mdi:close" :size="12" />
             </Button>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px">
-            <div style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 40px;font-size: 11px; color: #9ca3af">id</span>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.id.label }}</span>
+                <Tooltip :title="fieldLabels.id.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <Input
                 :value="item.id"
                 @input="
@@ -173,8 +201,13 @@ function formatDefaultValue(item: any): any {
                 size="small"
               />
             </div>
-            <div style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 50px;font-size: 11px; color: #9ca3af">显示名</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.displayName.label }}</span>
+                <Tooltip :title="fieldLabels.displayName.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <Input
                 :value="item.displayName"
                 @input="
@@ -186,8 +219,13 @@ function formatDefaultValue(item: any): any {
                 size="small"
               />
             </div>
-            <div style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 40px;font-size: 11px; color: #9ca3af">类型</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.type.label }}</span>
+                <Tooltip :title="fieldLabels.type.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <Select
                 :value="item.type"
                 @change="
@@ -206,8 +244,13 @@ function formatDefaultValue(item: any): any {
 </Select.Option>
               </Select>
             </div>
-            <div v-if="item.required" style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 40px;font-size: 11px; color: #9ca3af">默认值</span>
+            <div v-if="item.required" style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.defaults.label }}</span>
+                <Tooltip :title="fieldLabels.defaults.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <template v-if="getControlType(item.type) === 'switch'">
                 <Switch
                   :checked="formatDefaultValue(item)"

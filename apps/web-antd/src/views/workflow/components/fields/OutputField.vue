@@ -34,6 +34,21 @@ const outputTypes = [
   { value: 'JSON', label: 'JSON' },
 ];
 
+const fieldLabels: Record<string, { label: string; tooltip: string }> = {
+  id: {
+    label: '标识',
+    tooltip: '输出属性的名称，必须在流程中唯一。',
+  },
+  type: {
+    label: '类型',
+    tooltip: '输出值的数据类型，决定了值的格式和验证规则。',
+  },
+  value: {
+    label: '值',
+    tooltip: '输出值，可以使用表达式如 "{{ outputs.mytask.value }}" 引用其他节点的输出。',
+  },
+};
+
 function addOutputItem() {
   const itemsSchema = {
     type: 'object',
@@ -62,7 +77,7 @@ function removeField(index: number) {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 4px;
+        margin-bottom: 8px;
       "
     >
       <label style="font-size: 14px; font-weight: 500; color: #374151">
@@ -82,35 +97,35 @@ function removeField(index: number) {
         </Tooltip>
       </div>
     </div>
-    <div style=" padding: 12px;background: #f9fafb; border-radius: 8px">
+    <div style="padding: 12px; background: #f9fafb; border-radius: 8px;">
       <div
         style="
           display: flex;
           align-items: center;
           justify-content: flex-end;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
         "
       >
         <Button type="text" size="small" @click="addOutputItem">
           <IconifyIcon icon="mdi:plus" :size="14" /> 添加输出字段
         </Button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
         <div
           v-for="(item, index) in nodeConfigForm[fieldKey] || []"
           :key="`${fieldKey }-output-${ index}`"
           style="
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            padding: 8px;
+            gap: 10px;
+            padding: 12px;
             background: white;
             border: 1px solid #e5e7eb;
             border-radius: 6px;
           "
         >
-          <div style="display: flex; gap: 8px; align-items: center">
-            <span style="font-size: 12px; font-weight: 500; color: #6b7280">字段 {{ (index as number) + 1 }}</span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size: 12px; font-weight: 500; color: #6b7280;">字段 {{ (index as number) + 1 }}</span>
             <Button
               type="text"
               size="small"
@@ -120,9 +135,14 @@ function removeField(index: number) {
               <IconifyIcon icon="mdi:close" :size="12" />
             </Button>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px">
-            <div style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 40px;font-size: 11px; color: #9ca3af">id</span>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.id.label }}</span>
+                <Tooltip :title="fieldLabels.id.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <Input
                 :value="item.id"
                 @input="
@@ -133,8 +153,13 @@ function removeField(index: number) {
                 size="small"
               />
             </div>
-            <div style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 40px;font-size: 11px; color: #9ca3af">类型</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.type.label }}</span>
+                <Tooltip :title="fieldLabels.type.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <Select
                 :value="item.type"
                 @change="
@@ -153,8 +178,13 @@ function removeField(index: number) {
 </Select.Option>
               </Select>
             </div>
-            <div style="display: flex; gap: 6px; align-items: center">
-              <span style=" width: 40px;font-size: 11px; color: #9ca3af">值</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="display: flex; align-items: center; width: 80px;">
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.value.label }}</span>
+                <Tooltip :title="fieldLabels.value.tooltip">
+                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                </Tooltip>
+              </div>
               <Input
                 :value="item.value"
                 @input="

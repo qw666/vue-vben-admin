@@ -98,7 +98,7 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
         type: 'Inputs',
         props: {
           key: 'inputs',
-          label: 'Inputs',
+          label: '输入',
           required: false,
           description: '流程输入参数，手动触发时用户需要填写的字段',
           tooltip: '配置流程的输入参数，支持 STRING、INT、FLOAT、BOOLEAN、ARRAY、JSON 类型',
@@ -109,7 +109,7 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
         type: 'Triggers',
         props: {
           key: 'triggers',
-          label: 'Triggers',
+          label: '触发器',
           required: false,
           description: '流程触发器，支持自动触发流程执行',
           tooltip: '配置自动触发流程的触发器，如 Webhook、Schedule 等',
