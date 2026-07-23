@@ -70,8 +70,32 @@ export interface FlowTask {
   [key: string]: any;
 }
 
+export interface FlowOutput {
+  id: string;
+  type: string;
+  value: string;
+  description?: string;
+}
+
 export interface FlowModel {
   tasks: FlowTask[];
+  outputs?: FlowOutput[];
+  inputs?: FlowInput[];
+  triggers?: FlowTrigger[];
+}
+
+export interface FlowInput {
+  id: string;
+  type: string;
+  defaults?: any;
+  displayName?: string;
+  required?: boolean;
+}
+
+export interface FlowTrigger {
+  id: string;
+  type: string;
+  [key: string]: any;
 }
 
 export interface FlowLayout {

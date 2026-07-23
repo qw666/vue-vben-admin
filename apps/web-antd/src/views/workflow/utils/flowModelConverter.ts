@@ -282,6 +282,14 @@ export function convertFlowModelToWorkflow(
             maxY = Math.max(maxY, pos.y + 68);
           }
         }
+        if (layoutNodes['start']) {
+          maxX = Math.max(maxX, layoutNodes['start'].x + 176);
+          maxY = Math.max(maxY, layoutNodes['start'].y + 68);
+        }
+        if (layoutNodes['end']) {
+          maxX = Math.max(maxX, layoutNodes['end'].x + 176);
+          maxY = Math.max(maxY, layoutNodes['end'].y + 68);
+        }
         if (nodesMap.size > 0) {
           layoutWidth = maxX;
           layoutHeight = maxY;
@@ -358,16 +366,26 @@ export function convertFlowModelToWorkflow(
     folderId,
     nodes: positionedNodes,
     edges,
+    outputs: flowModel.outputs || [],
+    inputs: flowModel.inputs || [],
+    triggers: flowModel.triggers || [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     flowId: flowId || generateFlowId(),
+    flowLayout,
   };
 }
 
 export function generateFlowLayout(nodes: WorkflowNode[]): string {
   const layoutNodes: Record<string, { x: number; y: number }> = {};
   for (const node of nodes) {
-    layoutNodes[node.id] = { x: node.position.x, y: node.position.y };
+    let key = node.id;
+    if (node.data.type === 'idp_core_flow_Start') {
+      key = 'start';
+    } else if (node.data.type === 'idp_core_flow_End') {
+      key = 'end';
+    }
+    layoutNodes[key] = { x: node.position.x, y: node.position.y };
   }
   return JSON.stringify({ nodes: layoutNodes });
 }
@@ -480,16 +498,25 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
 
   const inDegree = new Map<string, number>();
   workflow.nodes.forEach((node) => {
-    inDegree.set(node.id, 0);
+    if (node.data.type !== 'idp_core_flow_Start' && node.data.type !== 'idp_core_flow_End') {
+      inDegree.set(node.id, 0);
+    }
   });
   workflow.edges.forEach((edge) => {
-    inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
+    const sourceNode = workflow.nodes.find((n) => n.id === edge.source);
+    const targetNode = workflow.nodes.find((n) => n.id === edge.target);
+    if (sourceNode && sourceNode.data.type !== 'idp_core_flow_Start' && 
+        targetNode && targetNode.data.type !== 'idp_core_flow_End') {
+      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
+    }
   });
 
   const queue: WorkflowNode[] = [];
   workflow.nodes.forEach((node) => {
-    if (inDegree.get(node.id) === 0) {
-      queue.push(node);
+    if (node.data.type !== 'idp_core_flow_Start' && node.data.type !== 'idp_core_flow_End') {
+      if (inDegree.get(node.id) === 0) {
+        queue.push(node);
+      }
     }
   });
 
@@ -503,11 +530,11 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
 
     const sourceEdges = edgesMap.get(node.id) || [];
     sourceEdges.forEach((edge) => {
-      const currentDegree = (inDegree.get(edge.target) || 0) - 1;
-      inDegree.set(edge.target, currentDegree);
-      if (currentDegree === 0) {
-        const targetNode = workflow.nodes.find((n) => n.id === edge.target);
-        if (targetNode) {
+      const targetNode = workflow.nodes.find((n) => n.id === edge.target);
+      if (targetNode && targetNode.data.type !== 'idp_core_flow_End') {
+        const currentDegree = (inDegree.get(edge.target) || 0) - 1;
+        inDegree.set(edge.target, currentDegree);
+        if (currentDegree === 0) {
           queue.push(targetNode);
         }
       }
@@ -523,6 +550,18 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
   const model: FlowModel = {
     tasks: rootTasks,
   };
+
+  if (workflow.outputs && workflow.outputs.length > 0) {
+    model.outputs = workflow.outputs;
+  }
+
+  if (workflow.inputs && workflow.inputs.length > 0) {
+    model.inputs = workflow.inputs;
+  }
+
+  if (workflow.triggers && workflow.triggers.length > 0) {
+    model.triggers = workflow.triggers;
+  }
 
   return removeEmptyValues(model);
 }

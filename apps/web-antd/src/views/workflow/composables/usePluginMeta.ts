@@ -6,7 +6,7 @@ const pluginGroupsCache = ref<Record<string, PluginGroupTreeDTO[]>>({});
 const pluginMetaCache = ref<Record<string, PluginMetaDetailDTO>>({});
 const isPluginLoading = ref(false);
 const isMetaLoading = ref(false);
-const activeTab = ref<'task' | 'trigger'>('task');
+const activeTab = ref<'task' | 'template'>('task');
 
 const pluginGroups = computed(() => pluginGroupsCache.value[activeTab.value] || []);
 
@@ -53,9 +53,9 @@ async function loadPlugins(category: string = 'task') {
   }
 }
 
-function switchTab(tab: 'task' | 'trigger') {
+function switchTab(tab: 'task' | 'template') {
   activeTab.value = tab;
-  if (!pluginGroupsCache.value[tab] || pluginGroupsCache.value[tab].length === 0) {
+  if (tab === 'task' && (!pluginGroupsCache.value[tab] || pluginGroupsCache.value[tab].length === 0)) {
     loadPlugins(tab);
   }
 }

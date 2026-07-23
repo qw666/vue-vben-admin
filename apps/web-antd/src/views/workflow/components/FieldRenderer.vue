@@ -16,6 +16,9 @@ import AnyOfRadioField from './fields/AnyOfRadioField.vue';
 import RefObjectField from './fields/RefObjectField.vue';
 import ConcurrentField from './fields/ConcurrentField.vue';
 import OnResumeField from './fields/OnResumeField.vue';
+import OutputField from './fields/OutputField.vue';
+import InputsField from './fields/InputsField.vue';
+import TriggersField from './fields/TriggersField.vue';
 import DurationField from './fields/DurationField.vue';
 import InfoBoxField from './fields/InfoBoxField.vue';
 
@@ -48,6 +51,12 @@ const emit = defineEmits<{
   (e: 'addOnResumeItem', fieldKey: string): void;
   (e: 'updateOnResumeField', fieldKey: string, index: number, key: string, value: any): void;
   (e: 'removeOnResumeItem', fieldKey: string, index: number): void;
+  (e: 'addInputsItem', fieldKey: string): void;
+  (e: 'updateInputsField', fieldKey: string, index: number, key: string, value: any): void;
+  (e: 'removeInputsItem', fieldKey: string, index: number): void;
+  (e: 'addTriggersItem', fieldKey: string): void;
+  (e: 'updateTriggersField', fieldKey: string, index: number, key: string, value: any): void;
+  (e: 'removeTriggersItem', fieldKey: string, index: number): void;
 }>();
 </script>
 
@@ -157,6 +166,30 @@ const emit = defineEmits<{
     @add-on-resume-item="(fk: string) => emit('addOnResumeItem', fk)"
     @update-on-resume-field="(fk: string, idx: number, key: string, val: any) => emit('updateOnResumeField', fk, idx, key, val)"
     @remove-on-resume-item="(fk: string, idx: number) => emit('removeOnResumeItem', fk, idx)"
+  />
+  <OutputField
+    v-else-if="field.type === 'Output'"
+    :field="field"
+    :node-config-form="nodeConfigForm"
+    @add-array-item="(fk: string, schema: any) => emit('addArrayItem', fk, schema)"
+    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
+    @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => emit('updateArrayItemValue', fk, idx, pk, val)"
+  />
+  <InputsField
+    v-else-if="field.type === 'Inputs'"
+    :field="field"
+    :node-config-form="nodeConfigForm"
+    @add-inputs-item="(fk: string) => emit('addInputsItem', fk)"
+    @update-inputs-field="(fk: string, idx: number, key: string, val: any) => emit('updateInputsField', fk, idx, key, val)"
+    @remove-inputs-item="(fk: string, idx: number) => emit('removeInputsItem', fk, idx)"
+  />
+  <TriggersField
+    v-else-if="field.type === 'Triggers'"
+    :field="field"
+    :node-config-form="nodeConfigForm"
+    @add-triggers-item="(fk: string) => emit('addTriggersItem', fk)"
+    @update-triggers-field="(fk: string, idx: number, key: string, val: any) => emit('updateTriggersField', fk, idx, key, val)"
+    @remove-triggers-item="(fk: string, idx: number) => emit('removeTriggersItem', fk, idx)"
   />
   <DurationField
     v-else-if="field.type === 'Duration'"

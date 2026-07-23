@@ -9,6 +9,9 @@ import { renderFormField } from './useFormFieldResolver';
 import { validateAllNodes, validateNodeConfig } from './useFieldValidation';
 import { useChildNodeSelection } from './useChildNodeSelection';
 import { useFormState } from './useFormState';
+import { useWorkflowStore } from '#/store/workflow';
+
+const store = useWorkflowStore();
 
 export interface FormMeta {
   parsedSchema?: ParserSchemaNode;
@@ -73,6 +76,12 @@ export function useNodeConfig(
     addOnResumeItem,
     updateOnResumeField,
     removeOnResumeItem,
+    addInputsItem,
+    updateInputsField,
+    removeInputsItem,
+    addTriggersItem,
+    updateTriggersField,
+    removeTriggersItem,
     updateArrayItemValue,
     startResize,
     handleConfigClose,
@@ -245,6 +254,34 @@ export function useNodeConfig(
         config[key] = nodeConfigForm[key];
       });
       selectedNode.value.data.config = config;
+
+      if (selectedNode.value.data.type === 'idp_core_flow_Start') {
+        if (store.currentWorkflow) {
+          const processedInputs = (config.inputs || []).map((input: any) => {
+            const result: Record<string, any> = {
+              id: input.id,
+              type: input.type,
+            };
+            if (input.displayName) {
+              result.displayName = input.displayName;
+            }
+            if (input.required) {
+              result.required = true;
+              if (input.defaults !== undefined && input.defaults !== '') {
+                result.defaults = input.defaults;
+              }
+            }
+            return result;
+          });
+          store.currentWorkflow.inputs = processedInputs;
+          store.currentWorkflow.triggers = config.triggers || [];
+        }
+      } else if (selectedNode.value.data.type === 'idp_core_flow_End') {
+        if (store.currentWorkflow) {
+          store.currentWorkflow.outputs = config.outputs || [];
+        }
+      }
+
       message.success('节点配置已保存');
       handleConfigClose();
       return;
@@ -321,6 +358,12 @@ export function useNodeConfig(
     addOnResumeItem,
     updateOnResumeField,
     removeOnResumeItem,
+    addInputsItem,
+    updateInputsField,
+    removeInputsItem,
+    addTriggersItem,
+    updateTriggersField,
+    removeTriggersItem,
     updateArrayItemValue,
     currentNodeMeta,
     requiredFields,

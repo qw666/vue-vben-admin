@@ -12,7 +12,7 @@ export type WorkflowNodeType =
 
 export interface WorkflowNodeData {
   label: string;
-  type: WorkflowNodeType;
+  type: string;
   icon?: string;
   description?: string;
   config?: Record<string, any>;
@@ -33,6 +33,13 @@ export interface WorkflowEdge {
   targetHandle?: string;
 }
 
+export interface WorkflowOutput {
+  id: string;
+  type: string;
+  value: string;
+  description?: string;
+}
+
 export interface Workflow {
   id: string;
   name: string;
@@ -40,6 +47,9 @@ export interface Workflow {
   folderId?: number;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  outputs?: WorkflowOutput[];
+  inputs?: WorkflowInput[];
+  triggers?: WorkflowTrigger[];
   createdAt: string;
   updatedAt: string;
   /** 后端真实数字 ID。新建未保存时为 undefined，保存成功后由后端返回值填充。 */
@@ -47,6 +57,22 @@ export interface Workflow {
   /** 传递给后端的 flowId，用于新建保存后从列表中匹配出后端数字 ID。 */
   flowId: string;
   status?: 'normal' | 'disabled' | 'deleted';
+  /** 画布布局信息，用于保存和恢复节点位置 */
+  flowLayout?: string;
+}
+
+export interface WorkflowInput {
+  id: string;
+  type: string;
+  defaults?: any;
+  displayName?: string;
+  required?: boolean;
+}
+
+export interface WorkflowTrigger {
+  id: string;
+  type: string;
+  [key: string]: any;
 }
 
 export interface WorkflowFolder {

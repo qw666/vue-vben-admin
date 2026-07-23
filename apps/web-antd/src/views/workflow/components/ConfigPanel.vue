@@ -58,38 +58,40 @@ const emit = defineEmits<{
           请选择一个节点
         </div>
         <div v-else>
-          <div class="p-2.5 bg-gray-50 rounded-lg">
-            <div class="text-sm text-gray-500">节点ID</div>
-            <Input
-              :value="selectedNode.id"
-              class="mt-0.25"
-              :disabled="true"
-            />
-          </div>
-          <div class="p-2.5 bg-gray-50 rounded-lg">
-            <div class="text-sm text-gray-500">节点名称</div>
-            <div class="flex items-center gap-2 mt-0.25">
+          <template v-if="selectedNode.data.type !== 'idp_core_flow_Start' && selectedNode.data.type !== 'idp_core_flow_End'">
+            <div class="p-2.5 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-500">节点ID</div>
               <Input
-                :value="selectedNode.data.label"
-                @input="(e: any) => emit('updateNodeLabel', e.target.value)"
+                :value="selectedNode.id"
+                class="mt-0.25"
+                :disabled="true"
               />
-              <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
-                <IconifyIcon icon="mdi:help-circle" :size="12" class="text-gray-400 cursor-help" />
-              </Tooltip>
             </div>
-          </div>
-          <div class="p-2.5 bg-gray-50 rounded-lg">
-            <div class="text-sm text-gray-500">节点类型</div>
-            <Input
-              :value="selectedNode.data.type"
-              class="mt-0.25"
-              :disabled="true"
-            />
-          </div>
-          <div v-if="currentNodeMeta?.parsedSchema?.description" class="p-4 bg-blue-50 rounded-lg">
-            <div class="text-sm text-blue-600 font-medium mb-1">配置说明</div>
-            <div class="text-sm text-blue-800">{{ currentNodeMeta.parsedSchema.description }}</div>
-          </div>
+            <div class="p-2.5 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-500">节点名称</div>
+              <div class="flex items-center gap-2 mt-0.25">
+                <Input
+                  :value="selectedNode.data.label"
+                  @input="(e: any) => emit('updateNodeLabel', e.target.value)"
+                />
+                <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
+                  <IconifyIcon icon="mdi:help-circle" :size="12" class="text-gray-400 cursor-help" />
+                </Tooltip>
+              </div>
+            </div>
+            <div class="p-2.5 bg-gray-50 rounded-lg">
+              <div class="text-sm text-gray-500">节点类型</div>
+              <Input
+                :value="selectedNode.data.type"
+                class="mt-0.25"
+                :disabled="true"
+              />
+            </div>
+            <div v-if="currentNodeMeta?.parsedSchema?.description" class="p-4 bg-blue-50 rounded-lg">
+              <div class="text-sm text-blue-600 font-medium mb-1">配置说明</div>
+              <div class="text-sm text-blue-800">{{ currentNodeMeta.parsedSchema.description }}</div>
+            </div>
+          </template>
           <div v-if="requiredFields.length > 0" class="mt-4 mb-6">
             <div class="flex items-center gap-2 mb-3">
               <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>

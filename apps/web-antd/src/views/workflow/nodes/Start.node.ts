@@ -1,0 +1,123 @@
+import type { FlowControlNodeStrategy } from './types';
+import { flowControlNodeRegistry } from './types';
+
+export const StartNodeStrategy: FlowControlNodeStrategy = {
+  nodeType: 'idp_core_flow_Start',
+  config: {
+    nodeType: 'idp_core_flow_Start',
+    nodeName: '开始',
+    icon: 'mdi:play-circle',
+    description: '流程开始节点',
+    ports: {
+      input: 0,
+      output: [
+        { field: 'next', label: 'Next', color: '#22c55e', connectionType: 'single', connectionMode: 'sequential' },
+      ],
+    },
+    taskFields: [],
+  },
+  initConfig(savedConfig: Record<string, any>): Record<string, any> {
+    const deserialized = this.deserializeConfig?.(savedConfig) || savedConfig;
+    return {
+      next: deserialized.next || [],
+      inputs: deserialized.inputs || [],
+      triggers: deserialized.triggers || [],
+    };
+  },
+
+  serializeConfig(config: Record<string, any>): Record<string, any> {
+    return { ...config };
+  },
+
+  deserializeConfig(config: Record<string, any>): Record<string, any> {
+    return {
+      ...config,
+      next: Array.isArray(config.next) ? [...config.next] : [],
+      inputs: Array.isArray(config.inputs) ? [...config.inputs] : [],
+      triggers: Array.isArray(config.triggers) ? [...config.triggers] : [],
+    };
+  },
+
+  handleConnection(params: {
+    conn: any;
+    isAdd: boolean;
+    nodeConfigForm?: any;
+    store?: any;
+  }): void {
+    const { conn, isAdd, nodeConfigForm, store } = params;
+    const sourceNode = store.currentWorkflow?.nodes.find((n: any) => n.id === conn.source);
+    if (!sourceNode) return;
+
+    const sourceHandle = conn.sourceHandle.replace(`${conn.source}-output-`, '');
+    const targetField = sourceHandle;
+
+    const targetNode = store.currentWorkflow?.nodes.find((n: any) => n.id === conn.target);
+    if (!targetNode) return;
+
+    const taskItem = {
+      type: targetNode.data.type,
+      nodeId: targetNode.id,
+      label: targetNode.data.label,
+      ...targetNode.data.config,
+    };
+
+    if (!sourceNode.data.config) {
+      sourceNode.data.config = {};
+    }
+
+    if (!Array.isArray(sourceNode.data.config[targetField])) {
+      sourceNode.data.config[targetField] = [];
+    }
+    const configArray = sourceNode.data.config[targetField];
+
+    if (isAdd) {
+      const existing = configArray.find((item: any) => item.nodeId === conn.target);
+      if (!existing) {
+        configArray.push(taskItem);
+      }
+    } else {
+      sourceNode.data.config[targetField] = configArray.filter(
+        (item: any) => item.nodeId !== conn.target
+      );
+    }
+
+    if (nodeConfigForm && sourceNode.data.config) {
+      nodeConfigForm[targetField] = [...sourceNode.data.config[targetField]];
+    }
+
+    store.updateNode(conn.source, { data: { ...sourceNode.data } });
+  },
+
+  getRequiredFields(): { type: string; props: Record<string, any> }[] {
+    return [];
+  },
+
+  getOptionalFields(): { type: string; props: Record<string, any> }[] {
+    return [
+      {
+        type: 'Inputs',
+        props: {
+          key: 'inputs',
+          label: 'Inputs',
+          required: false,
+          description: '流程输入参数，手动触发时用户需要填写的字段',
+          tooltip: '配置流程的输入参数，支持 STRING、INT、FLOAT、BOOLEAN、ARRAY、JSON 类型',
+          dynamic: false,
+        },
+      },
+      {
+        type: 'Triggers',
+        props: {
+          key: 'triggers',
+          label: 'Triggers',
+          required: false,
+          description: '流程触发器，支持自动触发流程执行',
+          tooltip: '配置自动触发流程的触发器，如 Webhook、Schedule 等',
+          dynamic: false,
+        },
+      },
+    ];
+  },
+};
+
+flowControlNodeRegistry.register(StartNodeStrategy);

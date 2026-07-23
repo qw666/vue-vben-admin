@@ -24,7 +24,7 @@ export function useFormState() {
     return nodeConfigForm[fieldKey];
   }
 
-  function addArrayItem(fieldKey: string, itemsSchema: SchemaNode) {
+  function addArrayItem(fieldKey: string, itemsSchema: SchemaNode = {}) {
     const currentValue = nodeConfigForm[fieldKey] || [];
     const newItem: Record<string, any> = {};
 
@@ -33,7 +33,8 @@ export function useFormState() {
       Object.keys(props).forEach(key => {
         const propSchema = props[key];
         if (propSchema) {
-          newItem[key] = initFormFieldValue(propSchema);
+          const value = propSchema.default !== undefined ? propSchema.default : initFormFieldValue(propSchema);
+          newItem[key] = value;
         }
       });
     }
@@ -90,6 +91,42 @@ export function useFormState() {
   }
 
   function removeOnResumeItem(fieldKey: string, index: number) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+  }
+
+  function addInputsItem(fieldKey: string) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', displayName: '', required: false, defaults: '' }];
+  }
+
+  function updateInputsField(fieldKey: string, index: number, key: string, value: any) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    currentValue[index] = { ...currentValue[index], [key]: value };
+    nodeConfigForm[fieldKey] = [...currentValue];
+  }
+
+  function removeInputsItem(fieldKey: string, index: number) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+  }
+
+  function addTriggersItem(fieldKey: string) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: '' }];
+  }
+
+  function updateTriggersField(fieldKey: string, index: number, key: string, value: any) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    if (key === '') {
+      currentValue[index] = { ...currentValue[index], ...value };
+    } else {
+      currentValue[index] = { ...currentValue[index], [key]: value };
+    }
+    nodeConfigForm[fieldKey] = [...currentValue];
+  }
+
+  function removeTriggersItem(fieldKey: string, index: number) {
     const currentValue = nodeConfigForm[fieldKey] || [];
     nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
   }
@@ -151,6 +188,12 @@ export function useFormState() {
     addOnResumeItem,
     updateOnResumeField,
     removeOnResumeItem,
+    addInputsItem,
+    updateInputsField,
+    removeInputsItem,
+    addTriggersItem,
+    updateTriggersField,
+    removeTriggersItem,
     updateArrayItemValue,
     startResize,
     handleConfigClose,

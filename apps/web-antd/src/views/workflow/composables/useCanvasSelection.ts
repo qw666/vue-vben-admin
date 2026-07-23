@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
 
 export function useCanvasSelection(
@@ -9,11 +10,21 @@ export function useCanvasSelection(
   const store = useWorkflowStore();
   const selectedNodeId = ref<string | null>(null);
 
+  function isStartOrEndNode(nodeId: string): boolean {
+    const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
+    if (!node) return false;
+    return node.data.type === 'idp_core_flow_Start' || node.data.type === 'idp_core_flow_End';
+  }
+
   function selectNode(nodeId: string) {
     selectedNodeId.value = nodeId;
   }
 
   function deleteSelectedNode(nodeId: string) {
+    if (isStartOrEndNode(nodeId)) {
+      message.error('开始节点和结束节点不能删除');
+      return;
+    }
     const relatedConns = connections.value.filter(c => c.source === nodeId || c.target === nodeId);
     relatedConns.forEach(c => syncConnectionToNodeConfig(c, false));
     store.removeNode(nodeId);
@@ -33,6 +44,10 @@ export function useCanvasSelection(
     if (e.key === 'Delete' || e.key === 'Backspace') {
       if (selectedNodeId.value) {
         const nodeId = selectedNodeId.value;
+        if (isStartOrEndNode(nodeId)) {
+          message.error('开始节点和结束节点不能删除');
+          return;
+        }
         const relatedConns = connections.value.filter(c => c.source === nodeId || c.target === nodeId);
         relatedConns.forEach(c => syncConnectionToNodeConfig(c, false));
         store.removeNode(nodeId);

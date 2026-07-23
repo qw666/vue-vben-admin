@@ -148,9 +148,38 @@ export const useWorkflowStore = defineStore('workflow', () => {
       edges: [],
       createdAt: now,
       updatedAt: now,
-      // backendId 留空，saveWorkflowToBackend 据此走 addFlow 分支
       flowId: generateFlowId(),
     };
+
+    const startNode: WorkflowNode = {
+      id: `start_${timestamp}`,
+      type: 'custom',
+      position: { x: 2000, y: 2000 },
+      data: {
+        label: '开始',
+        type: 'idp_core_flow_Start',
+        icon: 'mdi:play-circle',
+        description: '流程开始节点',
+        config: { next: [] },
+      },
+    };
+
+    const endNode: WorkflowNode = {
+      id: `end_${timestamp}`,
+      type: 'custom',
+      position: { x: 2400, y: 2000 },
+      data: {
+        label: '结束',
+        type: 'idp_core_flow_End',
+        icon: 'mdi:stop-circle',
+        description: '流程结束节点',
+        config: {},
+      },
+    };
+
+    workflow.nodes.push(startNode);
+    workflow.nodes.push(endNode);
+
     workflows.value.push(workflow);
     return workflow;
   }
