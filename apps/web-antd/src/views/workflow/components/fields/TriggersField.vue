@@ -17,6 +17,7 @@ import {
 } from 'ant-design-vue';
 
 import { usePluginMeta } from '../../composables/usePluginMeta';
+import CronField from './CronField.vue';
 
 const props = defineProps<{
   field: any;
@@ -33,22 +34,44 @@ const { pluginGroupsCache, loadPlugins, loadPluginMeta } = usePluginMeta();
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
+const frontendTriggers = [
+  {
+    type: 'idp_core_trigger_Schedule',
+    label: '定时调度',
+  },
+];
+
 const triggerOptions = computed(() => {
-  const groups = pluginGroupsCache.value['trigger'] || [];
   const options: {
     value: string;
     label: string;
   }[] = [];
+
+  for (const ft of frontendTriggers) {
+    options.push({
+      value: ft.type,
+      label: ft.label,
+    });
+  }
+
+  const groups = pluginGroupsCache.value['trigger'] || [];
   for (const group of groups) {
     for (const plugin of group.pluginList || []) {
-      options.push({
-        value: plugin.type,
-        label: plugin.nodeName || plugin.type,
-      });
+      const exists = options.some((o) => o.value === plugin.type);
+      if (!exists) {
+        options.push({
+          value: plugin.type,
+          label: plugin.nodeName || plugin.type,
+        });
+      }
     }
   }
   return options;
 });
+
+function isFrontendTrigger(type: string) {
+  return frontendTriggers.some((t) => t.type === type);
+}
 
 const loadingMeta = ref<Record<string, boolean>>({});
 const triggerMetaCache = ref<Record<string, any>>({});
@@ -64,6 +87,7 @@ function toggleExpand(index: number) {
 }
 
 async function loadTriggerMeta(triggerType: string) {
+  if (isFrontendTrigger(triggerType)) return;
   if (triggerMetaCache.value[triggerType])
     return triggerMetaCache.value[triggerType];
   if (loadingMeta.value[triggerType])
@@ -88,7 +112,7 @@ async function loadTriggerMeta(triggerType: string) {
 watch(() => props.nodeConfigForm[fieldKey.value], (triggers) => {
   if (triggers && Array.isArray(triggers)) {
     for (const trigger of triggers) {
-      if (trigger.type && !triggerMetaCache.value[trigger.type]) {
+      if (trigger.type && !isFrontendTrigger(trigger.type) && !triggerMetaCache.value[trigger.type]) {
         loadTriggerMeta(trigger.type);
       }
     }
@@ -234,7 +258,18 @@ function getEnumOptions(enumValues: string[]): { value: string; label: string }[
 </Select.Option>
               </Select>
             </div>
-            <div v-if="trigger.type" style="margin-top: 4px">
+            <div v-if="trigger.type === 'idp_core_trigger_Schedule'" style="margin-top: 4px">
+              <div style="padding: 8px; background: #f9fafb; border-radius: 4px;">
+                <div style="font-size: 12px; font-weight: 500; color: #6b7280; margin-bottom: 8px;">
+                  定时调度配置
+                </div>
+                <CronField
+                  :model-value="trigger.cron"
+                  @update:model-value="(val: string) => updateField(index as number, 'cron', val)"
+                />
+              </div>
+            </div>
+            <div v-else-if="trigger.type" style="margin-top: 4px">
               <Spin v-if="loadingMeta[trigger.type]" tip="加载中..." style="display: block; margin: 16px auto;">
               </Spin>
               <template v-else-if="triggerMetaCache[trigger.type]">
