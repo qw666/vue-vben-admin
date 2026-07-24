@@ -13,11 +13,12 @@ const emit = defineEmits<{
 
 type ScheduleType = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'custom';
 
-const scheduleType = ref<ScheduleType>('day');
+const scheduleType = ref<string>('day');
 const hour = ref('0');
 const minute = ref('0');
 const dayOfMonth = ref('1');
 const dayOfWeek = ref('1');
+const isInternalUpdate = ref(false);
 
 function parseCronExpression(expr: string) {
   const parts = expr.split(' ');
@@ -41,18 +42,18 @@ function parseFiveParts(parts: string[]) {
     scheduleType.value = 'hour';
   } else if (day === '*' && month === '*' && (week === '*' || week === '?')) {
     scheduleType.value = 'day';
-    hour.value = hr || '0';
-    minute.value = min || '0';
+    hour.value = String(hr || '0');
+    minute.value = String(min || '0');
   } else if (day === '*' && (week !== '*' && week !== '?')) {
     scheduleType.value = 'week';
-    hour.value = hr || '0';
-    minute.value = min || '0';
-    dayOfWeek.value = week || '1';
+    hour.value = String(hr || '0');
+    minute.value = String(min || '0');
+    dayOfWeek.value = String(week || '1');
   } else if (week === '*' || week === '?') {
     scheduleType.value = 'month';
-    hour.value = hr || '0';
-    minute.value = min || '0';
-    dayOfMonth.value = day || '1';
+    hour.value = String(hr || '0');
+    minute.value = String(min || '0');
+    dayOfMonth.value = String(day || '1');
   } else {
     scheduleType.value = 'custom';
   }
@@ -69,15 +70,19 @@ onMounted(() => {
 watch(
   () => props.modelValue,
   (val) => {
-    if (val && scheduleType.value !== 'custom') {
+    if (val && !isInternalUpdate.value) {
       parseCronExpression(val);
     }
   },
 );
 
 function updateCronExpression() {
+  isInternalUpdate.value = true;
   const newExpression = cronExpression.value;
   emit('update:modelValue', newExpression);
+  setTimeout(() => {
+    isInternalUpdate.value = false;
+  }, 0);
 }
 
 const cronExpression = computed(() => {
@@ -165,6 +170,16 @@ function clampDayOfMonth(val: string) {
   const num = parseInt(val) || 1;
   dayOfMonth.value = Math.max(1, Math.min(31, num)).toString();
 }
+
+function handleScheduleTypeChange(val: string) {
+  scheduleType.value = val;
+  updateCronExpression();
+}
+
+function handleDayOfWeekChange(val: string) {
+  dayOfWeek.value = val;
+  updateCronExpression();
+}
 </script>
 
 <template>
@@ -172,7 +187,8 @@ function clampDayOfMonth(val: string) {
     <div style="display: flex; gap: 8px; align-items: center;">
       <span style="font-size: 12px; color: #6b7280; width: 80px;">执行周期</span>
       <Select
-        v-model="scheduleType"
+        :value="scheduleType"
+        @change="handleScheduleTypeChange"
         style="flex: 1"
         size="small"
       >
@@ -206,7 +222,8 @@ function clampDayOfMonth(val: string) {
     <div v-if="scheduleType === 'week'" style="display: flex; gap: 8px; align-items: center;">
       <span style="font-size: 12px; color: #6b7280; width: 80px;">星期</span>
       <Select
-        v-model="dayOfWeek"
+        :value="dayOfWeek"
+        @change="handleDayOfWeekChange"
         style="flex: 1"
         size="small"
       >
