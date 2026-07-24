@@ -4,6 +4,7 @@ import { IconifyIcon } from '@vben/icons';
 import { Button, Input, Tooltip } from 'ant-design-vue';
 
 import FieldRenderer from './FieldRenderer.vue';
+import HttpRequestConfig from './custom/HttpRequestConfig.vue';
 
 defineProps<{
   currentNodeMeta: any;
@@ -26,6 +27,16 @@ const emit = defineEmits<{
   (e: 'updateNodeLabel', value: string): void;
   (e: 'updateNodeId', value: string): void;
 }>();
+
+function isHttpRequestNode(nodeType: string): boolean {
+  return nodeType?.includes('http') || nodeType?.includes('request');
+}
+
+function updateConfig(formData: Record<string, any>) {
+  Object.keys(formData).forEach(key => {
+    emit('saveConfig');
+  });
+}
 </script>
 
 <template>
@@ -92,50 +103,20 @@ const emit = defineEmits<{
               <div class="text-sm text-blue-800">{{ currentNodeMeta.parsedSchema.description }}</div>
             </div>
           </template>
-          <div v-if="requiredFields.length > 0" class="mt-4 mb-6">
-            <div class="flex items-center gap-2 mb-3">
-              <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-              <span class="text-sm font-semibold text-gray-700">必填项</span>
-            </div>
-            <div class="space-y-4">
-              <div v-for="field in requiredFields" :key="field.props.key" class="border-l-2 border-red-400 pl-3">
-                <FieldRenderer
-                  :field="field"
-                  :node-config-form="nodeConfigForm"
-                  :plugin-groups="pluginGroups"
-                  v-on="fieldRendererEvents"
-                />
-              </div>
-            </div>
-          </div>
-          <div v-if="optionalFields.length > 0">
-            <template v-if="selectedNode.data.type === 'idp_core_flow_Start' || selectedNode.data.type === 'idp_core_flow_End'">
-              <div class="space-y-4">
-                <div
-                  v-for="field in optionalFields"
-                  :key="field.props.key"
-                  :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
-                >
-                  <FieldRenderer
-                    :field="field"
-                    :node-config-form="nodeConfigForm"
-                    :plugin-groups="pluginGroups"
-                    v-on="fieldRendererEvents"
-                  />
-                </div>
-              </div>
-            </template>
-            <template v-else>
+          <template v-if="isHttpRequestNode(selectedNode.data.type)">
+            <HttpRequestConfig
+              :node-config-form="nodeConfigForm"
+              @update:config="updateConfig"
+            />
+          </template>
+          <template v-else>
+            <div v-if="requiredFields.length > 0" class="mt-4 mb-6">
               <div class="flex items-center gap-2 mb-3">
-                <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                <span class="text-sm font-semibold text-gray-700">选填项</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                <span class="text-sm font-semibold text-gray-700">必填项</span>
               </div>
               <div class="space-y-4">
-                <div
-                  v-for="field in optionalFields"
-                  :key="field.props.key"
-                  :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
-                >
+                <div v-for="field in requiredFields" :key="field.props.key" class="border-l-2 border-red-400 pl-3">
                   <FieldRenderer
                     :field="field"
                     :node-config-form="nodeConfigForm"
@@ -144,11 +125,49 @@ const emit = defineEmits<{
                   />
                 </div>
               </div>
-            </template>
-          </div>
-          <div v-if="requiredFields.length === 0 && optionalFields.length === 0" class="text-center text-gray-500 py-4">
-            该节点暂无配置项
-          </div>
+            </div>
+            <div v-if="optionalFields.length > 0">
+              <template v-if="selectedNode.data.type === 'idp_core_flow_Start' || selectedNode.data.type === 'idp_core_flow_End'">
+                <div class="space-y-4">
+                  <div
+                    v-for="field in optionalFields"
+                    :key="field.props.key"
+                    :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
+                  >
+                    <FieldRenderer
+                      :field="field"
+                      :node-config-form="nodeConfigForm"
+                      :plugin-groups="pluginGroups"
+                      v-on="fieldRendererEvents"
+                    />
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                  <span class="text-sm font-semibold text-gray-700">选填项</span>
+                </div>
+                <div class="space-y-4">
+                  <div
+                    v-for="field in optionalFields"
+                    :key="field.props.key"
+                    :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
+                  >
+                    <FieldRenderer
+                      :field="field"
+                      :node-config-form="nodeConfigForm"
+                      :plugin-groups="pluginGroups"
+                      v-on="fieldRendererEvents"
+                    />
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div v-if="requiredFields.length === 0 && optionalFields.length === 0" class="text-center text-gray-500 py-4">
+              该节点暂无配置项
+            </div>
+          </template>
         </div>
       </div>
       <div class="p-4 border-t border-gray-200">
