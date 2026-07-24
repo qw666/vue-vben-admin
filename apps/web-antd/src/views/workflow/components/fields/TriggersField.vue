@@ -10,6 +10,7 @@ import {
   Input,
   Select,
   Spin,
+  Switch,
   Tooltip,
 } from 'ant-design-vue';
 
@@ -224,14 +225,21 @@ function getConfigComponent(type: string) {
               style="color: #9ca3af"
             />
             <span style="font-size: 12px; font-weight: 500; color: #6b7280">触发器 {{ (index as number) + 1 }}</span>
-            <Button
-              type="text"
-              size="small"
-              @click.stop="removeField(index as number)"
-              danger
-            >
-              <IconifyIcon icon="mdi:close" :size="12" />
-            </Button>
+            <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+              <Switch
+                :checked="!trigger.disabled"
+                @change="(val: boolean) => updateField(index as number, 'disabled', !val)"
+                size="small"
+              />
+              <Button
+                type="text"
+                size="small"
+                @click.stop="removeField(index as number)"
+                danger
+              >
+                <IconifyIcon icon="mdi:close" :size="12" />
+              </Button>
+            </div>
           </div>
           <div
             v-show="expandedTriggers.has(index as number)"

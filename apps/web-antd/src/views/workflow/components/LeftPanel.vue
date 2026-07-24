@@ -45,6 +45,7 @@ const flowControlNodes = computed(() => {
         </button>
       </div>
     </div>
+    <div class="h-px bg-gray-100" />
     <div class="flex-1 overflow-y-auto p-4 space-y-6">
       <div v-if="activeTab === 'template'" class="text-center text-gray-500 py-12">
         暂无模板
