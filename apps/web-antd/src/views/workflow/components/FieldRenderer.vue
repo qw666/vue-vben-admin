@@ -1,32 +1,13 @@
 <script lang="ts" setup>
-import InputField from './fields/InputField.vue';
-import TextareaField from './fields/TextareaField.vue';
-import InputNumberField from './fields/InputNumberField.vue';
-import SwitchField from './fields/SwitchField.vue';
-import EnumSelectField from './fields/EnumSelectField.vue';
-import SelectField from './fields/SelectField.vue';
-import StringArrayField from './fields/StringArrayField.vue';
-import NumberArrayField from './fields/NumberArrayField.vue';
-import ObjectInputField from './fields/ObjectInputField.vue';
-import ArrayTableField from './fields/ArrayTableField.vue';
-import NodeArrayField from './fields/NodeArrayField.vue';
-import ConnectionStatusField from './fields/ConnectionStatusField.vue';
-import SwitchCasesField from './fields/SwitchCasesField.vue';
-import AnyOfRadioField from './fields/AnyOfRadioField.vue';
-import RefObjectField from './fields/RefObjectField.vue';
-import ConcurrentField from './fields/ConcurrentField.vue';
-import OnResumeField from './fields/OnResumeField.vue';
-import OutputField from './fields/OutputField.vue';
-import InputsField from './fields/InputsField.vue';
-import TriggersField from './fields/TriggersField.vue';
-import DurationField from './fields/DurationField.vue';
-import InfoBoxField from './fields/InfoBoxField.vue';
+import { computed } from 'vue';
+
+import { getFieldComponent } from './fields';
 
 defineOptions({
   inheritAttrs: false,
 });
 
-defineProps<{
+const props = defineProps<{
   field: any;
   nodeConfigForm: Record<string, any>;
   pluginGroups: any[];
@@ -58,31 +39,20 @@ const emit = defineEmits<{
   (e: 'updateTriggersField', fieldKey: string, index: number, key: string, value: any): void;
   (e: 'removeTriggersItem', fieldKey: string, index: number): void;
 }>();
+
+const fieldComponent = computed(() => {
+  const comp = getFieldComponent(props.field.type);
+  if (!comp) {
+    console.warn(`Unknown field type: ${props.field.type}`);
+  }
+  return comp;
+});
 </script>
 
 <template>
-  <InputField
-    v-if="field.type === 'Input'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <TextareaField
-    v-else-if="field.type === 'Textarea'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <InputNumberField
-    v-else-if="field.type === 'InputNumber'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <SwitchField
-    v-else-if="field.type === 'Switch'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <AnyOfRadioField
-    v-else-if="field.type === 'AnyOfRadio'"
+  <component
+    :is="fieldComponent"
+    v-if="fieldComponent"
     :field="field"
     :node-config-form="nodeConfigForm"
     :plugin-groups="pluginGroups"
@@ -97,133 +67,21 @@ const emit = defineEmits<{
     @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => emit('updateArrayItemValue', fk, idx, pk, val)"
     @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fk)"
     @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fk, idx)"
-  />
-  <EnumSelectField
-    v-else-if="field.type === 'EnumSelect'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <SelectField
-    v-else-if="field.type === 'Select'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <StringArrayField
-    v-else-if="field.type === 'StringArray'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    @add-string-array-item="(fk: string) => emit('addStringArrayItem', fk)"
-    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
-  />
-  <NumberArrayField
-    v-else-if="field.type === 'NumberArray'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    @add-number-array-item="(fk: string) => emit('addNumberArrayItem', fk)"
-    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
-  />
-  <ObjectInputField
-    v-else-if="field.type === 'ObjectInput'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    @add-object-item="(fk: string) => emit('addObjectItem', fk)"
-    @update-object-key="(fk: string, idx: number, val: string) => emit('updateObjectKey', fk, idx, val)"
-    @update-object-value="(fk: string, idx: number, val: string) => emit('updateObjectValue', fk, idx, val)"
-    @remove-object-item="(fk: string, idx: number) => emit('removeObjectItem', fk, idx)"
-  />
-  <ArrayTableField
-    v-else-if="field.type === 'ArrayTable'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    @add-array-item="(fk: string, schema: any) => emit('addArrayItem', fk, schema)"
-    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
-    @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => emit('updateArrayItemValue', fk, idx, pk, val)"
-  />
-  <NodeArrayField
-    v-else-if="field.type === 'NodeArray'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    :plugin-groups="pluginGroups"
-    @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fk)"
-    @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fk, idx)"
-    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
-  />
-  <ConnectionStatusField
-    v-else-if="field.type === 'ConnectionStatus'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    :plugin-groups="pluginGroups"
-  />
-  <ConcurrentField
-    v-else-if="field.type === 'Concurrent'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <OnResumeField
-    v-else-if="field.type === 'OnResume'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
+    @add-case-key="(fk: string) => emit('addCaseKey', fk)"
+    @update-case-key="(fk: string, oldKey: string, newKey: string) => emit('updateCaseKey', fk, oldKey, newKey)"
+    @remove-case-key="(fk: string, caseKey: string) => emit('removeCaseKey', fk, caseKey)"
+    @remove-node-from-case="(fk: string, caseKey: string, idx: number) => emit('removeNodeFromCase', fk, caseKey, idx)"
     @add-on-resume-item="(fk: string) => emit('addOnResumeItem', fk)"
     @update-on-resume-field="(fk: string, idx: number, key: string, val: any) => emit('updateOnResumeField', fk, idx, key, val)"
     @remove-on-resume-item="(fk: string, idx: number) => emit('removeOnResumeItem', fk, idx)"
-  />
-  <OutputField
-    v-else-if="field.type === 'Output'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    @add-array-item="(fk: string, schema: any) => emit('addArrayItem', fk, schema)"
-    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
-    @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => emit('updateArrayItemValue', fk, idx, pk, val)"
-  />
-  <InputsField
-    v-else-if="field.type === 'Inputs'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
     @add-inputs-item="(fk: string) => emit('addInputsItem', fk)"
     @update-inputs-field="(fk: string, idx: number, key: string, val: any) => emit('updateInputsField', fk, idx, key, val)"
     @remove-inputs-item="(fk: string, idx: number) => emit('removeInputsItem', fk, idx)"
-  />
-  <TriggersField
-    v-else-if="field.type === 'Triggers'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
     @add-triggers-item="(fk: string) => emit('addTriggersItem', fk)"
     @update-triggers-field="(fk: string, idx: number, key: string, val: any) => emit('updateTriggersField', fk, idx, key, val)"
     @remove-triggers-item="(fk: string, idx: number) => emit('removeTriggersItem', fk, idx)"
   />
-  <DurationField
-    v-else-if="field.type === 'Duration'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-  />
-  <InfoBoxField
-    v-else-if="field.type === 'InfoBox'"
-    :field="field"
-  />
-  <SwitchCasesField
-    v-else-if="field.type === 'SwitchCases'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    :plugin-groups="pluginGroups"
-    @update-case-key="(fk: string, oldKey: string, newKey: string) => emit('updateCaseKey', fk, oldKey, newKey)"
-    @remove-case-key="(fk: string, caseKey: string) => emit('removeCaseKey', fk, caseKey)"
-    @remove-node-from-case="(fk: string, caseKey: string, idx: number) => emit('removeNodeFromCase', fk, caseKey, idx)"
-  />
-  <RefObjectField
-    v-else-if="field.type === 'RefObject'"
-    :field="field"
-    :node-config-form="nodeConfigForm"
-    :plugin-groups="pluginGroups"
-    @add-object-item="(fk: string) => emit('addObjectItem', fk)"
-    @update-object-key="(fk: string, idx: number, val: string) => emit('updateObjectKey', fk, idx, val)"
-    @update-object-value="(fk: string, idx: number, val: string) => emit('updateObjectValue', fk, idx, val)"
-    @remove-object-item="(fk: string, idx: number) => emit('removeObjectItem', fk, idx)"
-    @add-string-array-item="(fk: string) => emit('addStringArrayItem', fk)"
-    @add-number-array-item="(fk: string) => emit('addNumberArrayItem', fk)"
-    @add-array-item="(fk: string, schema: any) => emit('addArrayItem', fk, schema)"
-    @remove-array-item="(fk: string, idx: number) => emit('removeArrayItem', fk, idx)"
-    @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => emit('updateArrayItemValue', fk, idx, pk, val)"
-    @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fk)"
-    @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fk, idx)"
-  />
+  <div v-else class="p-2 text-sm text-red-500">
+    未知字段类型: {{ field.type }}
+  </div>
 </template>

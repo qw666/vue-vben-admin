@@ -118,6 +118,28 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
       },
     ];
   },
+
+  saveConfig(config: Record<string, any>, store: any): void {
+    if (!store.currentWorkflow) return;
+    const processedInputs = (config.inputs || []).map((input: any) => {
+      const result: Record<string, any> = {
+        id: input.id,
+        type: input.type,
+      };
+      if (input.displayName) {
+        result.displayName = input.displayName;
+      }
+      if (input.required) {
+        result.required = true;
+        if (input.defaults !== undefined && input.defaults !== '') {
+          result.defaults = input.defaults;
+        }
+      }
+      return result;
+    });
+    store.currentWorkflow.inputs = processedInputs;
+    store.currentWorkflow.triggers = config.triggers || [];
+  },
 };
 
 flowControlNodeRegistry.register(StartNodeStrategy);

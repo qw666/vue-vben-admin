@@ -54,6 +54,11 @@ export const EndNodeStrategy: FlowControlNodeStrategy = {
       },
     ];
   },
+
+  saveConfig(config: Record<string, any>, store: any): void {
+    if (!store.currentWorkflow) return;
+    store.currentWorkflow.outputs = config.outputs || [];
+  },
 };
 
 flowControlNodeRegistry.register(EndNodeStrategy);

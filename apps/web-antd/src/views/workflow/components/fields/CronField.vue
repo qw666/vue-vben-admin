@@ -175,8 +175,11 @@ function clampDayOfMonth(val: string) {
         v-model="scheduleType"
         style="flex: 1"
         size="small"
-        :options="scheduleTypeOptions"
-      />
+      >
+        <Select.Option v-for="opt in scheduleTypeOptions" :key="opt.value" :value="opt.value">
+          {{ opt.label }}
+        </Select.Option>
+      </Select>
     </div>
 
     <div v-if="scheduleType === 'day' || scheduleType === 'week' || scheduleType === 'month'" style="display: flex; gap: 8px; align-items: center;">
@@ -206,8 +209,11 @@ function clampDayOfMonth(val: string) {
         v-model="dayOfWeek"
         style="flex: 1"
         size="small"
-        :options="weekOptions"
-      />
+      >
+        <Select.Option v-for="opt in weekOptions" :key="opt.value" :value="opt.value">
+          {{ opt.label }}
+        </Select.Option>
+      </Select>
     </div>
 
     <div v-if="scheduleType === 'month'" style="display: flex; gap: 8px; align-items: center;">

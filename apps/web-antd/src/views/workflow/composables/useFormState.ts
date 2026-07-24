@@ -80,43 +80,23 @@ export function useFormState() {
   }
 
   function addOnResumeItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', displayName: '', required: false, itemType: 'STRING', defaults: '' }];
-  }
-
-  function updateOnResumeField(fieldKey: string, index: number, key: string, value: any) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index] = { ...currentValue[index], [key]: value };
-    nodeConfigForm[fieldKey] = [...currentValue];
-  }
-
-  function removeOnResumeItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+    addArrayItemWithDefault(fieldKey, { id: '', type: 'STRING', displayName: '', required: false, itemType: 'STRING', defaults: '' });
   }
 
   function addInputsItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: 'STRING', displayName: '', required: false, defaults: '' }];
-  }
-
-  function updateInputsField(fieldKey: string, index: number, key: string, value: any) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index] = { ...currentValue[index], [key]: value };
-    nodeConfigForm[fieldKey] = [...currentValue];
-  }
-
-  function removeInputsItem(fieldKey: string, index: number) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+    addArrayItemWithDefault(fieldKey, { id: '', type: 'STRING', displayName: '', required: false, defaults: '' });
   }
 
   function addTriggersItem(fieldKey: string) {
-    const currentValue = nodeConfigForm[fieldKey] || [];
-    nodeConfigForm[fieldKey] = [...currentValue, { id: '', type: '' }];
+    addArrayItemWithDefault(fieldKey, { id: '', type: '' });
   }
 
-  function updateTriggersField(fieldKey: string, index: number, key: string, value: any) {
+  function addArrayItemWithDefault(fieldKey: string, defaultItem: Record<string, any>) {
+    const currentValue = nodeConfigForm[fieldKey] || [];
+    nodeConfigForm[fieldKey] = [...currentValue, { ...defaultItem }];
+  }
+
+  function updateArrayItemField(fieldKey: string, index: number, key: string, value: any) {
     const currentValue = nodeConfigForm[fieldKey] || [];
     if (key === '') {
       currentValue[index] = { ...currentValue[index], ...value };
@@ -126,9 +106,34 @@ export function useFormState() {
     nodeConfigForm[fieldKey] = [...currentValue];
   }
 
-  function removeTriggersItem(fieldKey: string, index: number) {
+  function removeArrayItemByIndex(fieldKey: string, index: number) {
     const currentValue = nodeConfigForm[fieldKey] || [];
     nodeConfigForm[fieldKey] = currentValue.filter((_: any, i: number) => i !== index);
+  }
+
+  // 兼容旧接口的代理方法
+  function updateOnResumeField(fieldKey: string, index: number, key: string, value: any) {
+    updateArrayItemField(fieldKey, index, key, value);
+  }
+
+  function removeOnResumeItem(fieldKey: string, index: number) {
+    removeArrayItemByIndex(fieldKey, index);
+  }
+
+  function updateInputsField(fieldKey: string, index: number, key: string, value: any) {
+    updateArrayItemField(fieldKey, index, key, value);
+  }
+
+  function removeInputsItem(fieldKey: string, index: number) {
+    removeArrayItemByIndex(fieldKey, index);
+  }
+
+  function updateTriggersField(fieldKey: string, index: number, key: string, value: any) {
+    updateArrayItemField(fieldKey, index, key, value);
+  }
+
+  function removeTriggersItem(fieldKey: string, index: number) {
+    removeArrayItemByIndex(fieldKey, index);
   }
 
   function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
@@ -195,6 +200,9 @@ export function useFormState() {
     updateTriggersField,
     removeTriggersItem,
     updateArrayItemValue,
+    addArrayItemWithDefault,
+    updateArrayItemField,
+    removeArrayItemByIndex,
     startResize,
     handleConfigClose,
     cleanup,

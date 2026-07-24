@@ -37,6 +37,7 @@ export interface FlowControlNodeStrategy {
     nodeConfigForm?: any;
     store?: any;
   }): void;
+  saveConfig?(config: Record<string, any>, store: any): void;
 }
 
 class FlowControlNodeRegistry {
@@ -106,6 +107,13 @@ class FlowControlNodeRegistry {
     const strategy = this.get(nodeType);
     if (strategy?.handleConnection) {
       strategy.handleConnection(params);
+    }
+  }
+
+  saveConfig(nodeType: string, config: Record<string, any>, store: any): void {
+    const strategy = this.get(nodeType);
+    if (strategy?.saveConfig) {
+      strategy.saveConfig(config, store);
     }
   }
 }
