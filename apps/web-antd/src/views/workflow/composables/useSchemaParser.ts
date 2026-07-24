@@ -50,6 +50,10 @@ export function initFormFieldValue(schema: SchemaNode, defs: Record<string, Sche
     return null;
   }
 
+  if (schema.default !== undefined) {
+    return schema.default;
+  }
+
   switch (schema.type) {
     case 'boolean':
       return false;

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Tooltip } from 'ant-design-vue';
+import { Tooltip, Button } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import FieldRenderer from '../FieldRenderer.vue';
 
@@ -30,6 +30,10 @@ const selectedAnyOfOption = computed(() => {
   if (!props.field.props.options || props.nodeConfigForm[fieldKey.value] === undefined || props.nodeConfigForm[fieldKey.value] === null) return null;
   return props.field.props.options.find((opt: any) => opt.value === props.nodeConfigForm[fieldKey.value]);
 });
+
+function clearSelection() {
+  props.nodeConfigForm[fieldKey.value] = null;
+}
 
 function getNestedValue(parentKey: string): Record<string, any> {
   if (!props.nodeConfigForm[parentKey]) {
@@ -135,6 +139,15 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
           />
           <span style="font-size: 14px; color: #374151;">{{ option.label }}</span>
         </label>
+        <Button
+          v-if="nodeConfigForm[fieldKey] !== undefined && nodeConfigForm[fieldKey] !== null"
+          type="text"
+          size="small"
+          @click="clearSelection"
+          style="color: #6b7280;"
+        >
+          <IconifyIcon icon="mdi:close" :size="14" />
+        </Button>
       </div>
       <div v-if="selectedAnyOfOption?.subFields?.length" style="background: #f9fafb; border-radius: 8px; padding: 12px;">
         <div style="display: flex; flex-direction: column; gap: 12px;">
