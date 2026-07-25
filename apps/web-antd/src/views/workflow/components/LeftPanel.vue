@@ -20,8 +20,48 @@ function getCategoryColor(): string {
 
 const flowControlNodes = computed(() => {
   return getFlowControlNodes().filter(
-    (node) => node.type !== 'idp_core_flow_Start' && node.type !== 'idp_core_flow_End'
+    (node) => node.type !== 'idp_core_flow_Start' && 
+             node.type !== 'idp_core_flow_End' &&
+             node.type !== 'idp_core_http_Request'
   );
+});
+
+const httpRequestNode = computed(() => {
+  return getFlowControlNodes().find((node) => node.type === 'idp_core_http_Request');
+});
+
+const mergedPluginGroups = computed(() => {
+  if (!httpRequestNode.value) return props.pluginGroups;
+  
+  const httpNode = httpRequestNode.value;
+  const groups = [...props.pluginGroups];
+  
+  const toolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
+  if (toolsGroup) {
+    toolsGroup.pluginList = toolsGroup.pluginList || [];
+    const exists = toolsGroup.pluginList.find((p: any) => p.type === httpNode.type);
+    if (!exists) {
+      toolsGroup.pluginList.push({
+        type: httpNode.type,
+        nodeName: httpNode.nodeName,
+        icon: httpNode.icon,
+        description: httpNode.description,
+      });
+    }
+  } else {
+    groups.push({
+      groupKey: 'tools',
+      groupName: '工具',
+      pluginList: [{
+        type: httpNode.type,
+        nodeName: httpNode.nodeName,
+        icon: httpNode.icon,
+        description: httpNode.description,
+      }],
+    });
+  }
+  
+  return groups;
 });
 </script>
 
@@ -79,7 +119,7 @@ const flowControlNodes = computed(() => {
               </div>
             </div>
           </div>
-          <div v-for="group in pluginGroups" :key="group.groupKey" class="group-section">
+          <div v-for="group in mergedPluginGroups" :key="group.groupKey" class="group-section">
             <div class="h-px bg-gray-100 my-4" />
             <h3 class="text-xs font-medium text-gray-500 mb-3 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-primary" />

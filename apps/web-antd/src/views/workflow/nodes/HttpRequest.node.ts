@@ -5,7 +5,7 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_http_Request',
   config: {
     nodeType: 'idp_core_http_Request',
-    nodeName: 'HTTP Request',
+    nodeName: 'Http请求',
     icon: 'mdi:web',
     description: 'HTTP请求节点',
     ports: {

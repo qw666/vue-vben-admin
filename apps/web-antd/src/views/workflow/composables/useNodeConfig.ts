@@ -253,6 +253,14 @@ export function useNodeConfig(
       Object.keys(nodeConfigForm).forEach(key => {
         config[key] = nodeConfigForm[key];
       });
+
+      if (selectedNode.value.data.type === 'idp_core_http_Request') {
+        if (!config.uri || !config.uri.trim()) {
+          message.error('请填写请求URL');
+          return;
+        }
+      }
+
       selectedNode.value.data.config = config;
 
       flowControlNodeRegistry.saveConfig(selectedNode.value.data.type, config, store);

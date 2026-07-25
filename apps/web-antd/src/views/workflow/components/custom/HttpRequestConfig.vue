@@ -335,6 +335,7 @@ watch(
           placeholder="请输入请求URL"
           class="url-input"
         />
+        <span class="required-star">*</span>
       </div>
     </div>
 
@@ -774,6 +775,13 @@ watch(
 
 .url-input {
   flex: 1;
+}
+
+.required-star {
+  color: #ff4d4f;
+  font-size: 14px;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .config-tabs :deep(.ant-tabs-tab) {
