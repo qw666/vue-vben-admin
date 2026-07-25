@@ -149,6 +149,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       createdAt: now,
       updatedAt: now,
       flowId: generateFlowId(),
+      enabled: true,
     };
 
     const startNode: WorkflowNode = {

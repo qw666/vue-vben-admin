@@ -236,7 +236,6 @@ export function convertFlowModelToWorkflow(
   flowId?: string,
   pluginGroupsCache: Record<string, any[]> = {},
   flowLayout?: string,
-  flowEnabled?: any,
 ): Workflow {
   const tasks = flowModel.tasks || [];
 
@@ -374,7 +373,7 @@ export function convertFlowModelToWorkflow(
     updatedAt: new Date().toISOString(),
     flowId: flowId || generateFlowId(),
     flowLayout,
-    enabled: flowEnabled === true || flowEnabled === 'true',
+    enabled: !flowModel.disabled,
   };
 }
 
@@ -576,6 +575,8 @@ export function buildFlowSavePayload(
   const flowModel = convertWorkflowToFlowModel(workflow);
   const flowLayout = generateFlowLayout(workflow.nodes);
 
+  flowModel.disabled = !workflow.enabled;
+
   return {
     projectId,
     folderId: workflow.folderId || 0,
@@ -583,6 +584,5 @@ export function buildFlowSavePayload(
     flowId: workflow.flowId,
     flowModel,
     flowLayout,
-    disabled: !workflow.enabled,
   };
 }

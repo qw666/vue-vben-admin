@@ -82,6 +82,7 @@ export interface FlowModel {
   outputs?: FlowOutput[];
   inputs?: FlowInput[];
   triggers?: FlowTrigger[];
+  disabled?: boolean;
 }
 
 export interface FlowInput {

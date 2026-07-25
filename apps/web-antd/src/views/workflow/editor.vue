@@ -574,7 +574,6 @@ onMounted(async () => {
           detail.flowId,
           pluginGroupsCache.value,
           detail.flowLayout,
-          detail.flowEnabled,
         );
         restoredWorkflow.backendId = parsedBackendId;
         store.setCurrentWorkflow(restoredWorkflow);
@@ -695,7 +694,7 @@ onUnmounted(() => {
       <div class="flex items-center gap-2">
         <div class="flex items-center gap-1.5">
           <span class="text-sm text-gray-600">启用</span>
-          <Switch v-model="workflowEnabled" />
+          <Switch v-model:checked="workflowEnabled" />
         </div>
         <Button type="text" @click="handleClear">
           <IconifyIcon icon="mdi:trash-can" :size="16" />
