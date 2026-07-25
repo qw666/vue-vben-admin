@@ -6,7 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, message } from 'ant-design-vue';
+import { Button, Input, message, Switch } from 'ant-design-vue';
 
 import { useTitle } from '@vueuse/core';
 
@@ -151,6 +151,14 @@ const isLoading = ref(false);
 const isPageReady = ref(false);
 const isProjectsLoading = ref(false);
 const workflowLoaded = ref(false);
+const workflowEnabled = computed({
+  get: () => store.currentWorkflow?.enabled !== false,
+  set: (val: boolean) => {
+    if (store.currentWorkflow) {
+      store.currentWorkflow.enabled = val;
+    }
+  },
+});
 
 watch(
   workflowName,
@@ -566,6 +574,7 @@ onMounted(async () => {
           detail.flowId,
           pluginGroupsCache.value,
           detail.flowLayout,
+          detail.flowEnabled,
         );
         restoredWorkflow.backendId = parsedBackendId;
         store.setCurrentWorkflow(restoredWorkflow);
@@ -684,6 +693,10 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm text-gray-600">启用</span>
+          <Switch v-model="workflowEnabled" />
+        </div>
         <Button type="text" @click="handleClear">
           <IconifyIcon icon="mdi:trash-can" :size="16" />
           清空画布

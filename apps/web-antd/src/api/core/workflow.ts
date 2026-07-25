@@ -268,3 +268,27 @@ export async function getPluginMetaBatch(
     headers: getHeaders(),
   });
 }
+
+export async function requestToggleTrigger(
+  flowId: number,
+  triggerId: string,
+  enabled: boolean,
+): Promise<boolean> {
+  try {
+    const result = await requestClient.post(
+      `${BASE_URL}/flow/trigger/toggle`,
+      {
+        flowId,
+        triggerId,
+        enabled,
+      },
+      {
+        headers: getHeaders(),
+      },
+    );
+    return result && result.code === 200;
+  } catch (error) {
+    console.error('Failed to toggle trigger:', error);
+    return false;
+  }
+}

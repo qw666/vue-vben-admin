@@ -57,6 +57,10 @@ export interface Workflow {
   /** 传递给后端的 flowId，用于新建保存后从列表中匹配出后端数字 ID。 */
   flowId: string;
   status?: 'normal' | 'disabled' | 'deleted';
+  /** 流程是否启用 */
+  enabled?: boolean;
+  /** 是否有活跃的触发器 */
+  hasActiveTrigger?: boolean;
   /** 画布布局信息，用于保存和恢复节点位置 */
   flowLayout?: string;
 }

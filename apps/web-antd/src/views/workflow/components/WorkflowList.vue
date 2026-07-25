@@ -133,6 +133,7 @@ function formatDate(dateStr: string) {
     return '-';
   }
 }
+
 watch(searchInput, () => {
   triggerSearch();
 });
@@ -195,20 +196,35 @@ watch(searchInput, () => {
             :key="workflow.id"
             :body-style="{ padding: '12px' }"
           >
-            <div class="flex items-start justify-between mb-3">
-              <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground flex-shrink-0">
-                  <IconifyIcon icon="mdi:workflow" :size="20" />
+            <div class="relative">
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground flex-shrink-0">
+                    <IconifyIcon icon="mdi:workflow" :size="20" />
+                  </div>
+                  <Tooltip :title="workflow.name">
+                    <h3 class="font-semibold text-card-foreground truncate">
+                      {{ workflow.name }}
+                    </h3>
+                  </Tooltip>
                 </div>
-                <Tooltip :title="workflow.name">
-                  <h3 class="font-semibold text-card-foreground truncate">
-                    {{ workflow.name }}
-                  </h3>
-                </Tooltip>
+                <div class="flex items-center gap-1.5">
+                  <Tooltip
+                    v-if="workflow.triggers && workflow.triggers.length > 0"
+                    :title="workflow.hasActiveTrigger ? '有活跃触发器' : '触发器已禁用'"
+                  >
+                    <div
+                      class="w-6 h-6 rounded-full flex items-center justify-center"
+                      :class="workflow.hasActiveTrigger ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'"
+                    >
+                      <IconifyIcon icon="mdi:flash" :size="14" />
+                    </div>
+                  </Tooltip>
+                  <Tag v-if="workflow.status === 'deleted'" color="red">已删除</Tag>
+                  <Tag v-else-if="workflow.enabled === false" color="orange">禁用</Tag>
+                  <Tag v-else color="green">启用</Tag>
+                </div>
               </div>
-              <Tag v-if="workflow.status === 'disabled'" color="orange" class="ml-2">禁用</Tag>
-              <Tag v-else-if="workflow.status === 'deleted'" color="red" class="ml-2">已删除</Tag>
-              <Tag v-else color="green" class="ml-2">正常</Tag>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-xs text-muted-foreground">

@@ -345,6 +345,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
             backendId: item.id,
             flowId: item.flowId,
             status,
+            enabled: (item as any).flowEnabled === true || (item as any).flowEnabled === 'true',
+            hasActiveTrigger: (item as any).hasActiveTrigger === true || (item as any).hasActiveTrigger === 'true',
+            triggers: (item as any).triggers || undefined,
           };
         });
         totalWorkflows.value = data.total || 0;

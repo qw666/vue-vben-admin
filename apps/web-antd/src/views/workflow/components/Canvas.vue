@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
+import { Tooltip } from 'ant-design-vue';
 import { UI_CONFIG } from '../config/ui-config';
 
 const props = defineProps<{
@@ -65,6 +66,15 @@ const canvasRef = ref<HTMLElement | null>(null);
 
 function getCategoryColor(): string {
   return 'bg-primary';
+}
+
+const triggerTypeMap: Record<string, { label: string; icon: string; color: string }> = {
+  'idp_core_trigger_Webhook': { label: 'Webhook', icon: 'mdi:webhook', color: 'blue' },
+  'idp_core_trigger_Schedule': { label: '定时调度', icon: 'mdi:clock-outline', color: 'orange' },
+};
+
+function getTriggerLabel(type: string): string {
+  return triggerTypeMap[type]?.label || type;
 }
 
 const tooltip = ref({ show: false, x: 0, y: 0, text: '' });
@@ -438,6 +448,18 @@ onMounted(() => {
                 node.data.label
               }}</span>
             </div>
+            <Tooltip
+              v-if="node.data.type === 'idp_core_flow_Start' && node.data.config?.triggers && node.data.config.triggers.length > 0"
+              :title="node.data.config.triggers.map((t: any) => getTriggerLabel(t.type)).join('、')"
+              :mouseEnterDelay="0.1"
+            >
+              <div
+                class="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-500 text-white text-[10px] rounded-full shadow-sm cursor-pointer"
+              >
+                <IconifyIcon icon="mdi:flash" :size="10" />
+                <span>{{ node.data.config.triggers.length }}</span>
+              </div>
+            </Tooltip>
           </div>
         </div>
 
