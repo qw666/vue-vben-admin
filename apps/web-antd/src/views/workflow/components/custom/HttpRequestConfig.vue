@@ -64,8 +64,6 @@ const charsetOptions = [
 
 if (props.nodeConfigForm.method === undefined)
   props.nodeConfigForm.method = 'POST';
-if (props.nodeConfigForm.bodyType === undefined)
-  props.nodeConfigForm.bodyType = 'json';
 if (props.nodeConfigForm.body === undefined) props.nodeConfigForm.body = '';
 if (props.nodeConfigForm.uri === undefined) props.nodeConfigForm.uri = '';
 if (props.nodeConfigForm.headers === undefined)
@@ -74,13 +72,18 @@ if (props.nodeConfigForm.params === undefined) props.nodeConfigForm.params = {};
 if (props.nodeConfigForm.formData === undefined)
   props.nodeConfigForm.formData = {};
 
+if (props.nodeConfigForm.bodyType === undefined) {
+  const contentType = props.nodeConfigForm.contentType || 'application/json';
+  props.nodeConfigForm.bodyType = contentType === 'multipart/form-data' ? 'form-data'
+    : contentType === 'application/x-www-form-urlencoded' ? 'url-encoded'
+    : 'json';
+}
+
 if (!props.nodeConfigForm.options) {
   props.nodeConfigForm.options = {
     auth: null,
     connectTimeout: 'PT30S',
     readTimeout: 'PT10S',
-    connectionPoolIdleTimeout: 'PT10S',
-    readIdleTimeout: 'PT300S',
     ssl: { insecureTrustAllCertificates: true },
     logs: [],
     defaultCharset: 'utf8',
@@ -92,12 +95,17 @@ if (!props.nodeConfigForm.options) {
     props.nodeConfigForm.options.connectTimeout = 'PT30S';
   if (!props.nodeConfigForm.options.readTimeout)
     props.nodeConfigForm.options.readTimeout = 'PT10S';
-  if (!props.nodeConfigForm.options.connectionPoolIdleTimeout)
-    props.nodeConfigForm.options.connectionPoolIdleTimeout = 'PT10S';
-  if (!props.nodeConfigForm.options.readIdleTimeout)
-    props.nodeConfigForm.options.readIdleTimeout = 'PT300S';
-  if (!props.nodeConfigForm.options.ssl)
+  if (!props.nodeConfigForm.options.ssl) {
     props.nodeConfigForm.options.ssl = { insecureTrustAllCertificates: true };
+  } else {
+    if (props.nodeConfigForm.options.ssl.insecureTrustAllCertificates !== undefined) {
+      props.nodeConfigForm.options.ssl.insecureTrustAllCertificates =
+        props.nodeConfigForm.options.ssl.insecureTrustAllCertificates === true ||
+        props.nodeConfigForm.options.ssl.insecureTrustAllCertificates === 'true';
+    } else {
+      props.nodeConfigForm.options.ssl.insecureTrustAllCertificates = true;
+    }
+  }
   if (!props.nodeConfigForm.options.logs)
     props.nodeConfigForm.options.logs = [];
   if (!props.nodeConfigForm.options.defaultCharset)
@@ -164,8 +172,8 @@ function formatDuration(value: number, unit: string): string {
 
 const connectTimeoutValue = ref(30);
 const connectTimeoutUnit = ref('秒');
-const readIdleTimeoutValue = ref(300);
-const readIdleTimeoutUnit = ref('秒');
+const readTimeoutValue = ref(10);
+const readTimeoutUnit = ref('秒');
 
 const showPassword = ref(false);
 const showToken = ref(false);
@@ -178,16 +186,16 @@ function syncTimeoutFromForm() {
   connectTimeoutUnit.value = connectParsed.unit;
 
   const readParsed = parseDuration(
-    props.nodeConfigForm.options.readIdleTimeout || 'PT300S',
+    props.nodeConfigForm.options.readTimeout || 'PT10S',
   );
-  readIdleTimeoutValue.value = readParsed.value;
-  readIdleTimeoutUnit.value = readParsed.unit;
+  readTimeoutValue.value = readParsed.value;
+  readTimeoutUnit.value = readParsed.unit;
 }
 
 syncTimeoutFromForm();
 
 watch(
-  () => [props.nodeConfigForm.options.connectTimeout, props.nodeConfigForm.options.readIdleTimeout],
+  () => [props.nodeConfigForm.options.connectTimeout, props.nodeConfigForm.options.readTimeout],
   () => {
     syncTimeoutFromForm();
   },
@@ -282,9 +290,9 @@ function syncTimeoutToForm() {
     connectTimeoutValue.value,
     connectTimeoutUnit.value,
   );
-  props.nodeConfigForm.options.readIdleTimeout = formatDuration(
-    readIdleTimeoutValue.value,
-    readIdleTimeoutUnit.value,
+  props.nodeConfigForm.options.readTimeout = formatDuration(
+    readTimeoutValue.value,
+    readTimeoutUnit.value,
   );
 }
 
@@ -292,7 +300,7 @@ watch(headersArray, syncArraysToForm, { deep: true });
 watch(paramsArray, syncArraysToForm, { deep: true });
 watch(formDataArray, syncArraysToForm, { deep: true });
 watch([connectTimeoutValue, connectTimeoutUnit], syncTimeoutToForm);
-watch([readIdleTimeoutValue, readIdleTimeoutUnit], syncTimeoutToForm);
+watch([readTimeoutValue, readTimeoutUnit], syncTimeoutToForm);
 
 watch(
   () => props.nodeConfigForm.bodyType,
@@ -661,14 +669,14 @@ watch(
                 <div class="timeout-row">
                   <span class="timeout-label">读取超时</span>
                   <InputNumber
-                    v-model:value="readIdleTimeoutValue"
+                    v-model:value="readTimeoutValue"
                     :min="1"
                     :max="300"
                     size="small"
                     class="timeout-input"
                   />
                   <Select
-                    v-model:value="readIdleTimeoutUnit"
+                    v-model:value="readTimeoutUnit"
                     :options="[
                       { value: '秒', label: '秒' },
                       { value: '分钟', label: '分钟' },

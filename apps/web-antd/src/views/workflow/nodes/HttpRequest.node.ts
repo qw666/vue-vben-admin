@@ -2,9 +2,9 @@ import type { FlowControlNodeStrategy } from './types';
 import { flowControlNodeRegistry } from './types';
 
 export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
-  nodeType: 'io.kestra.plugin.core.http.Request',
+  nodeType: 'idp_core_http_Request',
   config: {
-    nodeType: 'io.kestra.plugin.core.http.Request',
+    nodeType: 'idp_core_http_Request',
     nodeName: 'HTTP Request',
     icon: 'mdi:web',
     description: 'HTTP请求节点',
@@ -18,12 +18,17 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
   },
 
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
+    const contentType = savedConfig.contentType || 'application/json';
+    const bodyType = contentType === 'multipart/form-data' ? 'form-data'
+      : contentType === 'application/x-www-form-urlencoded' ? 'url-encoded'
+      : 'json';
+
     return {
       method: savedConfig.method || 'POST',
       uri: savedConfig.uri || '',
-      contentType: savedConfig.contentType || 'application/json',
+      contentType,
       body: savedConfig.body || '',
-      bodyType: savedConfig.bodyType || 'json',
+      bodyType,
       headers: savedConfig.headers || {},
       params: savedConfig.params || {},
       formData: savedConfig.formData || {},
@@ -32,9 +37,12 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
         auth: savedConfig.options?.auth || null,
         connectTimeout: savedConfig.options?.connectTimeout || 'PT30S',
         readTimeout: savedConfig.options?.readTimeout || 'PT10S',
-        connectionPoolIdleTimeout: savedConfig.options?.connectionPoolIdleTimeout || 'PT10S',
-        readIdleTimeout: savedConfig.options?.readIdleTimeout || 'PT300S',
-        ssl: savedConfig.options?.ssl || { insecureTrustAllCertificates: true },
+        ssl: savedConfig.options?.ssl
+          ? {
+              insecureTrustAllCertificates: savedConfig.options.ssl.insecureTrustAllCertificates === true ||
+                savedConfig.options.ssl.insecureTrustAllCertificates === 'true',
+            }
+          : { insecureTrustAllCertificates: true },
         logs: savedConfig.options?.logs || [],
         defaultCharset: savedConfig.options?.defaultCharset || 'utf8',
       },
@@ -60,14 +68,14 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
       kestraConfig.headers = config.headers;
     }
 
-    if (config.timeout) {
+    if (config.timeout && config.timeout !== 'PT10M') {
       kestraConfig.timeout = config.timeout;
     }
 
     if (config.options) {
       const options: Record<string, any> = {};
 
-      if (config.options.auth) {
+      if (config.options.auth && config.options.auth.type) {
         options.auth = config.options.auth;
       }
 
@@ -79,23 +87,21 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
         options.readTimeout = config.options.readTimeout;
       }
 
-      if (config.options.connectionPoolIdleTimeout) {
-        options.connectionPoolIdleTimeout = config.options.connectionPoolIdleTimeout;
-      }
-
-      if (config.options.readIdleTimeout) {
-        options.readIdleTimeout = config.options.readIdleTimeout;
-      }
-
       if (config.options.ssl) {
-        options.ssl = config.options.ssl;
+        const ssl: Record<string, any> = {};
+        if (config.options.ssl.insecureTrustAllCertificates !== undefined && config.options.ssl.insecureTrustAllCertificates !== true) {
+          ssl.insecureTrustAllCertificates = config.options.ssl.insecureTrustAllCertificates;
+        }
+        if (Object.keys(ssl).length > 0) {
+          options.ssl = ssl;
+        }
       }
 
       if (config.options.logs && config.options.logs.length > 0) {
         options.logs = config.options.logs;
       }
 
-      if (config.options.defaultCharset) {
+      if (config.options.defaultCharset && config.options.defaultCharset !== 'utf8') {
         options.defaultCharset = config.options.defaultCharset;
       }
 
@@ -126,9 +132,12 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
         auth: config.options?.auth || null,
         connectTimeout: config.options?.connectTimeout || 'PT30S',
         readTimeout: config.options?.readTimeout || 'PT10S',
-        connectionPoolIdleTimeout: config.options?.connectionPoolIdleTimeout || 'PT10S',
-        readIdleTimeout: config.options?.readIdleTimeout || 'PT300S',
-        ssl: config.options?.ssl || { insecureTrustAllCertificates: true },
+        ssl: config.options?.ssl
+          ? {
+              insecureTrustAllCertificates: config.options.ssl.insecureTrustAllCertificates === true ||
+                config.options.ssl.insecureTrustAllCertificates === 'true',
+            }
+          : { insecureTrustAllCertificates: true },
         logs: config.options?.logs || [],
         defaultCharset: config.options?.defaultCharset || 'utf8',
       },
