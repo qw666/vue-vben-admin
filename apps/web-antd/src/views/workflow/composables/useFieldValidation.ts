@@ -25,6 +25,10 @@ function isEmptyValue(value: any): boolean {
 export function validateNodeConfig(node: any, pluginMetaCache: Record<string, any>): { isValid: boolean; missingFields: string[] } {
   const missingFields: string[] = [];
 
+  if (!node.data.label || !node.data.label.trim()) {
+    missingFields.push('节点名称');
+  }
+
   const strategy = flowControlNodeRegistry.get(node.data.type);
   if (strategy) {
     const requiredFieldKeys = strategy.getRequiredFields();

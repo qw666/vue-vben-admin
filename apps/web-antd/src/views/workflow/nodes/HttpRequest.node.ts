@@ -148,7 +148,13 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
   },
 
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
-    return [];
+    return [{
+      type: 'Input',
+      props: {
+        key: 'uri',
+        label: '请求URL',
+      },
+    }];
   },
 
   getOptionalFields(): { type: string; props: Record<string, any> }[] {

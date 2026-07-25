@@ -248,6 +248,11 @@ export function useNodeConfig(
   function handleSaveConfig() {
     if (!selectedNode.value) return;
 
+    if (!selectedNode.value.data.label || !selectedNode.value.data.label.trim()) {
+      message.error('请填写节点名称');
+      return;
+    }
+
     if (flowControlNodeRegistry.isFlowControlNode(selectedNode.value.data.type)) {
       const config: Record<string, any> = {};
       Object.keys(nodeConfigForm).forEach(key => {

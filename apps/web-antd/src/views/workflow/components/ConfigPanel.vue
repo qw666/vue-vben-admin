@@ -79,11 +79,15 @@ function updateConfig(formData: Record<string, any>) {
               />
             </div>
             <div class="p-2.5 bg-gray-50 rounded-lg">
-              <div class="text-sm text-gray-500">节点名称</div>
+              <div class="text-sm text-gray-500 flex items-center gap-1">
+                <span>节点名称</span>
+                <span class="text-red-500">*</span>
+              </div>
               <div class="flex items-center gap-2 mt-0.25">
                 <Input
                   :value="selectedNode.data.label"
                   @input="(e: any) => emit('updateNodeLabel', e.target.value)"
+                  placeholder="请输入节点名称"
                 />
                 <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
                   <IconifyIcon icon="mdi:help-circle" :size="12" class="text-gray-400 cursor-help" />
