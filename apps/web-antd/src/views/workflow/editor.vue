@@ -269,6 +269,11 @@ async function handleSave() {
       return;
     }
 
+    if (!workflowName.value || !workflowName.value.trim()) {
+      message.error('请填写流程名称');
+      return;
+    }
+
     const validationResult = validateAllNodes(
       store.currentWorkflow.nodes,
       pluginMetaCache.value,
