@@ -8,6 +8,7 @@ import './Subflow.node';
 import './Pause.node';
 import './Sleep.node';
 import './Default.node';
+import './HttpRequest.node';
 
 export { flowControlNodeRegistry } from './types';
 export type { FlowControlNodeConfig, FlowControlNodeStrategy } from './types';

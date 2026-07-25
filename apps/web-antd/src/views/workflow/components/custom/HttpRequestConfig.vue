@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -77,7 +77,10 @@ if (props.nodeConfigForm.formData === undefined)
 if (!props.nodeConfigForm.options) {
   props.nodeConfigForm.options = {
     auth: null,
-    timeout: { connectTimeout: 'PT30S', readIdleTimeout: 'PT30S' },
+    connectTimeout: 'PT30S',
+    readTimeout: 'PT10S',
+    connectionPoolIdleTimeout: 'PT10S',
+    readIdleTimeout: 'PT300S',
     ssl: { insecureTrustAllCertificates: true },
     logs: [],
     defaultCharset: 'utf8',
@@ -85,11 +88,14 @@ if (!props.nodeConfigForm.options) {
 } else {
   if (!props.nodeConfigForm.options.auth)
     props.nodeConfigForm.options.auth = null;
-  if (!props.nodeConfigForm.options.timeout)
-    props.nodeConfigForm.options.timeout = {
-      connectTimeout: 'PT30S',
-      readIdleTimeout: 'PT30S',
-    };
+  if (!props.nodeConfigForm.options.connectTimeout)
+    props.nodeConfigForm.options.connectTimeout = 'PT30S';
+  if (!props.nodeConfigForm.options.readTimeout)
+    props.nodeConfigForm.options.readTimeout = 'PT10S';
+  if (!props.nodeConfigForm.options.connectionPoolIdleTimeout)
+    props.nodeConfigForm.options.connectionPoolIdleTimeout = 'PT10S';
+  if (!props.nodeConfigForm.options.readIdleTimeout)
+    props.nodeConfigForm.options.readIdleTimeout = 'PT300S';
   if (!props.nodeConfigForm.options.ssl)
     props.nodeConfigForm.options.ssl = { insecureTrustAllCertificates: true };
   if (!props.nodeConfigForm.options.logs)
@@ -98,20 +104,48 @@ if (!props.nodeConfigForm.options) {
     props.nodeConfigForm.options.defaultCharset = 'utf8';
 }
 
+if (!props.nodeConfigForm.timeout)
+  props.nodeConfigForm.timeout = 'PT10M';
+
 function objectToArray(
   obj: Record<string, any> | undefined,
 ): Array<{ enabled: boolean; key: string; value: string; }> {
   if (!obj || typeof obj !== 'object') return [];
+  if (Array.isArray(obj)) {
+    return obj.map(item => ({
+      key: item.key || '',
+      value: item.value !== undefined ? String(item.value) : '',
+      enabled: item.enabled !== undefined ? item.enabled : true,
+    }));
+  }
   return Object.entries(obj).map(([key, value]) => ({
     key,
-    value: String(value),
+    value: typeof value === 'object' ? JSON.stringify(value) : String(value),
     enabled: true,
   }));
 }
 
-const headersArray = ref(objectToArray(props.nodeConfigForm.headers));
-const paramsArray = ref(objectToArray(props.nodeConfigForm.params));
-const formDataArray = ref(objectToArray(props.nodeConfigForm.formData));
+let isUpdatingForm = false;
+
+const headersArray = ref<Array<{ enabled: boolean; key: string; value: string; }>>([]);
+const paramsArray = ref<Array<{ enabled: boolean; key: string; value: string; }>>([]);
+const formDataArray = ref<Array<{ enabled: boolean; key: string; value: string; }>>([]);
+
+headersArray.value = objectToArray(props.nodeConfigForm.headers);
+paramsArray.value = objectToArray(props.nodeConfigForm.params);
+formDataArray.value = objectToArray(props.nodeConfigForm.formData);
+
+watch(
+  () => [props.nodeConfigForm.headers, props.nodeConfigForm.params, props.nodeConfigForm.formData],
+  ([headers, params, formData]) => {
+    if (!isUpdatingForm) {
+      headersArray.value = objectToArray(headers);
+      paramsArray.value = objectToArray(params);
+      formDataArray.value = objectToArray(formData);
+    }
+  },
+  { deep: true },
+);
 
 function parseDuration(duration: string): { unit: string; value: number; } {
   const match = duration?.match(/PT(\d+)([HM]?)/);
@@ -128,17 +162,37 @@ function formatDuration(value: number, unit: string): string {
   return `PT${value}${unitMap[unit] || 'S'}`;
 }
 
-const connectParsed = parseDuration(
-  props.nodeConfigForm.options.timeout.connectTimeout,
-);
-const connectTimeoutValue = ref(connectParsed.value);
-const connectTimeoutUnit = ref(connectParsed.unit);
+const connectTimeoutValue = ref(30);
+const connectTimeoutUnit = ref('秒');
+const readIdleTimeoutValue = ref(300);
+const readIdleTimeoutUnit = ref('秒');
 
-const readParsed = parseDuration(
-  props.nodeConfigForm.options.timeout.readIdleTimeout,
+const showPassword = ref(false);
+const showToken = ref(false);
+
+function syncTimeoutFromForm() {
+  const connectParsed = parseDuration(
+    props.nodeConfigForm.options.connectTimeout || 'PT30S',
+  );
+  connectTimeoutValue.value = connectParsed.value;
+  connectTimeoutUnit.value = connectParsed.unit;
+
+  const readParsed = parseDuration(
+    props.nodeConfigForm.options.readIdleTimeout || 'PT300S',
+  );
+  readIdleTimeoutValue.value = readParsed.value;
+  readIdleTimeoutUnit.value = readParsed.unit;
+}
+
+syncTimeoutFromForm();
+
+watch(
+  () => [props.nodeConfigForm.options.connectTimeout, props.nodeConfigForm.options.readIdleTimeout],
+  () => {
+    syncTimeoutFromForm();
+  },
+  { deep: true },
 );
-const readIdleTimeoutValue = ref(readParsed.value);
-const readIdleTimeoutUnit = ref(readParsed.unit);
 
 function addKeyValueRow(
   arr: Array<{ enabled: boolean; key: string; value: string; }>,
@@ -190,6 +244,7 @@ function formatJson() {
 }
 
 function syncArraysToForm() {
+  isUpdatingForm = true;
   props.nodeConfigForm.headers = headersArray.value
     .filter((i) => i.enabled)
     .reduce(
@@ -217,14 +272,17 @@ function syncArraysToForm() {
       },
       {} as Record<string, string>,
     );
+  setTimeout(() => {
+    isUpdatingForm = false;
+  }, 0);
 }
 
 function syncTimeoutToForm() {
-  props.nodeConfigForm.options.timeout.connectTimeout = formatDuration(
+  props.nodeConfigForm.options.connectTimeout = formatDuration(
     connectTimeoutValue.value,
     connectTimeoutUnit.value,
   );
-  props.nodeConfigForm.options.timeout.readIdleTimeout = formatDuration(
+  props.nodeConfigForm.options.readIdleTimeout = formatDuration(
     readIdleTimeoutValue.value,
     readIdleTimeoutUnit.value,
   );
@@ -522,11 +580,20 @@ watch(
               </div>
               <div class="form-group">
                 <label class="form-label">密码</label>
-                <Input
-                  v-model:value="nodeConfigForm.options.auth.password"
-                  type="password"
-                  placeholder="请输入密码"
-                />
+                <div class="password-input-wrap">
+                  <Input
+                    v-model:value="nodeConfigForm.options.auth.password"
+                    :type="showPassword ? 'text' : 'password'"
+                    placeholder="请输入密码"
+                  />
+                  <Button
+                    type="text"
+                    @click="showPassword = !showPassword"
+                    class="password-toggle-btn"
+                  >
+                    <IconifyIcon :icon="showPassword ? 'mdi:eye-off' : 'mdi:eye'" :size="16" />
+                  </Button>
+                </div>
               </div>
             </div>
             <div
@@ -535,11 +602,20 @@ watch(
             >
               <div class="form-group">
                 <label class="form-label">Bearer Token</label>
-                <Input
-                  v-model:value="nodeConfigForm.options.auth.token"
-                  type="password"
-                  placeholder="请输入令牌"
-                />
+                <div class="password-input-wrap">
+                  <Input
+                    v-model:value="nodeConfigForm.options.auth.token"
+                    :type="showToken ? 'text' : 'password'"
+                    placeholder="请输入令牌"
+                  />
+                  <Button
+                    type="text"
+                    @click="showToken = !showToken"
+                    class="password-toggle-btn"
+                  >
+                    <IconifyIcon :icon="showToken ? 'mdi:eye-off' : 'mdi:eye'" :size="16" />
+                  </Button>
+                </div>
               </div>
             </div>
             <div v-if="!nodeConfigForm.options.auth?.type" class="empty-tip">
@@ -882,6 +958,22 @@ watch(
   cursor: help;
   background: #e9ecef;
   border-radius: 50%;
+}
+
+.password-input-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle-btn {
+  margin-left: -28px;
+  z-index: 1;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logs-checkboxes {
