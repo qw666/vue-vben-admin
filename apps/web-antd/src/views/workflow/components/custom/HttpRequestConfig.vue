@@ -1,14 +1,27 @@
 <script lang="ts" setup>
-import { computed, ref, watch, nextTick } from 'vue';
-import { Button, Input, Select, Switch, Tooltip, Collapse, CheckboxGroup, Checkbox, InputNumber } from 'ant-design-vue';
+import { ref, watch } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
+
+import {
+  Button,
+  Checkbox,
+  CheckboxGroup,
+  Input,
+  InputNumber,
+  Select,
+  Switch,
+  Tabs,
+  Tooltip,
+} from 'ant-design-vue';
 
 const props = defineProps<{
   nodeConfigForm: Record<string, any>;
 }>();
 
-const activeCollapseKeys = ref(['auth', 'advanced']);
-const isInternalUpdate = ref(false);
+const activeTabKey = ref('body');
+const authExpanded = ref(true);
+const settingsExpanded = ref(false);
 
 const methodOptions = [
   { value: 'GET', label: 'GET' },
@@ -20,18 +33,18 @@ const methodOptions = [
   { value: 'OPTIONS', label: 'OPTIONS' },
 ];
 
-const contentTypeOptions = [
-  { value: 'application/json', label: 'application/json' },
-  { value: 'application/x-www-form-urlencoded', label: 'application/x-www-form-urlencoded' },
-  { value: 'multipart/form-data', label: 'multipart/form-data' },
-  { value: 'text/plain', label: 'text/plain' },
+const bodyTypeOptions = [
+  { value: 'none', label: 'none' },
+  { value: 'form-data', label: 'form-data' },
+  { value: 'url-encoded', label: 'x-www-form-urlencoded' },
+  { value: 'json', label: 'json' },
 ];
 
 const authTypeOptions = [
   { value: null, label: '无' },
-  { value: 'BASIC', label: 'BasicAuth' },
-  { value: 'BEARER', label: 'BearerAuth' },
-  { value: 'DIGEST', label: 'DigestAuth' },
+  { value: 'BASIC', label: 'Basic Auth' },
+  { value: 'BEARER', label: 'Bearer Token' },
+  { value: 'DIGEST', label: 'Digest Auth' },
 ];
 
 const logOptions = [
@@ -42,77 +55,68 @@ const logOptions = [
 ];
 
 const charsetOptions = [
-  { value: 'UTF-8', label: 'UTF-8' },
+  { value: 'utf8', label: 'utf8' },
   { value: 'GBK', label: 'GBK' },
   { value: 'GB2312', label: 'GB2312' },
   { value: 'ISO-8859-1', label: 'ISO-8859-1' },
   { value: 'US-ASCII', label: 'US-ASCII' },
 ];
 
-const headersArray = ref<Array<{ key: string; value: string }>>([]);
-const paramsArray = ref<Array<{ key: string; value: string }>>([]);
-const formDataArray = ref<Array<{ key: string; value: string }>>([]);
+if (props.nodeConfigForm.method === undefined)
+  props.nodeConfigForm.method = 'POST';
+if (props.nodeConfigForm.bodyType === undefined)
+  props.nodeConfigForm.bodyType = 'json';
+if (props.nodeConfigForm.body === undefined) props.nodeConfigForm.body = '';
+if (props.nodeConfigForm.uri === undefined) props.nodeConfigForm.uri = '';
+if (props.nodeConfigForm.headers === undefined)
+  props.nodeConfigForm.headers = {};
+if (props.nodeConfigForm.params === undefined) props.nodeConfigForm.params = {};
+if (props.nodeConfigForm.formData === undefined)
+  props.nodeConfigForm.formData = {};
 
-const connectTimeoutValue = ref(30);
-const connectTimeoutUnit = ref('秒');
-const readIdleTimeoutValue = ref(30);
-const readIdleTimeoutUnit = ref('秒');
-
-const showRequestBody = computed(() => {
-  const method = String(props.nodeConfigForm.method || 'GET').toUpperCase();
-  const noBodyMethods = ['GET', 'HEAD', 'OPTIONS'];
-  return !noBodyMethods.includes(method);
-});
-
-const showContentType = computed(() => true);
-
-const showFormData = computed(() => {
-  const contentType = String(props.nodeConfigForm.contentType || '');
-  return showRequestBody.value && (
-    contentType === 'multipart/form-data' ||
-    contentType === 'application/x-www-form-urlencoded'
-  );
-});
-
-const showJsonBody = computed(() => {
-  const contentType = String(props.nodeConfigForm.contentType || '');
-  return showRequestBody.value && contentType === 'application/json';
-});
-
-const showTextBody = computed(() => {
-  const contentType = String(props.nodeConfigForm.contentType || '');
-  return showRequestBody.value && contentType === 'text/plain';
-});
-
-function addKeyValueRow(arr: Array<{ key: string; value: string }>) {
-  arr.push({ key: '', value: '' });
-}
-
-function removeKeyValueRow(arr: Array<{ key: string; value: string }>, index: number) {
-  arr.splice(index, 1);
-}
-
-function setAuthType(type: string | null) {
-  if (!type) {
+if (!props.nodeConfigForm.options) {
+  props.nodeConfigForm.options = {
+    auth: null,
+    timeout: { connectTimeout: 'PT30S', readIdleTimeout: 'PT30S' },
+    ssl: { insecureTrustAllCertificates: true },
+    logs: [],
+    defaultCharset: 'utf8',
+  };
+} else {
+  if (!props.nodeConfigForm.options.auth)
     props.nodeConfigForm.options.auth = null;
-  } else if (type === 'BASIC') {
-    props.nodeConfigForm.options.auth = { type: 'BASIC', username: '', password: '' };
-  } else if (type === 'BEARER') {
-    props.nodeConfigForm.options.auth = { type: 'BEARER', token: '' };
-  } else if (type === 'DIGEST') {
-    props.nodeConfigForm.options.auth = { type: 'DIGEST', username: '', password: '' };
-  }
+  if (!props.nodeConfigForm.options.timeout)
+    props.nodeConfigForm.options.timeout = {
+      connectTimeout: 'PT30S',
+      readIdleTimeout: 'PT30S',
+    };
+  if (!props.nodeConfigForm.options.ssl)
+    props.nodeConfigForm.options.ssl = { insecureTrustAllCertificates: true };
+  if (!props.nodeConfigForm.options.logs)
+    props.nodeConfigForm.options.logs = [];
+  if (!props.nodeConfigForm.options.defaultCharset)
+    props.nodeConfigForm.options.defaultCharset = 'utf8';
 }
 
-function objectToArray(obj: Record<string, any> | undefined): Array<{ key: string; value: string }> {
+function objectToArray(
+  obj: Record<string, any> | undefined,
+): Array<{ enabled: boolean; key: string; value: string; }> {
   if (!obj || typeof obj !== 'object') return [];
-  return Object.entries(obj).map(([key, value]) => ({ key, value: String(value) }));
+  return Object.entries(obj).map(([key, value]) => ({
+    key,
+    value: String(value),
+    enabled: true,
+  }));
 }
 
-function parseDuration(duration: string): { value: number; unit: string } {
-  const match = duration.match(/PT(\d+)([HM]?)/);
+const headersArray = ref(objectToArray(props.nodeConfigForm.headers));
+const paramsArray = ref(objectToArray(props.nodeConfigForm.params));
+const formDataArray = ref(objectToArray(props.nodeConfigForm.formData));
+
+function parseDuration(duration: string): { unit: string; value: number; } {
+  const match = duration?.match(/PT(\d+)([HM]?)/);
   if (match) {
-    const value = parseInt(match[1]);
+    const value = Number.parseInt(match[1]);
     const unit = match[2] === 'H' ? '小时' : match[2] === 'M' ? '分钟' : '秒';
     return { value, unit };
   }
@@ -120,34 +124,110 @@ function parseDuration(duration: string): { value: number; unit: string } {
 }
 
 function formatDuration(value: number, unit: string): string {
-  const unitMap: Record<string, string> = { '秒': 'S', '分钟': 'M', '小时': 'H' };
+  const unitMap: Record<string, string> = { 秒: 'S', 分钟: 'M', 小时: 'H' };
   return `PT${value}${unitMap[unit] || 'S'}`;
 }
 
+const connectParsed = parseDuration(
+  props.nodeConfigForm.options.timeout.connectTimeout,
+);
+const connectTimeoutValue = ref(connectParsed.value);
+const connectTimeoutUnit = ref(connectParsed.unit);
+
+const readParsed = parseDuration(
+  props.nodeConfigForm.options.timeout.readIdleTimeout,
+);
+const readIdleTimeoutValue = ref(readParsed.value);
+const readIdleTimeoutUnit = ref(readParsed.unit);
+
+function addKeyValueRow(
+  arr: Array<{ enabled: boolean; key: string; value: string; }>,
+) {
+  arr.push({ key: '', value: '', enabled: true });
+}
+
+function removeKeyValueRow(
+  arr: Array<{ enabled: boolean; key: string; value: string; }>,
+  index: number,
+) {
+  arr.splice(index, 1);
+}
+
+function toggleKeyValueEnabled(
+  arr: Array<{ enabled: boolean; key: string; value: string; }>,
+  index: number,
+) {
+  arr[index].enabled = !arr[index].enabled;
+}
+
+function setAuthType(type: null | string) {
+  if (!type) {
+    props.nodeConfigForm.options.auth = null;
+  } else if (type === 'BASIC') {
+    props.nodeConfigForm.options.auth = {
+      type: 'BASIC',
+      username: '',
+      password: '',
+    };
+  } else if (type === 'BEARER') {
+    props.nodeConfigForm.options.auth = { type: 'BEARER', token: '' };
+  } else if (type === 'DIGEST') {
+    props.nodeConfigForm.options.auth = {
+      type: 'DIGEST',
+      username: '',
+      password: '',
+    };
+  }
+}
+
+function formatJson() {
+  try {
+    const parsed = JSON.parse(props.nodeConfigForm.body);
+    props.nodeConfigForm.body = JSON.stringify(parsed, null, 2);
+  } catch {
+    console.warn('Invalid JSON, cannot format');
+  }
+}
+
 function syncArraysToForm() {
-  isInternalUpdate.value = true;
-  props.nodeConfigForm.headers = headersArray.value.reduce((acc, item) => {
-    if (item.key) acc[item.key] = item.value;
-    return acc;
-  }, {} as Record<string, string>);
-  props.nodeConfigForm.params = paramsArray.value.reduce((acc, item) => {
-    if (item.key) acc[item.key] = item.value;
-    return acc;
-  }, {} as Record<string, string>);
-  props.nodeConfigForm.formData = formDataArray.value.reduce((acc, item) => {
-    if (item.key) acc[item.key] = item.value;
-    return acc;
-  }, {} as Record<string, string>);
-  nextTick(() => { isInternalUpdate.value = false; });
+  props.nodeConfigForm.headers = headersArray.value
+    .filter((i) => i.enabled)
+    .reduce(
+      (acc, item) => {
+        if (item.key) acc[item.key] = item.value;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  props.nodeConfigForm.params = paramsArray.value
+    .filter((i) => i.enabled)
+    .reduce(
+      (acc, item) => {
+        if (item.key) acc[item.key] = item.value;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+  props.nodeConfigForm.formData = formDataArray.value
+    .filter((i) => i.enabled)
+    .reduce(
+      (acc, item) => {
+        if (item.key) acc[item.key] = item.value;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
 }
 
 function syncTimeoutToForm() {
-  isInternalUpdate.value = true;
-  if (!props.nodeConfigForm.options) props.nodeConfigForm.options = {};
-  if (!props.nodeConfigForm.options.timeout) props.nodeConfigForm.options.timeout = {};
-  props.nodeConfigForm.options.timeout.connectTimeout = formatDuration(connectTimeoutValue.value, connectTimeoutUnit.value);
-  props.nodeConfigForm.options.timeout.readIdleTimeout = formatDuration(readIdleTimeoutValue.value, readIdleTimeoutUnit.value);
-  nextTick(() => { isInternalUpdate.value = false; });
+  props.nodeConfigForm.options.timeout.connectTimeout = formatDuration(
+    connectTimeoutValue.value,
+    connectTimeoutUnit.value,
+  );
+  props.nodeConfigForm.options.timeout.readIdleTimeout = formatDuration(
+    readIdleTimeoutValue.value,
+    readIdleTimeoutUnit.value,
+  );
 }
 
 watch(headersArray, syncArraysToForm, { deep: true });
@@ -156,232 +236,699 @@ watch(formDataArray, syncArraysToForm, { deep: true });
 watch([connectTimeoutValue, connectTimeoutUnit], syncTimeoutToForm);
 watch([readIdleTimeoutValue, readIdleTimeoutUnit], syncTimeoutToForm);
 
-watch(() => props.nodeConfigForm, (form) => {
-  if (isInternalUpdate.value) return;
-  if (!form) return;
-
-  isInternalUpdate.value = true;
-
-  if (form.uri === undefined) form.uri = '';
-  if (form.method === undefined) form.method = 'POST';
-  if (form.contentType === undefined) form.contentType = 'application/json';
-  if (form.body === undefined) form.body = '';
-
-  headersArray.value = objectToArray(form.headers);
-  paramsArray.value = objectToArray(form.params);
-  formDataArray.value = objectToArray(form.formData);
-
-  if (!form.options) {
-    form.options = {
-      timeout: { connectTimeout: 'PT30S', readIdleTimeout: 'PT30S' },
-      ssl: { insecureTrustAllCertificates: true },
-      logs: [],
-      defaultCharset: 'UTF-8',
+watch(
+  () => props.nodeConfigForm.bodyType,
+  (val) => {
+    const contentTypeMap: Record<string, string> = {
+      none: 'application/json',
+      'form-data': 'multipart/form-data',
+      'url-encoded': 'application/x-www-form-urlencoded',
+      json: 'application/json',
     };
-  } else {
-    if (!form.options.timeout) form.options.timeout = { connectTimeout: 'PT30S', readIdleTimeout: 'PT30S' };
-    if (!form.options.ssl) form.options.ssl = { insecureTrustAllCertificates: true };
-    if (!form.options.logs) form.options.logs = [];
-    if (!form.options.defaultCharset) form.options.defaultCharset = 'UTF-8';
-  }
-
-  const connectParsed = parseDuration(form.options.timeout.connectTimeout);
-  connectTimeoutValue.value = connectParsed.value;
-  connectTimeoutUnit.value = connectParsed.unit;
-
-  const readParsed = parseDuration(form.options.timeout.readIdleTimeout);
-  readIdleTimeoutValue.value = readParsed.value;
-  readIdleTimeoutUnit.value = readParsed.unit;
-
-  nextTick(() => { isInternalUpdate.value = false; });
-}, { immediate: true, deep: true });
+    props.nodeConfigForm.contentType =
+      contentTypeMap[val] || 'application/json';
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="p-3 bg-gray-50 rounded-lg">
-      <div style="font-size: 14px; font-weight: 600; color: #1f2937; margin-bottom: 12px;">基础配置</div>
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        <div>
-          <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 4px;">
-            目标地址 <span style="color: #ef4444; margin-left: 4px;">*</span>
-          </label>
-          <Input v-model="nodeConfigForm.uri" placeholder="请输入完整HTTP目标访问地址" style="width: 100%;" />
-        </div>
-        <div style="display: flex; gap: 12px;">
-          <div style="flex: 1;">
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 4px;">
-              请求方式
-            </label>
-            <Select v-model="nodeConfigForm.method" :options="methodOptions" style="width: 100%;" />
-          </div>
-          <div v-if="showContentType" style="flex: 1;">
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 4px;">
-              Content-Type
-            </label>
-            <Select v-model="nodeConfigForm.contentType" :options="contentTypeOptions" style="width: 100%;" />
-          </div>
-        </div>
+  <div class="http-request-config">
+    <div class="config-section">
+      <div class="section-header">
+        <span style="font-size: 14px; font-weight: 500; color: #374151">请求方式</span>
+      </div>
+      <div class="request-bar">
+        <Select
+          v-model:value="nodeConfigForm.method"
+          :options="methodOptions"
+          class="method-select"
+        />
+        <Input
+          v-model:value="nodeConfigForm.uri"
+          placeholder="请输入请求URL"
+          class="url-input"
+        />
+      </div>
+    </div>
 
-        <div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <label style="font-size: 14px; font-weight: 500; color: #374151;">请求头</label>
-            <Button type="text" size="small" @click="addKeyValueRow(headersArray)">
-              <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+    <Tabs v-model:active-key="activeTabKey" class="config-tabs">
+      <Tabs.TabPane tab="Params" key="params">
+        <div class="tab-content">
+          <div class="content-header">
+            <span class="header-label">URL查询参数</span>
+            <Button
+              type="text"
+              size="small"
+              @click="addKeyValueRow(paramsArray)"
+              class="add-btn"
+            >
+              <IconifyIcon icon="mdi:plus" :size="14" /> 添加参数
             </Button>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <div v-for="(item, index) in headersArray" :key="index" style="display: flex; gap: 8px;">
-              <Input v-model="item.key" placeholder="键" size="small" style="width: 40%;" />
-              <Input v-model="item.value" placeholder="值" size="small" style="flex: 1;" />
-              <Button type="text" size="small" danger @click="removeKeyValueRow(headersArray, index)">
+          <div class="key-value-list">
+            <div
+              v-for="(item, index) in paramsArray"
+              :key="index"
+              class="key-value-row"
+              :class="{ disabled: !item.enabled }"
+            >
+              <Checkbox
+                :checked="item.enabled"
+                @change="toggleKeyValueEnabled(paramsArray, index)"
+                class="enabled-checkbox"
+              />
+              <Input
+                v-model:value="item.key"
+                placeholder="Key"
+                size="small"
+                class="key-input"
+              />
+              <Input
+                v-model:value="item.value"
+                placeholder="Value"
+                size="small"
+                class="value-input"
+              />
+              <Button
+                type="text"
+                size="small"
+                danger
+                @click="removeKeyValueRow(paramsArray, index)"
+                class="remove-btn"
+              >
                 <IconifyIcon icon="mdi:close" :size="12" />
               </Button>
             </div>
-            <div v-if="headersArray.length === 0" style="text-center text-gray-400 text-sm py-2">
-              暂无请求头，点击添加
+            <div v-if="paramsArray.length === 0" class="empty-tip">
+              暂无查询参数，点击上方按钮添加
             </div>
           </div>
         </div>
+      </Tabs.TabPane>
 
-        <div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <label style="font-size: 14px; font-weight: 500; color: #374151;">URL查询参数</label>
-            <Button type="text" size="small" @click="addKeyValueRow(paramsArray)">
-              <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+      <Tabs.TabPane tab="Headers" key="headers">
+        <div class="tab-content">
+          <div class="content-header">
+            <span class="header-label">请求头</span>
+            <Button
+              type="text"
+              size="small"
+              @click="addKeyValueRow(headersArray)"
+              class="add-btn"
+            >
+              <IconifyIcon icon="mdi:plus" :size="14" /> 添加请求头
             </Button>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <div v-for="(item, index) in paramsArray" :key="index" style="display: flex; gap: 8px;">
-              <Input v-model="item.key" placeholder="键" size="small" style="width: 40%;" />
-              <Input v-model="item.value" placeholder="值" size="small" style="flex: 1;" />
-              <Button type="text" size="small" danger @click="removeKeyValueRow(paramsArray, index)">
+          <div class="key-value-list">
+            <div
+              v-for="(item, index) in headersArray"
+              :key="index"
+              class="key-value-row"
+              :class="{ disabled: !item.enabled }"
+            >
+              <Checkbox
+                :checked="item.enabled"
+                @change="toggleKeyValueEnabled(headersArray, index)"
+                class="enabled-checkbox"
+              />
+              <Input
+                v-model:value="item.key"
+                placeholder="Key"
+                size="small"
+                class="key-input"
+              />
+              <Input
+                v-model:value="item.value"
+                placeholder="Value"
+                size="small"
+                class="value-input"
+              />
+              <Button
+                type="text"
+                size="small"
+                danger
+                @click="removeKeyValueRow(headersArray, index)"
+                class="remove-btn"
+              >
                 <IconifyIcon icon="mdi:close" :size="12" />
               </Button>
             </div>
-            <div v-if="paramsArray.length === 0" style="text-center text-gray-400 text-sm py-2">
-              暂无查询参数，点击添加
+            <div v-if="headersArray.length === 0" class="empty-tip">
+              暂无请求头，点击上方按钮添加
             </div>
           </div>
         </div>
+      </Tabs.TabPane>
 
-        <div>
-          <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 4px;">请求体</label>
-          <div v-if="showJsonBody">
-            <textarea
-              v-model="nodeConfigForm.body"
-              rows="4"
-              style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; resize: none;"
-              placeholder="请输入JSON格式的请求体"
-            ></textarea>
+      <Tabs.TabPane tab="Body" key="body">
+        <div class="tab-content">
+          <div class="body-type-tabs">
+            <Button
+              v-for="opt in bodyTypeOptions"
+              :key="opt.value"
+              :type="
+                nodeConfigForm.bodyType === opt.value ? 'primary' : 'default'
+              "
+              size="small"
+              @click="nodeConfigForm.bodyType = opt.value"
+              class="body-type-btn"
+            >
+              {{ opt.label }}
+            </Button>
           </div>
-          <div v-else-if="showTextBody">
-            <textarea
-              v-model="nodeConfigForm.body"
-              rows="4"
-              style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; resize: none;"
-              placeholder="请输入文本格式的请求体"
-            ></textarea>
+
+          <div v-if="nodeConfigForm.bodyType === 'none'" class="empty-tip">
+            无请求体
           </div>
-          <div v-else-if="showFormData">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-size: 12px; color: #6b7280;">表单数据</span>
-              <Button type="text" size="small" @click="addKeyValueRow(formDataArray)">
-                <IconifyIcon icon="mdi:plus" :size="14" /> 添加
+
+          <div
+            v-else-if="
+              nodeConfigForm.bodyType === 'form-data' ||
+              nodeConfigForm.bodyType === 'url-encoded'
+            "
+          >
+            <div class="content-header">
+              <span class="header-label">{{
+                nodeConfigForm.bodyType === 'form-data'
+                  ? 'form-data'
+                  : 'x-www-form-urlencoded'
+              }}</span>
+              <Button
+                type="text"
+                size="small"
+                @click="addKeyValueRow(formDataArray)"
+                class="add-btn"
+              >
+                <IconifyIcon icon="mdi:plus" :size="14" /> 添加字段
               </Button>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-              <div v-for="(item, index) in formDataArray" :key="index" style="display: flex; gap: 8px;">
-                <Input v-model="item.key" placeholder="键" size="small" style="width: 40%;" />
-                <Input v-model="item.value" placeholder="值" size="small" style="flex: 1;" />
-                <Button type="text" size="small" danger @click="removeKeyValueRow(formDataArray, index)">
+            <div class="key-value-list">
+              <div
+                v-for="(item, index) in formDataArray"
+                :key="index"
+                class="key-value-row"
+                :class="{ disabled: !item.enabled }"
+              >
+                <Checkbox
+                  :checked="item.enabled"
+                  @change="toggleKeyValueEnabled(formDataArray, index)"
+                  class="enabled-checkbox"
+                />
+                <Input
+                  v-model:value="item.key"
+                  placeholder="Key"
+                  size="small"
+                  class="key-input"
+                />
+                <Input
+                  v-model:value="item.value"
+                  placeholder="Value"
+                  size="small"
+                  class="value-input"
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  @click="removeKeyValueRow(formDataArray, index)"
+                  class="remove-btn"
+                >
                   <IconifyIcon icon="mdi:close" :size="12" />
                 </Button>
               </div>
-              <div v-if="formDataArray.length === 0" style="text-center text-gray-400 text-sm py-2">
-                暂无表单数据，点击添加
+              <div v-if="formDataArray.length === 0" class="empty-tip">
+                暂无数据，点击上方按钮添加
               </div>
             </div>
           </div>
-          <div v-else>
+
+          <div v-else-if="nodeConfigForm.bodyType === 'json'">
+            <div class="content-header">
+              <span class="header-label">JSON</span>
+              <Button
+                type="text"
+                size="small"
+                @click="formatJson"
+                class="format-btn"
+              >
+                <IconifyIcon icon="mdi:format-json" :size="14" /> 格式化
+              </Button>
+            </div>
             <textarea
               v-model="nodeConfigForm.body"
-              rows="4"
-              style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; resize: none;"
-              placeholder="请输入请求体内容"
+              rows="8"
+              class="raw-textarea"
+              placeholder="请输入JSON内容"
             ></textarea>
+          </div>
+        </div>
+      </Tabs.TabPane>
+    </Tabs>
+
+    <div class="custom-collapse">
+      <div class="custom-collapse-item">
+        <div
+          class="custom-collapse-header"
+          @click="authExpanded = !authExpanded"
+        >
+          <span class="expand-icon">{{ authExpanded ? '▼' : '▶' }}</span>
+          <span class="header-text">认证方式</span>
+        </div>
+        <div v-show="authExpanded" class="custom-collapse-content">
+          <div class="auth-content">
+            <div class="form-group">
+              <Select
+                :value="nodeConfigForm.options.auth?.type"
+                :options="authTypeOptions"
+                placeholder="选择认证类型"
+                style="width: 100%"
+                @change="setAuthType"
+              />
+            </div>
+            <div
+              v-if="
+                nodeConfigForm.options.auth?.type === 'BASIC' ||
+                nodeConfigForm.options.auth?.type === 'DIGEST'
+              "
+              class="auth-fields"
+            >
+              <div class="form-group">
+                <label class="form-label">用户名</label>
+                <Input
+                  v-model:value="nodeConfigForm.options.auth.username"
+                  placeholder="请输入用户名"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">密码</label>
+                <Input
+                  v-model:value="nodeConfigForm.options.auth.password"
+                  type="password"
+                  placeholder="请输入密码"
+                />
+              </div>
+            </div>
+            <div
+              v-if="nodeConfigForm.options.auth?.type === 'BEARER'"
+              class="auth-fields"
+            >
+              <div class="form-group">
+                <label class="form-label">Bearer Token</label>
+                <Input
+                  v-model:value="nodeConfigForm.options.auth.token"
+                  type="password"
+                  placeholder="请输入令牌"
+                />
+              </div>
+            </div>
+            <div v-if="!nodeConfigForm.options.auth?.type" class="empty-tip">
+              未选择认证类型
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="custom-collapse-item">
+        <div
+          class="custom-collapse-header"
+          @click="settingsExpanded = !settingsExpanded"
+        >
+          <span class="expand-icon">{{ settingsExpanded ? '▼' : '▶' }}</span>
+          <span class="header-text">高级设置</span>
+        </div>
+        <div v-show="settingsExpanded" class="custom-collapse-content">
+          <div class="settings-content">
+            <div class="form-group">
+              <label class="form-label">超时配置</label>
+              <div class="timeout-fields">
+                <div class="timeout-row">
+                  <span class="timeout-label">连接超时</span>
+                  <InputNumber
+                    v-model:value="connectTimeoutValue"
+                    :min="1"
+                    :max="300"
+                    size="small"
+                    class="timeout-input"
+                  />
+                  <Select
+                    v-model:value="connectTimeoutUnit"
+                    :options="[
+                      { value: '秒', label: '秒' },
+                      { value: '分钟', label: '分钟' },
+                      { value: '小时', label: '小时' },
+                    ]"
+                    size="small"
+                    class="timeout-unit"
+                  />
+                </div>
+                <div class="timeout-row">
+                  <span class="timeout-label">读取超时</span>
+                  <InputNumber
+                    v-model:value="readIdleTimeoutValue"
+                    :min="1"
+                    :max="300"
+                    size="small"
+                    class="timeout-input"
+                  />
+                  <Select
+                    v-model:value="readIdleTimeoutUnit"
+                    :options="[
+                      { value: '秒', label: '秒' },
+                      { value: '分钟', label: '分钟' },
+                      { value: '小时', label: '小时' },
+                    ]"
+                    size="small"
+                    class="timeout-unit"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">SSL配置</label>
+              <div class="ssl-row">
+                <div class="ssl-title-wrap">
+                  <span class="ssl-title">是否关闭远端SSL证书校验</span>
+                  <Tooltip
+                    title="仅未配置信任证书库时生效，生产环境请配置证书信任库"
+                  >
+                    <span class="help-icon">?</span>
+                  </Tooltip>
+                </div>
+                <Switch
+                  :checked="
+                    nodeConfigForm.options.ssl.insecureTrustAllCertificates
+                  "
+                  @change="
+                    (val: boolean) => {
+                      nodeConfigForm.options.ssl.insecureTrustAllCertificates =
+                        val;
+                    }
+                  "
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">开启的日志类型</label>
+              <div class="logs-checkboxes">
+                <CheckboxGroup v-model:value="nodeConfigForm.options.logs">
+                  <Checkbox
+                    v-for="opt in logOptions"
+                    :key="opt.value"
+                    :value="opt.value"
+                  >
+                    {{ opt.label }}
+                  </Checkbox>
+                </CheckboxGroup>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">默认字符集</label>
+              <Select
+                v-model:value="nodeConfigForm.options.defaultCharset"
+                :options="charsetOptions"
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
-
-    <Collapse v-model:activeKey="activeCollapseKeys">
-      <Collapse.Panel header="认证配置" key="auth">
-        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
-          <div>
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 4px;">认证类型</label>
-            <Select
-              :value="nodeConfigForm.options.auth?.type"
-              :options="authTypeOptions"
-              placeholder="选择认证类型"
-              style="width: 100%;"
-              @change="setAuthType"
-            />
-          </div>
-          <div v-if="nodeConfigForm.options.auth?.type === 'BASIC' || nodeConfigForm.options.auth?.type === 'DIGEST'" style="display: flex; flex-direction: column; gap: 8px;">
-            <Input v-model="nodeConfigForm.options.auth.username" placeholder="用户名" style="width: 100%;" />
-            <Input v-model="nodeConfigForm.options.auth.password" type="password" placeholder="密码" style="width: 100%;" />
-          </div>
-          <div v-if="nodeConfigForm.options.auth?.type === 'BEARER'">
-            <Input v-model="nodeConfigForm.options.auth.token" type="password" placeholder="Bearer令牌" style="width: 100%;" />
-          </div>
-        </div>
-      </Collapse.Panel>
-
-      <Collapse.Panel header="高级配置" key="advanced">
-        <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 8px;">
-          <div>
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 8px;">超时配置</label>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <div style="display: flex; gap: 6px;">
-                <label style="font-size: 12px; color: #6b7280; width: 60px; line-height: 28px;">连接超时</label>
-                <InputNumber v-model="connectTimeoutValue" :min="1" :max="300" size="small" style="flex: 1;" />
-                <Select v-model="connectTimeoutUnit" :options="[{ value: '秒', label: '秒' }, { value: '分钟', label: '分钟' }, { value: '小时', label: '小时' }]" size="small" style="width: 70px;" />
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <label style="font-size: 12px; color: #6b7280; width: 60px; line-height: 28px;">读取超时</label>
-                <InputNumber v-model="readIdleTimeoutValue" :min="1" :max="300" size="small" style="flex: 1;" />
-                <Select v-model="readIdleTimeoutUnit" :options="[{ value: '秒', label: '秒' }, { value: '分钟', label: '分钟' }, { value: '小时', label: '小时' }]" size="small" style="width: 70px;" />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 8px;">SSL配置</label>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div>
-                <div style="font-size: 14px; color: #374151;">是否关闭远端SSL证书校验</div>
-                <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">仅未配置信任证书库时生效，生产环境请配置证书信任库</div>
-              </div>
-              <Switch :checked="nodeConfigForm.options.ssl.insecureTrustAllCertificates" @change="(val: boolean) => { nodeConfigForm.options.ssl.insecureTrustAllCertificates = val; }" />
-            </div>
-          </div>
-
-          <div>
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 8px;">开启的日志类型</label>
-            <CheckboxGroup v-model="nodeConfigForm.options.logs">
-              <Checkbox v-for="opt in logOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </Checkbox>
-            </CheckboxGroup>
-          </div>
-
-          <div>
-            <label style="font-size: 14px; font-weight: 500; color: #374151; display: block; margin-bottom: 4px;">默认字符集</label>
-            <Select v-model="nodeConfigForm.options.defaultCharset" :options="charsetOptions" style="width: 100%;" />
-          </div>
-        </div>
-      </Collapse.Panel>
-    </Collapse>
   </div>
 </template>
+
+<style scoped>
+.http-request-config {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding: 0;
+}
+
+.config-section {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.section-header {
+  margin-bottom: 8px;
+}
+
+.request-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.method-select {
+  width: 80px !important;
+}
+
+.url-input {
+  flex: 1;
+}
+
+.config-tabs :deep(.ant-tabs-tab) {
+  font-size: 14px;
+}
+
+.tab-content {
+  padding: 8px 0;
+}
+
+.content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.header-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.add-btn {
+  color: #4080ff;
+}
+
+.add-btn:hover {
+  color: #1890ff;
+}
+
+.format-btn {
+  color: #4080ff;
+}
+
+.format-btn:hover {
+  color: #1890ff;
+}
+
+.key-value-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.key-value-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.key-value-row.disabled {
+  opacity: 0.5;
+}
+
+.enabled-checkbox {
+  flex-shrink: 0;
+}
+
+.key-input {
+  width: 35% !important;
+}
+
+.value-input {
+  flex: 1;
+}
+
+.remove-btn {
+  flex-shrink: 0;
+  padding: 4px !important;
+}
+
+.empty-tip {
+  padding: 12px 0;
+  font-size: 12px;
+  color: #adb5bd;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.auth-content {
+  margin-top: 4px;
+}
+
+.auth-fields {
+  margin-top: 8px;
+}
+
+.body-type-tabs {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.body-type-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.raw-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+}
+
+.raw-textarea:focus {
+  outline: none;
+  border-color: #4080ff;
+}
+
+.settings-content {
+  margin-top: 4px;
+}
+
+.timeout-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeout-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.timeout-label {
+  width: 60px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.timeout-input {
+  flex: 1;
+}
+
+.timeout-unit {
+  width: 70px !important;
+}
+
+.ssl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ssl-title-wrap {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ssl-title {
+  font-size: 13px;
+  color: #495057;
+}
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  color: #6c757d;
+  cursor: help;
+  background: #e9ecef;
+  border-radius: 50%;
+}
+
+.logs-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.custom-collapse {
+  width: 100%;
+}
+
+.custom-collapse-item {
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.custom-collapse-header {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+  background: #f9fafb;
+}
+
+.custom-collapse-header:hover {
+  background: #f3f4f6;
+}
+
+.expand-icon {
+  margin-right: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.header-text {
+  flex: 1;
+}
+
+.custom-collapse-content {
+  padding: 12px;
+  background: #fff;
+}
+</style>
