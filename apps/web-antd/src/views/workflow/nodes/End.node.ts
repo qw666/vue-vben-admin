@@ -5,9 +5,9 @@ export const EndNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_End',
   config: {
     nodeType: 'idp_core_flow_End',
-    nodeName: '结束',
+    nodeName: '输出',
     icon: 'mdi:stop-circle',
-    description: '流程结束节点',
+    description: '流程输出节点',
     ports: {
       input: 1,
       output: [],

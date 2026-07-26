@@ -22,7 +22,7 @@ export function useCanvasSelection(
 
   function deleteSelectedNode(nodeId: string) {
     if (isStartOrEndNode(nodeId)) {
-      message.error('开始节点和结束节点不能删除');
+      message.error('开始节点和输出节点不能删除');
       return;
     }
     const relatedConns = connections.value.filter(c => c.source === nodeId || c.target === nodeId);
@@ -45,7 +45,7 @@ export function useCanvasSelection(
       if (selectedNodeId.value) {
         const nodeId = selectedNodeId.value;
         if (isStartOrEndNode(nodeId)) {
-          message.error('开始节点和结束节点不能删除');
+          message.error('开始节点和输出节点不能删除');
           return;
         }
         const relatedConns = connections.value.filter(c => c.source === nodeId || c.target === nodeId);

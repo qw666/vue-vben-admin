@@ -308,7 +308,12 @@ async function handleSave() {
     }
 
     if (!endNode) {
-      message.error('流程缺少结束节点');
+      message.error('流程缺少输出节点');
+      return;
+    }
+
+    if (store.currentWorkflow.nodes.length <= 2) {
+      message.error('流程至少需要一个中间节点');
       return;
     }
 
@@ -326,8 +331,42 @@ async function handleSave() {
       (e) => e.source === endNode.id,
     );
     if (endHasOutput) {
-      message.error('结束节点不能连接到其他节点');
+      message.error('输出节点不能连接到其他节点');
       return;
+    }
+
+    const endHasInput = store.currentWorkflow.edges.some(
+      (e) => e.target === endNode.id,
+    );
+    if (!endHasInput) {
+      message.error('输出节点必须有输入连接');
+      return;
+    }
+
+    const middleNodes = store.currentWorkflow.nodes.filter(
+      (n) => n.data.type !== 'idp_core_flow_Start' && n.data.type !== 'idp_core_flow_End',
+    );
+
+    for (const node of middleNodes) {
+      const hasInput = store.currentWorkflow.edges.some(
+        (e) => e.target === node.id,
+      );
+      const hasOutput = store.currentWorkflow.edges.some(
+        (e) => e.source === node.id,
+      );
+
+      if (!hasInput && !hasOutput) {
+        message.error(`节点「${node.data.label}」未连接任何节点`);
+        return;
+      }
+      if (!hasInput) {
+        message.error(`节点「${node.data.label}」缺少输入连接`);
+        return;
+      }
+      if (!hasOutput) {
+        message.error(`节点「${node.data.label}」缺少输出连接`);
+        return;
+      }
     }
 
     store.currentWorkflow.name = workflowName.value;
@@ -478,10 +517,10 @@ function ensureStartAndEndNodes() {
       type: 'custom',
       position: layoutNodes['end'] || { x: 2400, y: 2000 },
       data: {
-        label: '结束',
+        label: '输出',
         type: 'idp_core_flow_End',
         icon: 'mdi:stop-circle',
-        description: '流程结束节点',
+        description: '流程输出节点',
         config: { outputs: store.currentWorkflow.outputs || [] },
       },
     };
