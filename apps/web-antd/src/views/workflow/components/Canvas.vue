@@ -144,9 +144,38 @@ function stopPan() {
 }
 
 function centerCanvas() {
-  const canvas = document.querySelector('.workflow-canvas');
-  if (canvas) {
-    const rect = canvas.getBoundingClientRect();
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const targetScale = 1;
+
+  if (props.nodes && props.nodes.length > 0) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const node of props.nodes) {
+      const x = node.position.x || 0;
+      const y = node.position.y || 0;
+      const width = node.data.width || 144;
+      const height = node.data.height || 48;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + width);
+      maxY = Math.max(maxY, y + height);
+    }
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    panOffset.value = {
+      x: rect.width / 2 - centerX * targetScale,
+      y: rect.height / 2 - centerY * targetScale,
+    };
+  } else {
     if (props.panOffset) {
       panOffset.value = props.panOffset;
     } else {
@@ -155,9 +184,10 @@ function centerCanvas() {
         y: rect.height / 2 - canvasSize.value.height / 2,
       };
     }
-    emit('panChange', panOffset.value);
-    emit('scaleChange', 1);
   }
+
+  emit('panChange', panOffset.value);
+  emit('scaleChange', targetScale);
 }
 
 function zoomAtCenter(delta: number) {
