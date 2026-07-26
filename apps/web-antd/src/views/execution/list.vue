@@ -256,7 +256,7 @@ watch(() => workflowStore.projectId, (newVal) => {
     <div class="mb-4 p-4 bg-card rounded-lg shadow-sm">
       <div class="flex flex-wrap gap-4 items-center">
         <div class="flex items-center gap-2">
-          <label class="text-sm text-muted-foreground">流程：</label>
+          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">流程：</label>
           <Select
             v-model:value="selectedFlowId"
             placeholder="请选择流程"
@@ -274,7 +274,7 @@ watch(() => workflowStore.projectId, (newVal) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm text-muted-foreground">状态：</label>
+          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">状态：</label>
           <Select
             v-model:value="selectedStates"
             placeholder="请选择状态"
@@ -293,7 +293,7 @@ watch(() => workflowStore.projectId, (newVal) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm text-muted-foreground">开始时间：</label>
+          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">开始时间：</label>
           <DatePicker
             v-model:value="startDate"
             placeholder="开始时间"
@@ -304,7 +304,7 @@ watch(() => workflowStore.projectId, (newVal) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm text-muted-foreground">结束时间：</label>
+          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">结束时间：</label>
           <DatePicker
             v-model:value="endDate"
             placeholder="结束时间"
