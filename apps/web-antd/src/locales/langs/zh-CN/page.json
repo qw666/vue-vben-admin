@@ -43,5 +43,10 @@
       "properties": "节点属性",
       "nodeList": "节点列表"
     }
+  },
+  "execution": {
+    "title": "流程管理",
+    "list": "执行列表",
+    "detail": "执行详情"
   }
 }

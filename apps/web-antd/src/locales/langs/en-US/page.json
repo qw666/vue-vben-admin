@@ -43,5 +43,10 @@
       "properties": "Node Properties",
       "nodeList": "Node List"
     }
+  },
+  "execution": {
+    "title": "Process Management",
+    "list": "Execution List",
+    "detail": "Execution Detail"
   }
 }
