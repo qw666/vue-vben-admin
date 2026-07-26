@@ -168,9 +168,9 @@ onMounted(async () => {
 
     <Spin :spinning="isLoading">
       <div v-if="execution" class="space-y-4">
-        <div class="bg-white rounded-lg shadow-sm p-6">
+        <div class="bg-card rounded-lg shadow-sm p-6">
           <div class="flex items-center gap-4 mb-4">
-            <div class="text-2xl font-bold text-gray-800">{{ execution.id }}</div>
+            <div class="text-2xl font-bold text-foreground">{{ execution.id }}</div>
             <Tag :color="stateColorMap[execution.state.current]" class="text-lg">
               {{ stateLabelMap[execution.state.current] }}
             </Tag>
@@ -187,18 +187,18 @@ onMounted(async () => {
           </Descriptions>
         </div>
 
-        <div class="bg-white rounded-lg shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        <div class="bg-card rounded-lg shadow-sm p-6">
+          <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <IconifyIcon icon="mdi:timeline" :size="20" />
             任务执行时序图
           </h3>
 
           <div class="relative">
-            <div class="h-8 border-b border-gray-200 relative mb-2">
-              <div class="absolute left-0 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+            <div class="h-8 border-b border-border relative mb-2">
+              <div class="absolute left-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                 {{ formatDate(execution.state.startDate) }}
               </div>
-              <div class="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+              <div class="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                 {{ execution.state.endDate ? formatDate(execution.state.endDate) : '-' }}
               </div>
             </div>
@@ -211,17 +211,17 @@ onMounted(async () => {
                 :class="{ 'pl-6': task.parentTaskRunId }"
               >
                 <div class="flex items-center gap-3 mb-1">
-                  <span class="w-24 text-sm text-gray-700 truncate flex-shrink-0">
+                  <span class="w-24 text-sm text-foreground truncate flex-shrink-0">
                     {{ getTaskLabel(task.taskId) }}
                   </span>
                   <Tag :color="stateColorMap[task.state.current]" class="flex-shrink-0">
                     {{ stateLabelMap[task.state.current] }}
                   </Tag>
-                  <span class="text-xs text-gray-500">
+                  <span class="text-xs text-muted-foreground">
                     {{ formatDuration(task.state.duration) }}
                   </span>
                   <button
-                    class="ml-auto text-gray-400 hover:text-gray-600"
+                    class="ml-auto text-muted-foreground hover:text-foreground"
                     @click="toggleTaskExpand(task.id)"
                   >
                     <IconifyIcon
@@ -232,7 +232,7 @@ onMounted(async () => {
                   </button>
                 </div>
 
-                <div class="h-6 bg-gray-100 rounded relative overflow-hidden">
+                <div class="h-6 bg-muted rounded relative overflow-hidden">
                   <div
                     class="absolute top-0 h-full rounded transition-all"
                     :style="{
@@ -252,12 +252,12 @@ onMounted(async () => {
                       <Descriptions.Item label="状态">{{ stateLabelMap[task.state.current] }}</Descriptions.Item>
                       <Descriptions.Item label="尝试次数">{{ task.attempts.length }}</Descriptions.Item>
                       <Descriptions.Item label="输出" :span="2">
-                        <pre class="bg-gray-50 p-2 rounded text-xs overflow-auto max-h-40">{{ JSON.stringify(task.outputs, null, 2) }}</pre>
+                        <pre class="bg-muted p-2 rounded text-xs overflow-auto max-h-40">{{ JSON.stringify(task.outputs, null, 2) }}</pre>
                       </Descriptions.Item>
                     </Descriptions>
 
                     <div v-if="task.attempts.length > 0" class="mt-4">
-                      <h4 class="text-sm font-semibold text-gray-700 mb-2">尝试记录</h4>
+                      <h4 class="text-sm font-semibold text-foreground mb-2">尝试记录</h4>
                       <div class="space-y-2">
                         <div
                           v-for="(attempt, index) in task.attempts"
@@ -286,8 +286,8 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        <div class="bg-card rounded-lg shadow-sm p-6">
+          <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <IconifyIcon icon="mdi:history" :size="20" />
             状态历史
           </h3>
@@ -306,7 +306,7 @@ onMounted(async () => {
                     borderColor: getTaskColor(history.state),
                   }"
                 />
-                <div v-if="index < execution.state.histories.length - 1" class="w-0.5 h-6 bg-gray-300" />
+                <div v-if="index < execution.state.histories.length - 1" class="w-0.5 h-6 bg-border" />
               </div>
             </div>
             <div class="flex-1 space-y-6">

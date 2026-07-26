@@ -5,6 +5,7 @@ import { Page } from '@vben/common-ui';
 import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { useRouter } from 'vue-router';
+import { usePreferences } from '@vben/preferences';
 
 import { useExecutionStore } from '#/store/execution';
 import { useWorkflowStore } from '#/store/workflow';
@@ -12,6 +13,7 @@ import { useWorkflowStore } from '#/store/workflow';
 const router = useRouter();
 const executionStore = useExecutionStore();
 const workflowStore = useWorkflowStore();
+const { isDark } = usePreferences();
 
 const currentPage = ref(1);
 const pageSize = ref(10);
@@ -251,10 +253,10 @@ watch(() => workflowStore.projectId, (newVal) => {
       </div>
     </template>
 
-    <div class="mb-4 p-4 bg-white rounded-lg shadow-sm">
+    <div class="mb-4 p-4 bg-card rounded-lg shadow-sm">
       <div class="flex flex-wrap gap-4 items-center">
         <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-600">流程：</label>
+          <label class="text-sm text-muted-foreground">流程：</label>
           <Select
             v-model:value="selectedFlowId"
             placeholder="请选择流程"
@@ -272,7 +274,7 @@ watch(() => workflowStore.projectId, (newVal) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-600">状态：</label>
+          <label class="text-sm text-muted-foreground">状态：</label>
           <Select
             v-model:value="selectedStates"
             placeholder="请选择状态"
@@ -291,7 +293,7 @@ watch(() => workflowStore.projectId, (newVal) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-600">开始时间：</label>
+          <label class="text-sm text-muted-foreground">开始时间：</label>
           <DatePicker
             v-model:value="startDate"
             placeholder="开始时间"
@@ -302,7 +304,7 @@ watch(() => workflowStore.projectId, (newVal) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-600">结束时间：</label>
+          <label class="text-sm text-muted-foreground">结束时间：</label>
           <DatePicker
             v-model:value="endDate"
             placeholder="结束时间"
@@ -347,23 +349,23 @@ watch(() => workflowStore.projectId, (newVal) => {
 
           <template v-else-if="column.dataIndex === 'trigger'">
             <div v-if="record.trigger">
-              <Tooltip placement="top" :overlay-style="{ maxWidth: 'none' }" :overlay-inner-style="{ backgroundColor: '#fff', color: '#333', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '0', maxWidth: 'none', width: 'auto' }">
+              <Tooltip placement="top" :overlay-style="{ maxWidth: 'none' }" :overlay-inner-style="{ backgroundColor: isDark ? '#1f2937' : '#fff', color: isDark ? '#e5e7eb' : '#333', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '0', maxWidth: 'none', width: 'auto' }">
                 <template #title>
                   <div style="width: 420px;">
-                    <div style="padding: 12px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #f0f0f0; color: #333; background: #fff;">触发器详情: {{ record.trigger.id }}</div>
+                    <div :style="{ padding: '12px 16px', fontWeight: 600, fontSize: '14px', borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`, color: isDark ? '#e5e7eb' : '#333', backgroundColor: isDark ? '#1f2937' : '#fff' }">触发器详情: {{ record.trigger.id }}</div>
                     <div style="border-collapse: collapse; width: 100%;">
-                      <div style="display: table-row; border-bottom: 1px solid #f0f0f0;">
-                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #666; background: #fafafa; width: 90px; font-weight: 500;">Id</div>
-                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #333;">{{ record.trigger.id }}</div>
+                      <div style="display: table-row; borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`;">
+                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500 }">Id</div>
+                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333' }">{{ record.trigger.id }}</div>
                       </div>
-                      <div style="display: table-row; border-bottom: 1px solid #f0f0f0;">
-                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #666; background: #fafafa; width: 90px; font-weight: 500;">Type</div>
-                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #333; word-break: break-all;">{{ record.trigger.type }}</div>
+                      <div style="display: table-row; borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`;">
+                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500 }">Type</div>
+                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333', wordBreak: 'break-all' }">{{ record.trigger.type }}</div>
                       </div>
                       <div v-if="record.trigger.variables" style="display: table-row;">
-                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #666; background: #fafafa; width: 90px; font-weight: 500; vertical-align: top;">Variables</div>
-                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #333;">
-                          <pre style="white-space: pre-wrap; margin: 0; font-size: 11px; background: #f5f5f5; padding: 6px; border-radius: 4px; max-width: 280px;">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
+                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500, verticalAlign: 'top' }">Variables</div>
+                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333' }">
+                          <pre :style="{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '11px', backgroundColor: isDark ? '#374151' : '#f5f5f5', padding: '6px', borderRadius: '4px', maxWidth: '280px' }">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
                         </div>
                       </div>
                     </div>
