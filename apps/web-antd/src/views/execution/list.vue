@@ -59,6 +59,11 @@ const columns = [
     width: 180,
   },
   {
+    title: '结束时间',
+    dataIndex: 'state',
+    width: 180,
+  },
+  {
     title: '耗时',
     dataIndex: 'state',
     width: 100,
@@ -349,6 +354,9 @@ watch(() => workflowStore.projectId, (newVal) => {
             </template>
             <template v-else-if="column.title === '开始时间'">
               {{ formatDate(record.state.startDate) }}
+            </template>
+            <template v-else-if="column.title === '结束时间'">
+              {{ formatDate(record.state.endDate) }}
             </template>
             <template v-else-if="column.title === '耗时'">
               {{ formatDuration(record.state.duration) }}
