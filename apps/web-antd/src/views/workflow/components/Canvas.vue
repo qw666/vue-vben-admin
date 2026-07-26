@@ -450,11 +450,12 @@ onMounted(() => {
             </div>
             <Tooltip
               v-if="node.data.type === 'idp_core_flow_Start' && node.data.config?.triggers && node.data.config.triggers.length > 0"
-              :title="node.data.config.triggers.map((t: any) => getTriggerLabel(t.type)).join('、')"
+              :title="node.data.config.triggers.map((t: any) => `${getTriggerLabel(t.type)}${t.disabled === true ? '(已禁用)' : ''}`).join('、')"
               :mouseEnterDelay="0.1"
             >
               <div
-                class="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-500 text-white text-[10px] rounded-full shadow-sm cursor-pointer"
+                class="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 text-white text-[10px] rounded-full shadow-sm cursor-pointer"
+                :class="node.data.config.triggers.some((t: any) => t.disabled !== true) ? 'bg-green-500' : 'bg-gray-400'"
               >
                 <IconifyIcon icon="mdi:flash" :size="10" />
                 <span>{{ node.data.config.triggers.length }}</span>

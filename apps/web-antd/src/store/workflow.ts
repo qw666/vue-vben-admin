@@ -348,7 +348,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
             status,
             enabled: (item as any).flowEnabled === true || (item as any).flowEnabled === 'true',
             hasActiveTrigger: (item as any).hasActiveTrigger === true || (item as any).hasActiveTrigger === 'true',
-            triggers: (item as any).triggers || undefined,
+            triggers: ((item as any).triggers || []).map((t: any) => ({
+              ...t,
+              disabled: t.disabled !== undefined ? t.disabled : (t.enabled === false),
+            })),
           };
         });
         totalWorkflows.value = data.total || 0;

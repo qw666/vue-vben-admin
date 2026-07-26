@@ -704,10 +704,6 @@ onUnmounted(() => {
           <IconifyIcon icon="mdi:content-save" :size="16" />
           保存流程
         </Button>
-        <Button type="primary" @click="handleRun">
-          <IconifyIcon icon="mdi:play" :size="16" />
-          运行流程
-        </Button>
       </div>
     </header>
 

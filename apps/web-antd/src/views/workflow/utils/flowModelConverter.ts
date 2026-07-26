@@ -368,7 +368,10 @@ export function convertFlowModelToWorkflow(
     edges,
     outputs: flowModel.outputs || [],
     inputs: flowModel.inputs || [],
-    triggers: flowModel.triggers || [],
+    triggers: (flowModel.triggers || []).map((t: any) => ({
+      ...t,
+      disabled: t.disabled !== undefined ? t.disabled : false,
+    })),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     flowId: flowId || generateFlowId(),
