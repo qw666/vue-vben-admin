@@ -46,7 +46,9 @@
   },
   "execution": {
     "title": "Process Management",
-    "list": "Execution List",
+    "workflow": "Flow Orchestration",
+    "editor": "Flow Editor",
+    "list": "Execution Records",
     "detail": "Execution Detail"
   }
 }

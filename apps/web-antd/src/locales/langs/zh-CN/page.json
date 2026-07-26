@@ -46,7 +46,9 @@
   },
   "execution": {
     "title": "流程管理",
-    "list": "执行列表",
+    "workflow": "流程编排",
+    "editor": "流程编辑",
+    "list": "执行记录",
     "detail": "执行详情"
   }
 }

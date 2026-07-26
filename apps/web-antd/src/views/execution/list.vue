@@ -122,7 +122,7 @@ function getTriggerType(labels: Array<{ key: string; value: string }>): string {
 }
 
 function viewDetail(executionId: string) {
-  router.push(`/execution/detail/${executionId}`);
+  router.push(`/shuzhiliu/execution/detail/${executionId}`);
 }
 
 async function loadData() {

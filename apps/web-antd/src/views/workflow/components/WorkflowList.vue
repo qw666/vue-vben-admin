@@ -38,10 +38,10 @@ function handleCreate() {
     store.selectedFolderId,
   );
   store.setCurrentWorkflow(newWorkflow);
-  router.push('/workflow/editor');
+  router.push('/shuzhiliu/workflow/editor');
 }
 function handleEdit(workflowId: string) {
-  router.push(`/workflow/editor/${workflowId}`);
+  router.push(`/shuzhiliu/workflow/editor/${workflowId}`);
 }
 async function handleRun(_workflowId: string) {
   message.info('正在运行流程...');

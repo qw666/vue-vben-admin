@@ -407,7 +407,7 @@ function handleClear() {
 
 function handleBack() {
   store.setCurrentWorkflow(null);
-  router.push('/workflow/list');
+  router.push('/shuzhiliu/workflow/list');
 }
 
 async function loadProjects() {

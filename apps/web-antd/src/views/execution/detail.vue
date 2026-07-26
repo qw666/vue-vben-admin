@@ -124,7 +124,7 @@ async function loadExecution() {
 }
 
 function goBack() {
-  router.push('/execution');
+  router.push('/shuzhiliu/execution/list');
 }
 
 onMounted(async () => {
