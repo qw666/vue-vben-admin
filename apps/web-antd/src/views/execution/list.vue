@@ -21,7 +21,6 @@ const startDate = ref<string>('');
 const endDate = ref<string>('');
 const isLoading = ref(true);
 const localProjectId = ref<number | null>(null);
-const showTriggerTooltip = ref('');
 
 const stateOptions = [
   { value: 'CREATED', label: '已创建' },
@@ -47,11 +46,13 @@ const columns = [
     title: '触发器',
     dataIndex: 'trigger',
     width: 120,
+    align: 'center',
   },
   {
     title: '状态',
     dataIndex: 'state',
     width: 100,
+    align: 'center',
   },
   {
     title: '开始时间',
@@ -67,32 +68,56 @@ const columns = [
     title: '耗时',
     dataIndex: 'state',
     width: 100,
+    align: 'center',
   },
   {
     title: '版本',
     dataIndex: 'flowRevision',
     width: 80,
+    align: 'center',
   },
 ];
 
-function formatDuration(duration: string): string {
-  const match = duration.match(/PT(\d+\.\d+)?S/);
-  if (match) {
-    const seconds = parseFloat(match[1] || '0');
-    if (seconds < 1) {
-      return `${(seconds * 1000).toFixed(0)}ms`;
+function formatDuration(duration: string | undefined): string {
+  if (!duration) return '-';
+  const match = duration.match(/PT((\d+)H)?((\d+)M)?((\d+\.\d+)?S)?/);
+  if (!match) return duration;
+  
+  const hours = parseInt(match[2] || '0');
+  const minutes = parseInt(match[4] || '0');
+  const seconds = parseFloat(match[6] || '0');
+  
+  if (hours > 0) {
+    const totalSeconds = minutes * 60 + seconds;
+    const displayMinutes = Math.floor(totalSeconds / 60);
+    const displaySeconds = Math.round(totalSeconds % 60);
+    if (displayMinutes > 0 && displaySeconds > 0) {
+      return `${hours}h ${displayMinutes}m ${displaySeconds}s`;
+    } else if (displayMinutes > 0) {
+      return `${hours}h ${displayMinutes}m`;
+    } else if (displaySeconds > 0) {
+      return `${hours}h ${displaySeconds}s`;
     }
-    if (seconds < 60) {
-      return `${seconds.toFixed(2)}s`;
-    }
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+    return `${hours}h`;
   }
-  return duration;
+  
+  if (minutes > 0) {
+    const secs = Math.round(seconds);
+    if (secs > 0) {
+      return `${minutes}m ${secs}s`;
+    }
+    return `${minutes}m`;
+  }
+  
+  if (seconds < 1) {
+    return `${Math.round(seconds * 1000)}ms`;
+  }
+  
+  return `${Math.round(seconds)}s`;
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | undefined): string {
+  if (!dateStr) return '-';
   const date = new Date(dateStr);
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
@@ -129,6 +154,16 @@ function getTriggerType(record: any): string {
     return 'trigger';
   }
   return 'ui';
+}
+
+function getTriggerTooltip(trigger: any): string {
+  let tooltip = `触发器详情\n\n`;
+  tooltip += `Id:\t\t${trigger.id}\n`;
+  tooltip += `Type:\t${trigger.type}\n`;
+  if (trigger.variables) {
+    tooltip += `\nVariables:\n${JSON.stringify(trigger.variables, null, 2)}`;
+  }
+  return tooltip;
 }
 
 function viewDetail(executionId: string) {
@@ -311,38 +346,35 @@ watch(() => workflowStore.projectId, (newVal) => {
           </template>
 
           <template v-else-if="column.dataIndex === 'trigger'">
-            <template v-if="record.trigger">
-              <div class="relative flex items-center justify-center">
-                <span 
-                  class="flex items-center gap-1 text-orange-600 cursor-help"
-                  @mouseenter="() => { showTriggerTooltip = record.id; }"
-                  @mouseleave="() => { showTriggerTooltip = ''; }"
-                >
+            <div v-if="record.trigger">
+              <Tooltip placement="top" :overlay-style="{ maxWidth: 'none' }" :overlay-inner-style="{ backgroundColor: '#fff', color: '#333', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '0', maxWidth: 'none', width: 'auto' }">
+                <template #title>
+                  <div style="width: 420px;">
+                    <div style="padding: 12px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #f0f0f0; color: #333; background: #fff;">触发器详情: {{ record.trigger.id }}</div>
+                    <div style="border-collapse: collapse; width: 100%;">
+                      <div style="display: table-row; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #666; background: #fafafa; width: 90px; font-weight: 500;">Id</div>
+                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #333;">{{ record.trigger.id }}</div>
+                      </div>
+                      <div style="display: table-row; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #666; background: #fafafa; width: 90px; font-weight: 500;">Type</div>
+                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #333; word-break: break-all;">{{ record.trigger.type }}</div>
+                      </div>
+                      <div v-if="record.trigger.variables" style="display: table-row;">
+                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #666; background: #fafafa; width: 90px; font-weight: 500; vertical-align: top;">Variables</div>
+                        <div style="display: table-cell; padding: 8px 16px; font-size: 12px; color: #333;">
+                          <pre style="white-space: pre-wrap; margin: 0; font-size: 11px; background: #f5f5f5; padding: 6px; border-radius: 4px; max-width: 280px;">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <span class="flex items-center justify-center gap-1 text-orange-600 cursor-help">
                   <IconifyIcon icon="mdi:flash" :size="14" />
                   <span>触发器</span>
                 </span>
-                <div 
-                  v-if="showTriggerTooltip === record.id"
-                  class="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[280px]"
-                >
-                  <div class="font-semibold mb-2 text-gray-800">Trigger details: {{ record.trigger.id }}</div>
-                  <div class="border-t border-gray-200 pt-2">
-                    <div class="flex gap-4 mb-1">
-                      <span class="text-gray-500 text-sm w-12 flex-shrink-0">Id:</span>
-                      <span class="text-gray-800 text-sm">{{ record.trigger.id }}</span>
-                    </div>
-                    <div class="flex gap-4 mb-1">
-                      <span class="text-gray-500 text-sm w-12 flex-shrink-0">Type:</span>
-                      <span class="text-gray-800 text-sm">{{ record.trigger.type }}</span>
-                    </div>
-                    <div v-if="record.trigger.variables" class="mt-2">
-                      <div class="text-gray-500 text-sm mb-1">Variables:</div>
-                      <pre class="text-xs whitespace-pre-wrap bg-gray-100 text-gray-800 p-2 rounded max-h-40 overflow-auto">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
+              </Tooltip>
+            </div>
             <span v-else class="text-gray-400 flex items-center justify-center w-full">—</span>
           </template>
 

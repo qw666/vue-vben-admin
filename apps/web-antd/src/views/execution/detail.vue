@@ -35,24 +35,46 @@ const stateLabelMap: Record<string, string> = {
   FAILED: '失败',
 };
 
-function formatDuration(duration: string): string {
-  const match = duration.match(/PT(\d+\.\d+)?S/);
-  if (match) {
-    const seconds = parseFloat(match[1] || '0');
-    if (seconds < 1) {
-      return `${(seconds * 1000).toFixed(0)}ms`;
+function formatDuration(duration: string | undefined): string {
+  if (!duration) return '-';
+  const match = duration.match(/PT((\d+)H)?((\d+)M)?((\d+\.\d+)?S)?/);
+  if (!match) return duration;
+  
+  const hours = parseInt(match[2] || '0');
+  const minutes = parseInt(match[4] || '0');
+  const seconds = parseFloat(match[6] || '0');
+  
+  if (hours > 0) {
+    const totalSeconds = minutes * 60 + seconds;
+    const displayMinutes = Math.floor(totalSeconds / 60);
+    const displaySeconds = Math.round(totalSeconds % 60);
+    if (displayMinutes > 0 && displaySeconds > 0) {
+      return `${hours}h ${displayMinutes}m ${displaySeconds}s`;
+    } else if (displayMinutes > 0) {
+      return `${hours}h ${displayMinutes}m`;
+    } else if (displaySeconds > 0) {
+      return `${hours}h ${displaySeconds}s`;
     }
-    if (seconds < 60) {
-      return `${seconds.toFixed(2)}s`;
-    }
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
+    return `${hours}h`;
   }
-  return duration;
+  
+  if (minutes > 0) {
+    const secs = Math.round(seconds);
+    if (secs > 0) {
+      return `${minutes}m ${secs}s`;
+    }
+    return `${minutes}m`;
+  }
+  
+  if (seconds < 1) {
+    return `${Math.round(seconds * 1000)}ms`;
+  }
+  
+  return `${Math.round(seconds)}s`;
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | undefined): string {
+  if (!dateStr) return '-';
   const date = new Date(dateStr);
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
@@ -160,8 +182,8 @@ onMounted(async () => {
             <Descriptions.Item label="流程版本">{{ execution.flowRevision }}</Descriptions.Item>
             <Descriptions.Item label="开始时间">{{ formatDate(execution.state.startDate) }}</Descriptions.Item>
             <Descriptions.Item label="结束时间">{{ execution.state.endDate ? formatDate(execution.state.endDate) : '-' }}</Descriptions.Item>
-            <Descriptions.Item label="耗时" :span="2">{{ formatDuration(execution.state.duration) }}</Descriptions.Item>
-            <Descriptions.Item label="尝试次数">{{ execution.metadata.attemptNumber }}</Descriptions.Item>
+            <Descriptions.Item label="耗时">{{ formatDuration(execution.state.duration) }}</Descriptions.Item>
+            <Descriptions.Item label="尝试次数" :span="2">{{ execution.metadata.attemptNumber }}</Descriptions.Item>
           </Descriptions>
         </div>
 
