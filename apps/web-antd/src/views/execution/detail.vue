@@ -156,24 +156,11 @@ onMounted(async () => {
 
           <Descriptions :column="2" bordered>
             <Descriptions.Item label="流程ID">{{ execution.flowId }}</Descriptions.Item>
+            <Descriptions.Item label="流程名称">{{ execution.flowName || '-' }}</Descriptions.Item>
             <Descriptions.Item label="流程版本">{{ execution.flowRevision }}</Descriptions.Item>
             <Descriptions.Item label="开始时间">{{ formatDate(execution.state.startDate) }}</Descriptions.Item>
             <Descriptions.Item label="结束时间">{{ execution.state.endDate ? formatDate(execution.state.endDate) : '-' }}</Descriptions.Item>
             <Descriptions.Item label="耗时" :span="2">{{ formatDuration(execution.state.duration) }}</Descriptions.Item>
-            <Descriptions.Item label="触发方式">
-              <template v-if="execution.trigger">
-                <span class="flex items-center gap-2 text-orange-600">
-                  <IconifyIcon icon="mdi:flash" :size="16" />
-                  {{ getTriggerLabel(execution.trigger.type) }}
-                </span>
-              </template>
-              <template v-else>
-                <span class="flex items-center gap-2 text-blue-600">
-                  <IconifyIcon icon="mdi:account" :size="16" />
-                  手动运行
-                </span>
-              </template>
-            </Descriptions.Item>
             <Descriptions.Item label="尝试次数">{{ execution.metadata.attemptNumber }}</Descriptions.Item>
           </Descriptions>
         </div>

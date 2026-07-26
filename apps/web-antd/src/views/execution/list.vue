@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch, nextTick } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { Table, Select, DatePicker, Button, Tag, Spin } from 'ant-design-vue';
+import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { useRouter } from 'vue-router';
 
@@ -19,6 +19,9 @@ const selectedFlowId = ref('');
 const selectedStates = ref<string[]>([]);
 const startDate = ref<string>('');
 const endDate = ref<string>('');
+const isLoading = ref(true);
+const localProjectId = ref<number | null>(null);
+const showTriggerTooltip = ref('');
 
 const stateOptions = [
   { value: 'CREATED', label: '已创建' },
@@ -36,13 +39,13 @@ const columns = [
   },
   {
     title: '流程名称',
-    dataIndex: 'flowId',
+    dataIndex: 'flowName',
     width: 200,
     ellipsis: true,
   },
   {
-    title: '触发方式',
-    dataIndex: 'labels',
+    title: '触发器',
+    dataIndex: 'trigger',
     width: 120,
   },
   {
@@ -116,9 +119,11 @@ function getStateLabel(state: string): string {
   return labelMap[state] || state;
 }
 
-function getTriggerType(labels: Array<{ key: string; value: string }>): string {
-  const fromLabel = labels.find((l) => l.key === 'system.from');
-  return fromLabel?.value === 'trigger' ? 'trigger' : 'ui';
+function getTriggerType(record: any): string {
+  if (record.trigger || record.scheduleDate) {
+    return 'trigger';
+  }
+  return 'ui';
 }
 
 function viewDetail(executionId: string) {
@@ -126,24 +131,16 @@ function viewDetail(executionId: string) {
 }
 
 async function loadData() {
+  const pid = localProjectId.value ?? workflowStore.projectId;
   await executionStore.loadExecutions({
     page: currentPage.value,
     size: pageSize.value,
-    projectId: workflowStore.projectId,
+    projectId: pid,
     flowId: selectedFlowId.value || undefined,
     startDate: startDate.value || undefined,
     endDate: endDate.value || undefined,
     state: selectedStates.value.length > 0 ? selectedStates.value : undefined,
   });
-}
-
-function handleReset() {
-  selectedFlowId.value = '';
-  selectedStates.value = [];
-  startDate.value = '';
-  endDate.value = '';
-  currentPage.value = 1;
-  loadData();
 }
 
 function handleDateChange(date: any, type: 'start' | 'end') {
@@ -163,31 +160,55 @@ function handleDateChange(date: any, type: 'start' | 'end') {
   }
 }
 
-onMounted(async () => {
-  await workflowStore.loadProjects();
-  await workflowStore.loadWorkflows();
-  await loadData();
-});
-
-watch(() => workflowStore.projectId, () => {
+function handleProjectChange(value: number) {
+  localProjectId.value = value;
+  workflowStore.setProjectId(value);
   currentPage.value = 1;
   loadData();
+}
+
+onMounted(async () => {
+  try {
+    await workflowStore.loadProjects();
+    await workflowStore.loadWorkflows();
+    localProjectId.value = workflowStore.projectId;
+    await loadData();
+  } finally {
+    isLoading.value = false;
+  }
+});
+
+watch(() => workflowStore.projectId, (newVal) => {
+  if (localProjectId.value !== newVal) {
+    localProjectId.value = newVal;
+    currentPage.value = 1;
+    loadData();
+  }
 });
 </script>
 
 <template>
   <Page>
-    <template #title>流程执行记录</template>
-
-    <template #extra>
-      <Button type="primary" @click="loadData">
-        <IconifyIcon icon="mdi:refresh" :size="16" />
-        刷新
-      </Button>
-      <Button @click="handleReset">
-        <IconifyIcon icon="mdi:rotate-ccw" :size="16" />
-        重置
-      </Button>
+    <template #title>
+      <div class="flex items-center gap-4">
+        <span>项目</span>
+        <Select
+          v-model:value="localProjectId"
+          class="w-48"
+          size="small"
+          placeholder="选择项目"
+          :loading="isLoading"
+          @change="handleProjectChange"
+        >
+          <Select.Option
+            v-for="project in workflowStore.projects"
+            :key="project.id"
+            :value="project.id"
+          >
+            {{ project.projectName }}
+          </Select.Option>
+        </Select>
+      </div>
     </template>
 
     <div class="mb-4 p-4 bg-white rounded-lg shadow-sm">
@@ -268,8 +289,8 @@ watch(() => workflowStore.projectId, () => {
           showSizeChanger: true,
           showTotal: (total: number) => `共 ${total} 条`,
           onChange: (page: number, size: number) => {
-            currentPage = page;
-            pageSize = size;
+            currentPage.value = page;
+            pageSize.value = size;
             loadData();
           },
         }"
@@ -284,15 +305,40 @@ watch(() => workflowStore.projectId, () => {
             </a>
           </template>
 
-          <template v-else-if="column.dataIndex === 'labels'">
-            <span v-if="getTriggerType(record.labels) === 'trigger'" class="flex items-center gap-1 text-orange-600">
-              <IconifyIcon icon="mdi:flash" :size="14" />
-              <span>触发器</span>
-            </span>
-            <span v-else class="flex items-center gap-1 text-blue-600">
-              <IconifyIcon icon="mdi:account" :size="14" />
-              <span>手动运行</span>
-            </span>
+          <template v-else-if="column.dataIndex === 'trigger'">
+            <template v-if="record.trigger">
+              <div class="relative flex items-center justify-center">
+                <span 
+                  class="flex items-center gap-1 text-orange-600 cursor-help"
+                  @mouseenter="() => { showTriggerTooltip = record.id; }"
+                  @mouseleave="() => { showTriggerTooltip = ''; }"
+                >
+                  <IconifyIcon icon="mdi:flash" :size="14" />
+                  <span>触发器</span>
+                </span>
+                <div 
+                  v-if="showTriggerTooltip === record.id"
+                  class="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[280px]"
+                >
+                  <div class="font-semibold mb-2 text-gray-800">Trigger details: {{ record.trigger.id }}</div>
+                  <div class="border-t border-gray-200 pt-2">
+                    <div class="flex gap-4 mb-1">
+                      <span class="text-gray-500 text-sm w-12 flex-shrink-0">Id:</span>
+                      <span class="text-gray-800 text-sm">{{ record.trigger.id }}</span>
+                    </div>
+                    <div class="flex gap-4 mb-1">
+                      <span class="text-gray-500 text-sm w-12 flex-shrink-0">Type:</span>
+                      <span class="text-gray-800 text-sm">{{ record.trigger.type }}</span>
+                    </div>
+                    <div v-if="record.trigger.variables" class="mt-2">
+                      <div class="text-gray-500 text-sm mb-1">Variables:</div>
+                      <pre class="text-xs whitespace-pre-wrap bg-gray-100 text-gray-800 p-2 rounded max-h-40 overflow-auto">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <span v-else class="text-gray-400 flex items-center justify-center w-full">—</span>
           </template>
 
           <template v-else-if="column.dataIndex === 'state'">
