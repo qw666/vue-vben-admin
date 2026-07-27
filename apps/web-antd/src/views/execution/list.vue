@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { onMounted, ref, watch, nextTick } from 'vue';
+import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
 import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip } from 'ant-design-vue';
@@ -19,8 +20,8 @@ const currentPage = ref(1);
 const pageSize = ref(10);
 const selectedFlowId = ref('');
 const selectedStates = ref<string[]>([]);
-const startDate = ref<string>('');
-const endDate = ref<string>('');
+const startDate = ref<dayjs.Dayjs | null>(null);
+const endDate = ref<dayjs.Dayjs | null>(null);
 const isLoading = ref(true);
 const localProjectId = ref<number | null>(null);
 
@@ -120,7 +121,12 @@ function formatDuration(duration: string | undefined): string {
 
 function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
+  let normalizedDateStr = dateStr;
+  const lastPart = dateStr.slice(-6);
+  if (!dateStr.endsWith('Z') && !lastPart.includes('+') && !lastPart.includes('-')) {
+    normalizedDateStr = dateStr + 'Z';
+  }
+  const date = new Date(normalizedDateStr);
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -128,6 +134,7 @@ function formatDate(dateStr: string | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    timeZone: 'Asia/Shanghai',
   });
 }
 
@@ -179,25 +186,24 @@ async function loadData() {
     size: pageSize.value,
     projectId: pid,
     flowId: selectedFlowId.value || undefined,
-    startDate: startDate.value || undefined,
-    endDate: endDate.value || undefined,
+    startDate: startDate.value ? dayjs(startDate.value).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
+    endDate: endDate.value ? dayjs(endDate.value).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
     state: selectedStates.value.length > 0 ? selectedStates.value : undefined,
   });
 }
 
 function handleDateChange(date: any, type: 'start' | 'end') {
   if (date) {
-    const utcDate = date.toISOString().replace('.000Z', 'Z');
     if (type === 'start') {
-      startDate.value = utcDate;
+      startDate.value = dayjs(date);
     } else {
-      endDate.value = utcDate;
+      endDate.value = dayjs(date);
     }
   } else {
     if (type === 'start') {
-      startDate.value = '';
+      startDate.value = null;
     } else {
-      endDate.value = '';
+      endDate.value = null;
     }
   }
 }

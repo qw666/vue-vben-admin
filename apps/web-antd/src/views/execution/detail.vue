@@ -75,7 +75,12 @@ function formatDuration(duration: string | undefined): string {
 
 function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return '-';
-  const date = new Date(dateStr);
+  let normalizedDateStr = dateStr;
+  const lastPart = dateStr.slice(-6);
+  if (!dateStr.endsWith('Z') && !lastPart.includes('+') && !lastPart.includes('-')) {
+    normalizedDateStr = dateStr + 'Z';
+  }
+  const date = new Date(normalizedDateStr);
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -83,6 +88,7 @@ function formatDate(dateStr: string | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    timeZone: 'Asia/Shanghai',
   });
 }
 
