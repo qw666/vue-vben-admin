@@ -302,6 +302,9 @@ function handleProjectChange(value: number) {
 
 onMounted(async () => {
   try {
+    if (!workflowStore.projects || workflowStore.projects.length === 0) {
+      await workflowStore.loadProjects();
+    }
     localProjectId.value = workflowStore.projectId;
     await loadData();
   } finally {
