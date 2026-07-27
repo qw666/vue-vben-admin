@@ -45,7 +45,7 @@ const columns = [
     ellipsis: true,
   },
   {
-    title: '触发器',
+    title: '触发方式',
     dataIndex: 'trigger',
     width: 120,
     align: 'center',
@@ -365,7 +365,7 @@ watch(() => workflowStore.projectId, (newVal) => {
                       <div v-if="record.trigger.variables" style="display: table-row;">
                         <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500, verticalAlign: 'top' }">Variables</div>
                         <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333' }">
-                          <pre :style="{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '11px', backgroundColor: isDark ? '#374151' : '#f5f5f5', padding: '6px', borderRadius: '4px', maxWidth: '280px' }">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
+                          <pre :style="{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '11px', backgroundColor: isDark ? '#374151' : '#f5f5f5', padding: '6px', borderRadius: '4px', maxWidth: '280px', maxHeight: '200px', overflowY: 'auto' }">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
                         </div>
                       </div>
                     </div>
@@ -373,11 +373,11 @@ watch(() => workflowStore.projectId, (newVal) => {
                 </template>
                 <span class="flex items-center justify-center gap-1 text-orange-600 cursor-help">
                   <IconifyIcon icon="mdi:flash" :size="14" />
-                  <span>触发器</span>
+                  <span>触发器触发</span>
                 </span>
               </Tooltip>
             </div>
-            <span v-else class="text-gray-400 flex items-center justify-center w-full">—</span>
+            <span v-else class="text-gray-500 flex items-center justify-center w-full">手动触发</span>
           </template>
 
           <template v-else-if="column.dataIndex === 'state'">

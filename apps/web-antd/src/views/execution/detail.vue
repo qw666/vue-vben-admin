@@ -180,6 +180,7 @@ onMounted(async () => {
             <Descriptions.Item label="流程ID">{{ execution.flowId }}</Descriptions.Item>
             <Descriptions.Item label="流程名称">{{ execution.flowName || '-' }}</Descriptions.Item>
             <Descriptions.Item label="流程版本">{{ execution.flowRevision }}</Descriptions.Item>
+            <Descriptions.Item label="触发方式">{{ execution.trigger ? '触发器触发' : '手动触发' }}</Descriptions.Item>
             <Descriptions.Item label="开始时间">{{ formatDate(execution.state.startDate) }}</Descriptions.Item>
             <Descriptions.Item label="结束时间">{{ execution.state.endDate ? formatDate(execution.state.endDate) : '-' }}</Descriptions.Item>
             <Descriptions.Item label="耗时">{{ formatDuration(execution.state.duration) }}</Descriptions.Item>
