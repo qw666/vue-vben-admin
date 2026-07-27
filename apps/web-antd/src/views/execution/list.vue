@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch, nextTick } from 'vue';
+import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
-import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip } from 'ant-design-vue';
+import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip, Modal, Radio } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { useRouter } from 'vue-router';
 import { usePreferences } from '@vben/preferences';
@@ -24,6 +24,12 @@ const startDate = ref<dayjs.Dayjs | null>(null);
 const endDate = ref<dayjs.Dayjs | null>(null);
 const isLoading = ref(true);
 const localProjectId = ref<number | null>(null);
+
+const showReplayModal = ref(false);
+const replayExecutionId = ref('');
+const replayLatestRevision = ref(false);
+
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const stateOptions = [
   { value: 'CREATED', label: '已创建' },
@@ -77,6 +83,12 @@ const columns = [
     title: '版本',
     dataIndex: 'flowRevision',
     width: 80,
+    align: 'center',
+  },
+  {
+    title: '操作',
+    dataIndex: 'action',
+    width: 120,
     align: 'center',
   },
 ];
@@ -175,11 +187,14 @@ function getTriggerTooltip(trigger: any): string {
   return tooltip;
 }
 
-function viewDetail(executionId: string) {
-  router.push(`/shuzhiliu/execution/detail/${executionId}`);
+function viewDetail(executionId: string, flowId: string) {
+  router.push({
+    path: `/shuzhiliu/execution/detail/${executionId}`,
+    query: { flowId },
+  });
 }
 
-async function loadData() {
+async function loadData(isAutoRefresh = false) {
   const pid = localProjectId.value ?? workflowStore.projectId;
   await executionStore.loadExecutions({
     page: currentPage.value,
@@ -189,7 +204,71 @@ async function loadData() {
     startDate: startDate.value ? dayjs(startDate.value).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
     endDate: endDate.value ? dayjs(endDate.value).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
     state: selectedStates.value.length > 0 ? selectedStates.value : undefined,
+  }, isAutoRefresh);
+  
+  if (executionStore.executions && executionStore.executions.length > 0) {
+    const hasRunning = executionStore.executions.some(e => e && e.state && e.state.current === 'RUNNING');
+    toggleAutoRefresh(hasRunning);
+  } else {
+    toggleAutoRefresh(false);
+  }
+}
+
+async function handleKill(executionId: string) {
+  const pid = localProjectId.value ?? workflowStore.projectId;
+  await executionStore.batchKill({
+    projectId: pid,
+    executionIdList: [executionId],
   });
+  await loadData();
+}
+
+async function handleRestart(executionId: string) {
+  const pid = localProjectId.value ?? workflowStore.projectId;
+  await executionStore.batchRestart({
+    projectId: pid,
+    executionIdList: [executionId],
+  });
+  await loadData();
+}
+
+function handleReplay(executionId: string) {
+  replayExecutionId.value = executionId;
+  replayLatestRevision.value = false;
+  showReplayModal.value = true;
+}
+
+async function confirmReplay() {
+  const pid = localProjectId.value ?? workflowStore.projectId;
+  await executionStore.batchReplay({
+    projectId: pid,
+    executionIdList: [replayExecutionId.value],
+    latestRevision: replayLatestRevision.value,
+  });
+  showReplayModal.value = false;
+  await loadData();
+}
+
+function cancelReplay() {
+  showReplayModal.value = false;
+}
+
+async function handlePause(executionId: string) {
+  const pid = localProjectId.value ?? workflowStore.projectId;
+  await executionStore.batchPause({
+    projectId: pid,
+    executionIdList: [executionId],
+  });
+  await loadData();
+}
+
+async function handleResume(executionId: string) {
+  const pid = localProjectId.value ?? workflowStore.projectId;
+  await executionStore.batchResume({
+    projectId: pid,
+    executionIdList: [executionId],
+  });
+  await loadData();
 }
 
 function handleDateChange(date: any, type: 'start' | 'end') {
@@ -218,12 +297,12 @@ function handleProjectChange(value: number) {
 onMounted(async () => {
   try {
     await workflowStore.loadProjects();
-    await workflowStore.loadWorkflows();
     localProjectId.value = workflowStore.projectId;
     await loadData();
   } finally {
     isLoading.value = false;
   }
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 watch(() => workflowStore.projectId, (newVal) => {
@@ -233,6 +312,39 @@ watch(() => workflowStore.projectId, (newVal) => {
     loadData();
   }
 });
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+});
+
+function toggleAutoRefresh(hasRunning: boolean) {
+  if (hasRunning && !refreshTimer && !document.hidden) {
+    refreshTimer = setInterval(async () => {
+      await loadData(true);
+    }, 5000);
+  } else if (!hasRunning && refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  } else {
+    const hasRunning = executionStore.executions.some(e => e && e.state && e.state.current === 'RUNNING');
+    if (hasRunning) {
+      toggleAutoRefresh(true);
+    }
+  }
+}
 </script>
 
 <template>
@@ -245,7 +357,8 @@ watch(() => workflowStore.projectId, (newVal) => {
           class="w-48"
           size="small"
           placeholder="选择项目"
-          :loading="isLoading"
+          :loading="isLoading || executionStore.isOperationLoading"
+          :disabled="executionStore.isOperationLoading"
           @change="handleProjectChange"
         >
           <Select.Option
@@ -259,74 +372,79 @@ watch(() => workflowStore.projectId, (newVal) => {
       </div>
     </template>
 
-    <div class="mb-4 p-4 bg-card rounded-lg shadow-sm">
-      <div class="flex flex-wrap gap-4 items-center">
-        <div class="flex items-center gap-2">
-          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">流程：</label>
-          <Select
-            v-model:value="selectedFlowId"
-            placeholder="请选择流程"
-            style="width: 200px"
-            allowClear
-          >
-            <Select.Option
-              v-for="workflow in workflowStore.workflows"
-              :key="workflow.flowId"
-              :value="workflow.flowId"
+    <Spin :spinning="executionStore.isOperationLoading">
+      <div class="mb-4 p-4 bg-card rounded-lg shadow-sm">
+        <div class="flex flex-wrap gap-4 items-center">
+          <div class="flex items-center gap-2">
+            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">流程：</label>
+            <Select
+              v-model:value="selectedFlowId"
+              placeholder="请选择流程"
+              style="width: 200px"
+              allowClear
+              :disabled="executionStore.isOperationLoading"
             >
-              {{ workflow.name }}
-            </Select.Option>
-          </Select>
-        </div>
+              <Select.Option
+                v-for="workflow in workflowStore.workflows"
+                :key="workflow.flowId"
+                :value="workflow.flowId"
+              >
+                {{ workflow.name }}
+              </Select.Option>
+            </Select>
+          </div>
 
-        <div class="flex items-center gap-2">
-          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">状态：</label>
-          <Select
-            v-model:value="selectedStates"
-            placeholder="请选择状态"
-            style="width: 200px"
-            mode="multiple"
-            allowClear
-          >
-            <Select.Option
-              v-for="option in stateOptions"
-              :key="option.value"
-              :value="option.value"
+          <div class="flex items-center gap-2">
+            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">状态：</label>
+            <Select
+              v-model:value="selectedStates"
+              placeholder="请选择状态"
+              style="width: 200px"
+              mode="multiple"
+              allowClear
+              :disabled="executionStore.isOperationLoading"
             >
-              {{ option.label }}
-            </Select.Option>
-          </Select>
-        </div>
+              <Select.Option
+                v-for="option in stateOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </Select.Option>
+            </Select>
+          </div>
 
-        <div class="flex items-center gap-2">
-          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">开始时间：</label>
-          <DatePicker
-            v-model:value="startDate"
-            placeholder="开始时间"
-            showTime
-            format="YYYY-MM-DD HH:mm:ss"
-            @change="(date: any) => handleDateChange(date, 'start')"
-          />
-        </div>
+          <div class="flex items-center gap-2">
+            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">开始时间：</label>
+            <DatePicker
+              v-model:value="startDate"
+              placeholder="开始时间"
+              showTime
+              format="YYYY-MM-DD HH:mm:ss"
+              @change="(date: any) => handleDateChange(date, 'start')"
+              :disabled="executionStore.isOperationLoading"
+            />
+          </div>
 
-        <div class="flex items-center gap-2">
-          <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">结束时间：</label>
-          <DatePicker
-            v-model:value="endDate"
-            placeholder="结束时间"
-            showTime
-            format="YYYY-MM-DD HH:mm:ss"
-            @change="(date: any) => handleDateChange(date, 'end')"
-          />
-        </div>
+          <div class="flex items-center gap-2">
+            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">结束时间：</label>
+            <DatePicker
+              v-model:value="endDate"
+              placeholder="结束时间"
+              showTime
+              format="YYYY-MM-DD HH:mm:ss"
+              @change="(date: any) => handleDateChange(date, 'end')"
+              :disabled="executionStore.isOperationLoading"
+            />
+          </div>
 
-        <Button type="primary" @click="loadData">
-          查询
-        </Button>
+          <Button type="primary" @click="loadData" :disabled="executionStore.isOperationLoading">
+            查询
+          </Button>
+        </div>
       </div>
-    </div>
 
-    <Spin :spinning="executionStore.isExecutionsLoading">
+      <Spin :spinning="executionStore.isExecutionsLoading">
       <Table
         :columns="columns"
         :data-source="executionStore.executions"
@@ -348,7 +466,7 @@ watch(() => workflowStore.projectId, (newVal) => {
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'id'">
-            <a class="text-blue-600 hover:text-blue-800" @click="viewDetail(record.id)">
+            <a class="text-blue-600 hover:text-blue-800" @click="viewDetail(record.id, record.flowId)">
               {{ record.id }}
             </a>
           </template>
@@ -402,8 +520,104 @@ watch(() => workflowStore.projectId, (newVal) => {
               {{ formatDuration(record.state.duration) }}
             </template>
           </template>
+
+          <template v-else-if="column.dataIndex === 'action'">
+            <div class="flex items-center justify-center gap-1">
+              <Tooltip placement="top" title="暂停">
+                <Button
+                  v-if="record.state.current === 'RUNNING'"
+                  type="text"
+                  size="small"
+                  @click="handlePause(record.id)"
+                  :loading="executionStore.isOperationLoading"
+                  :disabled="executionStore.isOperationLoading"
+                  class="!text-blue-500 hover:!text-blue-700 hover:bg-blue-50 rounded-full w-6 h-6 flex items-center justify-center"
+                >
+                  <IconifyIcon icon="mdi:pause-circle" :size="16" />
+                </Button>
+              </Tooltip>
+              <Tooltip placement="top" title="恢复">
+                <Button
+                  v-if="record.state.current === 'PAUSED'"
+                  type="text"
+                  size="small"
+                  @click="handleResume(record.id)"
+                  :loading="executionStore.isOperationLoading"
+                  :disabled="executionStore.isOperationLoading"
+                  class="!text-green-500 hover:!text-green-700 hover:bg-green-50 rounded-full w-6 h-6 flex items-center justify-center"
+                >
+                  <IconifyIcon icon="mdi:play-circle" :size="16" />
+                </Button>
+              </Tooltip>
+              <Tooltip placement="top" title="终止">
+                <Button
+                  v-if="record.state.current === 'RUNNING' || record.state.current === 'PAUSED'"
+                  type="text"
+                  size="small"
+                  @click="handleKill(record.id)"
+                  :loading="executionStore.isOperationLoading"
+                  :disabled="executionStore.isOperationLoading"
+                  class="!text-red-500 hover:!text-red-700 hover:bg-red-50 rounded-full w-6 h-6 flex items-center justify-center"
+                >
+                  <IconifyIcon icon="mdi:stop-circle" :size="16" />
+                </Button>
+              </Tooltip>
+              <Tooltip placement="top" title="重启">
+                <Button
+                  v-if="record.state.current === 'FAILED' || record.state.current === 'WARNING'"
+                  type="text"
+                  size="small"
+                  @click="handleRestart(record.id)"
+                  :loading="executionStore.isOperationLoading"
+                  :disabled="executionStore.isOperationLoading"
+                  class="!text-orange-500 hover:!text-orange-700 hover:bg-orange-50 rounded-full w-6 h-6 flex items-center justify-center"
+                >
+                  <IconifyIcon icon="mdi:refresh-circle" :size="16" />
+                </Button>
+              </Tooltip>
+              <Tooltip placement="top" title="重跑">
+                <Button
+                  v-if="['SUCCESS', 'FAILED', 'WARNING', 'KILLED', 'CANCELLED'].includes(record.state.current)"
+                  type="text"
+                  size="small"
+                  @click="handleReplay(record.id)"
+                  :loading="executionStore.isOperationLoading"
+                  :disabled="executionStore.isOperationLoading"
+                  class="!text-indigo-500 hover:!text-indigo-700 hover:bg-indigo-50 rounded-full w-6 h-6 flex items-center justify-center"
+                >
+                  <IconifyIcon icon="mdi:rotate-3d-variant" :size="16" />
+                </Button>
+              </Tooltip>
+            </div>
+          </template>
         </template>
       </Table>
     </Spin>
+    </Spin>
+
+    <Modal
+      v-model:open="showReplayModal"
+      title="重跑执行"
+      :footer="null"
+      width="400px"
+    >
+      <div class="p-4">
+        <p class="text-sm text-gray-600 mb-4">请选择重跑使用的流程版本：</p>
+        <Radio.Group v-model:value="replayLatestRevision" class="space-y-2">
+          <Radio :value="false">
+            使用历史版本
+            <span class="text-xs text-gray-400 ml-2">（沿用原执行对应的流程版本）</span>
+          </Radio>
+          <Radio :value="true">
+            使用最新版本
+            <span class="text-xs text-gray-400 ml-2">（使用当前最新流程版本）</span>
+          </Radio>
+        </Radio.Group>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <Button @click="cancelReplay">取消</Button>
+        <Button type="primary" @click="confirmReplay">确定重跑</Button>
+      </div>
+    </Modal>
   </Page>
 </template>

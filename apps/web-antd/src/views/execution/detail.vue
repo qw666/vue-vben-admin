@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { Tag, Descriptions, Collapse, Spin } from 'ant-design-vue';
@@ -20,6 +20,9 @@ const isLoading = ref(true);
 const expandedTaskIds = ref<string[]>([]);
 
 const executionId = computed(() => route.params.id as string);
+const flowId = computed(() => route.query.flowId as string);
+
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const stateColorMap: Record<string, string> = {
   CREATED: 'gray',
@@ -136,18 +139,51 @@ function getTaskLabel(taskId: string): string {
   return taskId;
 }
 
-async function loadExecution() {
-  isLoading.value = true;
+async function loadExecution(isAutoRefresh = false) {
+  if (!isAutoRefresh) {
+    isLoading.value = true;
+  }
   try {
-    await executionStore.loadExecutions({
-      projectId: workflowStore.projectId,
-    });
-    execution.value = executionStore.executions.find((e) => e.id === executionId.value) || null;
+    const result = await executionStore.loadExecutionDetail(workflowStore.projectId, flowId.value, executionId.value);
+    execution.value = result;
   } catch (error) {
     console.error('Failed to load execution:', error);
     execution.value = null;
   } finally {
-    isLoading.value = false;
+    if (!isAutoRefresh) {
+      isLoading.value = false;
+    }
+  }
+  
+  if (execution.value && execution.value.state.current === 'RUNNING') {
+    startRefreshTimer();
+  } else {
+    stopRefreshTimer();
+  }
+}
+
+function startRefreshTimer() {
+  if (!refreshTimer) {
+    refreshTimer = setInterval(async () => {
+      await loadExecution(true);
+    }, 5000);
+  }
+}
+
+function stopRefreshTimer() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopRefreshTimer();
+  } else {
+    if (execution.value && execution.value.state.current === 'RUNNING') {
+      startRefreshTimer();
+    }
   }
 }
 
@@ -156,8 +192,34 @@ function goBack() {
 }
 
 onMounted(async () => {
-  await workflowStore.loadProjects();
+  console.log('detail.vue onMounted');
+  console.log('route.params:', route.params);
+  console.log('executionId:', executionId.value);
+  
+  try {
+    await workflowStore.loadProjects();
+    console.log('projectId after loadProjects:', workflowStore.projectId);
+  } catch (e) {
+    console.error('loadProjects failed:', e);
+  }
+  
   await loadExecution();
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+});
+
+watch(
+  () => route.params.id,
+  async (newId) => {
+    console.log('route.params.id changed:', newId);
+    if (newId) {
+      await loadExecution();
+    }
+  }
+);
+
+onUnmounted(() => {
+  stopRefreshTimer();
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 
