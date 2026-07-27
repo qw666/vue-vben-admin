@@ -155,8 +155,10 @@ async function loadExecution(isAutoRefresh = false) {
     }
   }
   
-  if (execution.value && execution.value.state.current === 'RUNNING') {
-    startRefreshTimer();
+  if (execution.value && execution.value.state && execution.value.state.current === 'RUNNING') {
+    if (!document.hidden) {
+      startRefreshTimer();
+    }
   } else {
     stopRefreshTimer();
   }
@@ -178,10 +180,11 @@ function stopRefreshTimer() {
 }
 
 function handleVisibilityChange() {
+  console.log('visibilitychange event, hidden:', document.hidden);
   if (document.hidden) {
     stopRefreshTimer();
   } else {
-    if (execution.value && execution.value.state.current === 'RUNNING') {
+    if (execution.value && execution.value.state && execution.value.state.current === 'RUNNING') {
       startRefreshTimer();
     }
   }
@@ -195,13 +198,7 @@ onMounted(async () => {
   console.log('detail.vue onMounted');
   console.log('route.params:', route.params);
   console.log('executionId:', executionId.value);
-  
-  try {
-    await workflowStore.loadProjects();
-    console.log('projectId after loadProjects:', workflowStore.projectId);
-  } catch (e) {
-    console.error('loadProjects failed:', e);
-  }
+  console.log('flowId:', flowId.value);
   
   await loadExecution();
   document.addEventListener('visibilitychange', handleVisibilityChange);

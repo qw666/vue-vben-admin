@@ -287,6 +287,12 @@ function handleDateChange(date: any, type: 'start' | 'end') {
   }
 }
 
+async function handleProjectFocus() {
+  if (!workflowStore.projects || workflowStore.projects.length === 0) {
+    await workflowStore.loadProjects();
+  }
+}
+
 function handleProjectChange(value: number) {
   localProjectId.value = value;
   workflowStore.setProjectId(value);
@@ -296,7 +302,6 @@ function handleProjectChange(value: number) {
 
 onMounted(async () => {
   try {
-    await workflowStore.loadProjects();
     localProjectId.value = workflowStore.projectId;
     await loadData();
   } finally {
@@ -360,6 +365,7 @@ function handleVisibilityChange() {
           :loading="isLoading || executionStore.isOperationLoading"
           :disabled="executionStore.isOperationLoading"
           @change="handleProjectChange"
+          @focus="handleProjectFocus"
         >
           <Select.Option
             v-for="project in workflowStore.projects"
