@@ -11,6 +11,16 @@ export default defineConfig(async () => {
             rewrite: (path) => path.replace(/^\/api\/flow\/plat/, '/flow/plat'),
             target: 'http://localhost:8189',
             ws: true,
+            configure: (proxy, options) => {
+              proxy.on('proxyRes', (proxyRes, req, res) => {
+                const contentType = proxyRes.headers['content-type'];
+                if (contentType && contentType.includes('text/event-stream')) {
+                  res.setHeader('Cache-Control', 'no-cache');
+                  res.setHeader('Connection', 'keep-alive');
+                  res.setHeader('Content-Type', 'text/event-stream');
+                }
+              });
+            },
           },
           '/api': {
             changeOrigin: true,

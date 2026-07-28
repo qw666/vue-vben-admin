@@ -8,6 +8,8 @@ import { IconifyIcon } from '@vben/icons';
 import { useRouter } from 'vue-router';
 import { usePreferences } from '@vben/preferences';
 
+import LogModal from './components/LogModal.vue';
+
 import { useExecutionStore } from '#/store/execution';
 import { useWorkflowStore } from '#/store/workflow';
 
@@ -28,6 +30,11 @@ const localProjectId = ref<number | null>(null);
 const showReplayModal = ref(false);
 const replayExecutionId = ref('');
 const replayLatestRevision = ref(false);
+
+const showLogModal = ref(false);
+const logExecutionId = ref('');
+const logFlowId = ref('');
+const logState = ref('');
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -80,8 +87,8 @@ const columns = [
     align: 'center',
   },
   {
-    title: '版本',
-    dataIndex: 'flowRevision',
+    title: '日志',
+    dataIndex: 'log',
     width: 80,
     align: 'center',
   },
@@ -251,6 +258,13 @@ async function confirmReplay() {
 
 function cancelReplay() {
   showReplayModal.value = false;
+}
+
+function handleViewLog(executionId: string, flowId: string, state: string) {
+  logExecutionId.value = executionId;
+  logFlowId.value = flowId;
+  logState.value = state;
+  showLogModal.value = true;
 }
 
 async function handlePause(executionId: string) {
@@ -530,6 +544,17 @@ function handleVisibilityChange() {
             </template>
           </template>
 
+          <template v-else-if="column.dataIndex === 'log'">
+            <Button
+              type="text"
+              size="small"
+              @click="handleViewLog(record.id, record.flowId, record.state.current)"
+              class="!text-purple-500 hover:!text-purple-700 hover:bg-purple-50 rounded-full w-6 h-6 flex items-center justify-center"
+            >
+              <IconifyIcon icon="mdi:file-document" :size="16" />
+            </Button>
+          </template>
+
           <template v-else-if="column.dataIndex === 'action'">
             <div class="flex items-center justify-center gap-1">
               <Tooltip placement="top" title="暂停">
@@ -628,5 +653,13 @@ function handleVisibilityChange() {
         <Button type="primary" @click="confirmReplay">确定重跑</Button>
       </div>
     </Modal>
+
+    <LogModal
+      v-model:visible="showLogModal"
+      :execution-id="logExecutionId"
+      :flow-id="logFlowId"
+      :project-id="localProjectId ?? workflowStore.projectId"
+      :state="logState"
+    />
   </Page>
 </template>

@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import { requestClient } from '#/api/request';
 import type { Execution, ExecutionQueryParams, ExecutionPageResponse } from '#/types/execution';
+import type { ExecutionLogVO, LogSearchDTO } from '#/types/log';
 
 export interface ExecutionBatchOperateDTO {
   projectId: number;
@@ -166,6 +167,144 @@ export const useExecutionStore = defineStore('execution', () => {
     currentExecution.value = execution;
   }
 
+  async function listExecutionLog(params: LogSearchDTO): Promise<ExecutionLogVO[]> {
+    try {
+      const result = await requestClient.post<ExecutionLogVO[]>(
+        '/flow/plat/execution/log/list',
+        params,
+        {
+          headers: {
+            tenantId: 'tenant001',
+            loginUser: 'admin',
+          },
+        },
+      );
+      return result;
+    } catch (error) {
+      console.error('Failed to load execution log:', error);
+      return [];
+    }
+  }
+
+  function followExecutionLog(
+    projectId: number,
+    flowId: string,
+    executionId: string,
+    minLevel?: string,
+    onMessage?: (log: ExecutionLogVO) => void,
+    onError?: (error: any) => void,
+    onComplete?: () => void,
+  ): { abort: () => void } | null {
+    try {
+      const url = new URL('/api/flow/plat/execution/log/follow', window.location.origin);
+      url.searchParams.set('projectId', String(projectId));
+      url.searchParams.set('flowId', flowId);
+      url.searchParams.set('executionId', executionId);
+      url.searchParams.set('tenantId', 'tenant001');
+      if (minLevel) {
+        url.searchParams.set('minLevel', minLevel);
+      }
+
+      console.log('Connecting to SSE:', url.toString());
+
+      const controller = new AbortController();
+      const signal = controller.signal;
+
+      fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+        signal,
+      })
+        .then(async (response) => {
+          console.log('SSE response status:', response.status);
+          console.log('SSE response Content-Type:', response.headers.get('content-type'));
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error('Failed to get reader');
+          }
+
+          const decoder = new TextDecoder('utf-8');
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('SSE connection closed');
+              break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+            
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.trim()) {
+                console.log('SSE raw line:', line);
+                
+                if (line.startsWith('data: ')) {
+                  try {
+                    const dataStr = line.substring(6);
+                    const log = JSON.parse(dataStr);
+                    console.log('Parsed log:', log);
+                    if (onMessage) {
+                      onMessage(log);
+                    }
+                  } catch (error) {
+                    console.error('Failed to parse log message:', error, 'raw data:', line.substring(6));
+                  }
+                } else if (line.startsWith('data:')) {
+                  try {
+                    const dataStr = line.substring(5);
+                    const log = JSON.parse(dataStr);
+                    console.log('Parsed log (no space):', log);
+                    if (onMessage) {
+                      onMessage(log);
+                    }
+                  } catch (error) {
+                    console.error('Failed to parse log message:', error, 'raw data:', line.substring(5));
+                  }
+                }
+              }
+            }
+          }
+
+          if (onComplete) {
+            onComplete();
+          }
+        })
+        .catch((error) => {
+          console.error('SSE error:', error);
+          if (onError) {
+            onError(error);
+          }
+        });
+
+      return {
+        abort: () => {
+          console.log('Aborting SSE connection');
+          controller.abort();
+        },
+      };
+    } catch (error) {
+      console.error('Failed to create SSE connection:', error);
+      if (onError) {
+        onError(error);
+      }
+      return null;
+    }
+  }
+
   return {
     executions,
     totalExecutions,
@@ -180,5 +319,7 @@ export const useExecutionStore = defineStore('execution', () => {
     batchPause,
     batchResume,
     setCurrentExecution,
+    listExecutionLog,
+    followExecutionLog,
   };
 });
