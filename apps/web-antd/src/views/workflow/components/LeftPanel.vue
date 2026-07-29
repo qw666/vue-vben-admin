@@ -22,7 +22,8 @@ const flowControlNodes = computed(() => {
   return getFlowControlNodes().filter(
     (node) => node.type !== 'idp_core_flow_Start' && 
              node.type !== 'idp_core_flow_End' &&
-             node.type !== 'idp_core_http_Request'
+             node.type !== 'idp_core_http_Request' &&
+             node.type !== 'idp_core_python_Code'
   );
 });
 
@@ -30,35 +31,72 @@ const httpRequestNode = computed(() => {
   return getFlowControlNodes().find((node) => node.type === 'idp_core_http_Request');
 });
 
+const codeNode = computed(() => {
+  return getFlowControlNodes().find((node) => node.type === 'idp_core_python_Code');
+});
+
 const mergedPluginGroups = computed(() => {
-  if (!httpRequestNode.value) return props.pluginGroups;
-  
-  const httpNode = httpRequestNode.value;
   const groups = [...props.pluginGroups];
   
   const toolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
-  if (toolsGroup) {
-    toolsGroup.pluginList = toolsGroup.pluginList || [];
-    const exists = toolsGroup.pluginList.find((p: any) => p.type === httpNode.type);
-    if (!exists) {
-      toolsGroup.pluginList.push({
-        type: httpNode.type,
-        nodeName: httpNode.nodeName,
-        icon: httpNode.icon,
-        description: httpNode.description,
+  
+  if (!httpRequestNode.value && !codeNode.value) {
+    return groups;
+  }
+  
+  if (httpRequestNode.value) {
+    const httpNode = httpRequestNode.value;
+    if (toolsGroup) {
+      toolsGroup.pluginList = toolsGroup.pluginList || [];
+      const exists = toolsGroup.pluginList.find((p: any) => p.type === httpNode.type);
+      if (!exists) {
+        toolsGroup.pluginList.push({
+          type: httpNode.type,
+          nodeName: httpNode.nodeName,
+          icon: httpNode.icon,
+          description: httpNode.description,
+        });
+      }
+    } else {
+      groups.push({
+        groupKey: 'tools',
+        groupName: '工具',
+        pluginList: [{
+          type: httpNode.type,
+          nodeName: httpNode.nodeName,
+          icon: httpNode.icon,
+          description: httpNode.description,
+        }],
       });
     }
-  } else {
-    groups.push({
-      groupKey: 'tools',
-      groupName: '工具',
-      pluginList: [{
-        type: httpNode.type,
-        nodeName: httpNode.nodeName,
-        icon: httpNode.icon,
-        description: httpNode.description,
-      }],
-    });
+  }
+  
+  if (codeNode.value) {
+    const codeNodeData = codeNode.value;
+    const currentToolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
+    if (currentToolsGroup) {
+      currentToolsGroup.pluginList = currentToolsGroup.pluginList || [];
+      const exists = currentToolsGroup.pluginList.find((p: any) => p.type === codeNodeData.type);
+      if (!exists) {
+        currentToolsGroup.pluginList.push({
+          type: codeNodeData.type,
+          nodeName: codeNodeData.nodeName,
+          icon: codeNodeData.icon,
+          description: codeNodeData.description,
+        });
+      }
+    } else {
+      groups.push({
+        groupKey: 'tools',
+        groupName: '工具',
+        pluginList: [{
+          type: codeNodeData.type,
+          nodeName: codeNodeData.nodeName,
+          icon: codeNodeData.icon,
+          description: codeNodeData.description,
+        }],
+      });
+    }
   }
   
   return groups;

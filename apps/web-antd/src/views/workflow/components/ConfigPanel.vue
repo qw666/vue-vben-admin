@@ -3,6 +3,7 @@ import { IconifyIcon } from '@vben/icons';
 
 import { Button, Input, Tooltip } from 'ant-design-vue';
 
+import CodeConfig from './custom/CodeConfig.vue';
 import FieldRenderer from './FieldRenderer.vue';
 import HttpRequestConfig from './custom/HttpRequestConfig.vue';
 
@@ -32,8 +33,12 @@ function isHttpRequestNode(nodeType: string): boolean {
   return nodeType?.includes('http') || nodeType?.includes('request');
 }
 
+function isCodeNode(nodeType: string): boolean {
+  return nodeType?.includes('python') || nodeType?.includes('Code');
+}
+
 function updateConfig(formData: Record<string, any>) {
-  Object.keys(formData).forEach(key => {
+  Object.keys(formData).forEach(() => {
     emit('saveConfig');
   });
 }
@@ -111,6 +116,11 @@ function updateConfig(formData: Record<string, any>) {
             <HttpRequestConfig
               :node-config-form="nodeConfigForm"
               @update:config="updateConfig"
+            />
+          </template>
+          <template v-else-if="isCodeNode(selectedNode.data.type)">
+            <CodeConfig
+              :node-config-form="nodeConfigForm"
             />
           </template>
           <template v-else>
