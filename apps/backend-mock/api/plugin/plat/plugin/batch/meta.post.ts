@@ -1,4 +1,4 @@
-import { PluginMetaDetailDTO } from '#/api';
+import { type PluginMetaDetailDTO } from '~/utils/api-types';
 
 const pluginMetaMap: Record<string, PluginMetaDetailDTO> = {
   idp_core_flow_ForEach: {
@@ -145,7 +145,7 @@ const pluginMetaMap: Record<string, PluginMetaDetailDTO> = {
     nodeName: '并行执行',
     nodeDesc: '并行执行多个分支',
     nodeCategory: 'flow',
-    icon: 'mdi:git-branch',
+    icon: 'mdi:source-branch',
     description: '并行执行节点用于同时执行多个分支流程。',
     formSchema: JSON.stringify({
       properties: {

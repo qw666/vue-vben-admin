@@ -178,7 +178,7 @@ watch(searchInput, () => {
       >
         <div class="text-center">
           <IconifyIcon
-            icon="mdi:loader"
+            icon="mdi:loading"
             :size="32"
             class="text-blue-500 animate-spin"
           />
@@ -277,7 +277,7 @@ watch(searchInput, () => {
             class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4"
           >
             <IconifyIcon
-              icon="mdi:flow-tree"
+              icon="mdi:workflow"
               :size="40"
               class="text-gray-400"
             />

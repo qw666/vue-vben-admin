@@ -23,6 +23,14 @@ export const overridesPreferences = defineOverridesPreferences({
     name: import.meta.env.VITE_APP_TITLE,
   },
   copyright: appCopyrightPreferences,
+  widget: {
+    fullscreen: false,
+    globalSearch: false,
+    languageToggle: false,
+    refresh: false,
+    themeToggle: false,
+    timezone: false,
+  },
 });
 
 export const preferencesExtension =

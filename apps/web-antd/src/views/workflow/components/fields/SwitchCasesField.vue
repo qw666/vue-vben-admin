@@ -41,7 +41,7 @@ function getCaseCount() {
     </div>
     <div style="background: #fef3c7; border-radius: 8px; padding: 12px; border: 1px dashed #fbbf24;">
       <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
-        <IconifyIcon icon="mdi:git-branch" :size="16" class="text-amber-600" />
+        <IconifyIcon icon="mdi:source-branch" :size="16" class="text-amber-600" />
         <span style="font-size: 13px; font-weight: 500; color: #92400e;">{{ field.props.label }}</span>
       </div>
 

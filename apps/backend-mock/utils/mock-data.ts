@@ -200,7 +200,7 @@ const examplesMenus = [
         path: 'modal',
         component: '/examples/modal/index',
         meta: {
-          icon: 'mdi:modal-edit',
+          icon: 'mdi:clipboard-edit',
           title: 'examples.modal.title',
         },
       },
@@ -209,7 +209,7 @@ const examplesMenus = [
         path: 'drawer',
         component: '/examples/drawer/index',
         meta: {
-          icon: 'mdi:drawer',
+          icon: 'mdi:archive',
           title: 'examples.drawer.title',
         },
       },
@@ -220,7 +220,7 @@ const examplesMenus = [
 const workflowMenus = [
   {
     meta: {
-      icon: 'mdi:flow-tree',
+      icon: 'mdi:workflow',
       keepAlive: true,
       order: 101,
       title: 'page.shuzhiliu.title',
@@ -422,7 +422,7 @@ export const MOCK_MENU_LIST = [
     name: 'Workspace',
     status: 1,
     type: 'menu',
-    icon: 'mdi:dashboard',
+    icon: 'mdi:view-dashboard',
     path: '/workspace',
     component: '/dashboard/workspace/index',
     meta: {

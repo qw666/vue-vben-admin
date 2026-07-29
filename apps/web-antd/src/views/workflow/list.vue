@@ -66,7 +66,7 @@ watch(() => store.selectedFolderId, async (newId) => {
     </template>
     <div v-if="isLoading" class="flex-1 flex items-center justify-center">
       <Spin size="large" tip="加载中...">
-        <IconifyIcon icon="mdi:loader" :size="32" class="text-blue-500" />
+        <IconifyIcon icon="mdi:loading" :size="32" class="text-blue-500 animate-spin" />
       </Spin>
     </div>
     <div v-else class="flex flex-1 overflow-hidden">

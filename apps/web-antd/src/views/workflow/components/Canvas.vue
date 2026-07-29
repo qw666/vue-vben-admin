@@ -432,7 +432,7 @@ onMounted(() => {
               class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-4"
             >
               <IconifyIcon
-                icon="mdi:mouse-pointer-click"
+                icon="mdi:cursor-pointer"
                 :size="48"
                 class="text-gray-400"
               />

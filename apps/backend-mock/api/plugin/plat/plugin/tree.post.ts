@@ -1,4 +1,4 @@
-import { PluginGroupTreeDTO, PluginSimpleDTO } from '#/api';
+import { type PluginGroupTreeDTO } from '~/utils/api-types';
 
 const pluginGroups: PluginGroupTreeDTO[] = [
   {
@@ -7,7 +7,7 @@ const pluginGroups: PluginGroupTreeDTO[] = [
     sort: 1,
     pluginList: [
       { type: 'idp_core_flow_If', nodeName: '条件判断', nodeCategory: 'flow', icon: 'mdi:compare' },
-      { type: 'idp_core_flow_Parallel', nodeName: '并行执行', nodeCategory: 'flow', icon: 'mdi:git-branch' },
+      { type: 'idp_core_flow_Parallel', nodeName: '并行执行', nodeCategory: 'flow', icon: 'mdi:source-branch' },
       { type: 'idp_core_flow_Pause', nodeName: '暂停节点', nodeCategory: 'flow', icon: 'mdi:pause' },
       { type: 'idp_core_flow_Subflow', nodeName: '子流程', nodeCategory: 'flow', icon: 'mdi:folder-open' },
       { type: 'idp_core_flow_Switch', nodeName: '分支判断', nodeCategory: 'flow', icon: 'mdi:shuffle' },

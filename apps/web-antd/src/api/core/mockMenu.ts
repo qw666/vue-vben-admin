@@ -21,15 +21,6 @@ const mockMenus = [
           title: '分析页',
         },
       },
-      {
-        name: 'Workspace',
-        path: 'workspace',
-        component: '/dashboard/workspace/index',
-        meta: {
-          icon: 'carbon:workspace',
-          title: '工作台',
-        },
-      },
     ],
   },
   {
@@ -81,99 +72,12 @@ const mockMenus = [
     ],
   },
   {
-    name: 'Demos',
-    path: '/demos',
-    component: 'BasicLayout',
+    name: 'Profile',
+    path: '/profile',
+    component: '/_core/profile/index',
     meta: {
-      icon: 'ic:baseline-view-in-ar',
-      order: 1000,
-      title: '演示',
-    },
-    children: [
-      {
-        name: 'AntDesignDemos',
-        path: 'ant-design',
-        component: '/demos/antd/index',
-        meta: {
-          title: 'Ant Design',
-        },
-      },
-    ],
-  },
-  {
-    name: 'VbenProject',
-    path: '/vben-admin',
-    component: 'BasicLayout',
-    meta: {
-      icon: 'mdi:github',
-      order: 9998,
-      title: 'Vben Admin',
-    },
-    children: [
-      {
-        name: 'VbenDocument',
-        path: 'document',
-        component: '/_core/fallback/not-found',
-        meta: {
-          link: 'https://doc.vben.pro',
-          title: '文档',
-        },
-      },
-      {
-        name: 'VbenGithub',
-        path: 'github',
-        component: '/_core/fallback/not-found',
-        meta: {
-          link: 'https://github.com/vbenjs/vue-vben-admin',
-          title: 'Github',
-        },
-      },
-      {
-        name: 'VbenAntdVNext',
-        path: 'antdv-next',
-        component: '/_core/fallback/not-found',
-        meta: {
-          link: 'https://antdv-next.vben.pro',
-          title: 'AntdV Next',
-        },
-      },
-      {
-        name: 'VbenNaive',
-        path: 'naive',
-        component: '/_core/fallback/not-found',
-        meta: {
-          link: 'https://naive.vben.pro',
-          title: 'Naive UI',
-        },
-      },
-      {
-        name: 'VbenTDesign',
-        path: 'tdesign',
-        component: '/_core/fallback/not-found',
-        meta: {
-          link: 'https://tdesign.vben.pro',
-          title: 'TDesign',
-        },
-      },
-      {
-        name: 'VbenElementPlus',
-        path: 'element-plus',
-        component: '/_core/fallback/not-found',
-        meta: {
-          link: 'https://ele.vben.pro',
-          title: 'Element Plus',
-        },
-      },
-    ],
-  },
-  {
-    name: 'VbenAbout',
-    path: '/vben-admin/about',
-    component: '/_core/about/index',
-    meta: {
-      icon: 'mdi:information',
-      order: 9999,
-      title: '关于',
+      hideInMenu: true,
+      title: '个人中心',
     },
   },
 ] as RouteRecordStringComponent[];

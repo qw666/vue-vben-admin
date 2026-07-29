@@ -5,7 +5,7 @@ import { $t } from '#/locales';
 const routes: RouteRecordRaw[] = [
   {
     meta: {
-      icon: 'mdi:flow-tree',
+      icon: 'mdi:workflow',
       order: 0,
       title: $t('page.execution.title'),
     },

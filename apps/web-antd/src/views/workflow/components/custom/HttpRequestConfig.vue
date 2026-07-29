@@ -539,7 +539,7 @@ watch(
                 @click="formatJson"
                 class="format-btn"
               >
-                <IconifyIcon icon="mdi:format-json" :size="14" /> 格式化
+                <IconifyIcon icon="mdi:code-braces" :size="14" /> 格式化
               </Button>
             </div>
             <textarea
