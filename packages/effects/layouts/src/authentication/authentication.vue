@@ -121,11 +121,11 @@ const logoSrc = computed(() => {
             <img
               :alt="appName"
               :src="sloganImage"
-              class="h-64 w-2/5 animate-float"
+              class="h-96 w-3/5 animate-float"
             />
           </template>
-          <SloganIcon v-else :alt="appName" class="h-64 w-2/5 animate-float" />
-          <div class="text-1xl mt-6 font-sans text-foreground lg:text-2xl">
+          <SloganIcon v-else :alt="appName" class="h-96 w-3/5 animate-float" />
+          <div class="text-1xl mt-8 font-sans text-foreground lg:text-3xl">
             {{ pageTitle }}
           </div>
           <div class="mt-2 dark:text-muted-foreground">

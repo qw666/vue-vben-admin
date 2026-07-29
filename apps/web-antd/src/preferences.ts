@@ -1,3 +1,5 @@
+import logoUrl from '#/assets/images/logo.png';
+import avatarUrl from '#/assets/images/avatar.svg';
 import {
   appCopyrightPreferences,
   defineOverridesPreferences,
@@ -19,10 +21,17 @@ interface WebAntdPreferencesExtension {
 export const overridesPreferences = defineOverridesPreferences({
   app: {
     accessMode: 'backend',
+    defaultAvatar: avatarUrl,
     layout: 'sidebar-nav',
     name: import.meta.env.VITE_APP_TITLE,
   },
-  copyright: appCopyrightPreferences,
+  copyright: {
+    ...appCopyrightPreferences,
+    enable: false,
+  },
+  logo: {
+    source: logoUrl,
+  },
   widget: {
     fullscreen: false,
     globalSearch: false,

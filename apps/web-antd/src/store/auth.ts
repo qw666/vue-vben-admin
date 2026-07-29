@@ -83,18 +83,19 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       // 不做任何处理
     }
-    resetAllStores();
+    try {
+      resetAllStores();
+    } catch {
+      // 忽略重置错误，确保能退出登录
+    }
     accessStore.setLoginExpired(false);
 
     // 回登录页带上当前路由地址
-    await router.replace({
-      path: LOGIN_PATH,
-      query: redirect
-        ? {
-            redirect: encodeURIComponent(router.currentRoute.value.fullPath),
-          }
-        : {},
-    });
+    const loginPath = redirect
+      ? `${LOGIN_PATH}?redirect=${encodeURIComponent(router.currentRoute.value.fullPath)}`
+      : LOGIN_PATH;
+    // 使用 window.location.replace 强制跳转，避免路由守卫的干扰
+    window.location.replace(loginPath);
   }
 
   async function fetchUserInfo() {

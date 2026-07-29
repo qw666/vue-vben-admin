@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="fabGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2DD4BF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 背景圆角矩形 -->
+  <rect width="64" height="64" rx="12" fill="#ffffff"/>
+  
+  <!-- A 字母简化版 -->
+  <g fill="url(#fabGradient)">
+    <!-- A 左斜边 -->
+    <path d="M12,52 L24,16 L28,16 L28,36 L18,52 Z"/>
+    <!-- A 右斜边 -->
+    <path d="M44,52 L32,16 L28,16 L28,36 L36,52 Z"/>
+    <!-- A 内部空心 -->
+    <path d="M28,28 L32,28 L32,38 L28,38 Z" fill="#ffffff"/>
+    <!-- A 底部 -->
+    <path d="M18,52 L46,52 L43,46 L21,46 Z"/>
+  </g>
+  
+  <!-- A 内部电路简化 -->
+  <g stroke="#ffffff" stroke-width="1.5" fill="none" opacity="0.9">
+    <path d="M22,42 L28,36 L32,36 L36,42"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="30" cy="36" r="1.5"/>
+    <circle cx="28" cy="36" r="1"/>
+    <circle cx="32" cy="36" r="1"/>
+  </g>
+  
+  <!-- I 字母 -->
+  <g fill="url(#fabGradient)">
+    <rect x="48" y="14" width="8" height="4" rx="2"/>
+    <rect x="50" y="18" width="4" height="36" rx="2"/>
+    <rect x="48" y="54" width="8" height="4" rx="2"/>
+  </g>
+</svg>
