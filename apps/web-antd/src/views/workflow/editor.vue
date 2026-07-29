@@ -280,6 +280,11 @@ async function handleSave() {
       return;
     }
 
+    if (!workflowName.value || !workflowName.value.trim()) {
+      message.error('请填写流程名称');
+      return;
+    }
+
     const configValidation = validateAllNodes(
       store.currentWorkflow.nodes,
       pluginMetaCache.value,
@@ -295,7 +300,6 @@ async function handleSave() {
 
     const structureValidation = validateWorkflowStructure(
       store.currentWorkflow,
-      workflowName.value,
     );
 
     if (!structureValidation.valid) {
