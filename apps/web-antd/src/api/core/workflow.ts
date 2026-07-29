@@ -112,6 +112,15 @@ export interface FlowSaveDTO {
   flowLayout?: string;
 }
 
+export interface FlowValidateResultVO {
+  index?: number;
+  flow?: string;
+  /** 致命错误，不为空代表流程无法保存运行 */
+  constraints?: string;
+  warnings?: string[];
+  infos?: string[];
+}
+
 export interface ApiResponse<T = any> {
   code: number;
   msg: string;
@@ -292,4 +301,12 @@ export async function requestToggleTrigger(
     console.error('Failed to toggle trigger:', error);
     return false;
   }
+}
+
+export async function validateFlow(
+  data: FlowSaveDTO,
+): Promise<FlowValidateResultVO> {
+  return requestClient.post(`${BASE_URL}/flow/validate`, data, {
+    headers: getHeaders(),
+  });
 }

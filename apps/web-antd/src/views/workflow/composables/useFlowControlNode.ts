@@ -68,6 +68,40 @@ export function useFlowControlNode(
     return null;
   }
 
+  function getParentNodeFieldInfo(nodeId: string): { parentId: string; field: string } | null {
+    if (!store.currentWorkflow) return null;
+
+    for (const node of store.currentWorkflow.nodes) {
+      if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
+
+      const flowControlConfig = getFlowControlConfig(node.data.type);
+      const taskFields = flowControlConfig.taskFields || [];
+
+      for (const field of taskFields) {
+        const configValue = node.data.config?.[field];
+        let found = false;
+
+        if (Array.isArray(configValue)) {
+          found = configValue.some((item: any) => item.nodeId === nodeId);
+        } else if (typeof configValue === 'object' && configValue !== null) {
+          for (const caseKey of Object.keys(configValue)) {
+            const caseItems = configValue[caseKey];
+            if (Array.isArray(caseItems) && caseItems.some((item: any) => item.nodeId === nodeId)) {
+              found = true;
+              break;
+            }
+          }
+        }
+
+        if (found) {
+          return { parentId: node.id, field };
+        }
+      }
+    }
+
+    return null;
+  }
+
   function getDirectChildNodeIds(nodeId: string): string[] {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
     if (!node) return [];
@@ -195,6 +229,7 @@ export function useFlowControlNode(
   return {
     getChildNodeIds,
     getParentNodeId,
+    getParentNodeFieldInfo,
     addChildNode,
     removeChildNode,
     updateChildNodeLabel,

@@ -19,14 +19,17 @@ import ConfigPanel from './components/ConfigPanel.vue';
 import LeftPanel from './components/LeftPanel.vue';
 import NodeSelectModal from './components/NodeSelectModal.vue';
 import { useCanvasInteraction } from './composables/useCanvasInteraction';
-import { useNodeConfig } from './composables/useNodeConfig';
+import { useNodeConfig, validateAllNodes } from './composables/useNodeConfig';
 import { usePluginMeta } from './composables/usePluginMeta';
 import { getFlowControlConfig } from './config/workflow-node-config';
 import {
   convertFlowModelToWorkflow,
   buildFlowSavePayload,
 } from './utils/flowModelConverter';
-import { validateAllNodes } from './composables/useNodeConfig';
+import {
+  validateAll as validateWorkflowStructure,
+  formatValidationErrors,
+} from './utils/validateWorkflow';
 
 const router = useRouter();
 const route = useRoute();
@@ -277,102 +280,48 @@ async function handleSave() {
       return;
     }
 
-    if (!workflowName.value || !workflowName.value.trim()) {
-      message.error('请填写流程名称');
-      return;
-    }
-
-    const validationResult = validateAllNodes(
+    const configValidation = validateAllNodes(
       store.currentWorkflow.nodes,
       pluginMetaCache.value,
     );
 
-    if (!validationResult.isValid) {
-      const errorMessages = validationResult.errors.map(
+    if (!configValidation.isValid) {
+      const errorMessages = configValidation.errors.map(
         (err) => `${err.nodeLabel}：${err.missingFields.join('、')}`,
       );
       message.error(`以下节点存在未填写的必填项：\n${errorMessages.join('\n')}`);
       return;
     }
 
-    const startNode = store.currentWorkflow.nodes.find(
-      (n) => n.data.type === 'idp_core_flow_Start',
+    const structureValidation = validateWorkflowStructure(
+      store.currentWorkflow,
+      workflowName.value,
     );
+
+    if (!structureValidation.valid) {
+      message.error(formatValidationErrors(structureValidation.errors));
+      return;
+    }
+
     const endNode = store.currentWorkflow.nodes.find(
       (n) => n.data.type === 'idp_core_flow_End',
     );
-
-    if (!startNode) {
-      message.error('流程缺少开始节点');
-      return;
-    }
-
-    if (!endNode) {
-      message.error('流程缺少输出节点');
-      return;
-    }
-
-    if (store.currentWorkflow.nodes.length <= 2) {
-      message.error('流程至少需要一个中间节点');
-      return;
-    }
-
-    store.currentWorkflow.outputs = endNode.data.config?.outputs || [];
-
-    const startHasOutput = store.currentWorkflow.edges.some(
-      (e) => e.source === startNode.id,
-    );
-    if (!startHasOutput) {
-      message.error('开始节点必须连接到其他节点');
-      return;
-    }
-
-    const endHasOutput = store.currentWorkflow.edges.some(
-      (e) => e.source === endNode.id,
-    );
-    if (endHasOutput) {
-      message.error('输出节点不能连接到其他节点');
-      return;
-    }
-
-    const endHasInput = store.currentWorkflow.edges.some(
-      (e) => e.target === endNode.id,
-    );
-    if (!endHasInput) {
-      message.error('输出节点必须有输入连接');
-      return;
-    }
-
-    const middleNodes = store.currentWorkflow.nodes.filter(
-      (n) => n.data.type !== 'idp_core_flow_Start' && n.data.type !== 'idp_core_flow_End',
-    );
-
-    for (const node of middleNodes) {
-      const hasInput = store.currentWorkflow.edges.some(
-        (e) => e.target === node.id,
-      );
-      const hasOutput = store.currentWorkflow.edges.some(
-        (e) => e.source === node.id,
-      );
-
-      if (!hasInput && !hasOutput) {
-        message.error(`节点「${node.data.label}」未连接任何节点`);
-        return;
-      }
-      if (!hasInput) {
-        message.error(`节点「${node.data.label}」缺少输入连接`);
-        return;
-      }
-      if (!hasOutput) {
-        message.error(`节点「${node.data.label}」缺少输出连接`);
-        return;
-      }
-    }
-
+    store.currentWorkflow.outputs = endNode?.data.config?.outputs || [];
     store.currentWorkflow.name = workflowName.value;
     store.currentWorkflow.updatedAt = new Date().toISOString();
 
-    const payload = buildFlowSavePayload(store.currentWorkflow, store.projectId, workflowName.value);
+    const payload = buildFlowSavePayload(
+      store.currentWorkflow,
+      store.projectId,
+      workflowName.value,
+    );
+
+    const backendValidationResult = await store.validateFlow(payload);
+
+    if (backendValidationResult?.constraints) {
+      message.error(`流程校验失败：${backendValidationResult.constraints}`);
+      return;
+    }
 
     const saved = await store.saveWorkflowToBackend(payload);
 

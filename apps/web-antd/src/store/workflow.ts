@@ -1,4 +1,4 @@
-import type { FlowSaveDTO, FlowVO, ProjectVO } from '#/api';
+import type { FlowSaveDTO, FlowValidateResultVO, FlowVO, ProjectVO } from '#/api';
 import type {
   Workflow,
   WorkflowEdge,
@@ -21,6 +21,7 @@ import {
   getProjectList,
   updateFlow,
   updateFolder,
+  validateFlow as validateFlowApi,
 } from '#/api';
 import { generateFlowId } from '#/views/workflow/utils/idGenerator';
 
@@ -59,6 +60,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const searchKeyword = ref('');
   const totalWorkflows = ref(0);
   const isWorkflowsLoading = ref(false);
+  const validationResult = ref<FlowValidateResultVO | null>(null);
+  const isValidating = ref(false);
+
+  function setValidationResult(result: FlowValidateResultVO | null) {
+    validationResult.value = result;
+  }
 
   function setCurrentWorkflow(workflow: null | Workflow) {
     currentWorkflow.value = workflow;
@@ -427,6 +434,21 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  async function validateFlow(data: FlowSaveDTO): Promise<FlowValidateResultVO | null> {
+    isValidating.value = true;
+    try {
+      const result = await validateFlowApi(data);
+      validationResult.value = result;
+      return result;
+    } catch (error) {
+      console.error('Failed to validate flow:', error);
+      validationResult.value = { constraints: '校验接口调用失败' };
+      return { constraints: '校验接口调用失败' };
+    } finally {
+      isValidating.value = false;
+    }
+  }
+
   async function loadWorkflowDetail(id: string): Promise<any | null> {
     try {
       const numericId = Number.parseInt(id.replace('workflow-', ''));
@@ -470,6 +492,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
     isWorkflowsLoading,
     searchKeyword,
     totalWorkflows,
+    validationResult,
+    isValidating,
+    setValidationResult,
     loadProjects,
     loadFolders,
     loadWorkflows,
@@ -482,6 +507,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     updateWorkflow,
     deleteWorkflowById,
     saveWorkflowToBackend,
+    validateFlow,
     loadWorkflowDetail,
     selectFolder,
     selectWorkflow,
