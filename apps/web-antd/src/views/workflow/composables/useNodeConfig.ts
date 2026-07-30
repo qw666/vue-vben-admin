@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { message } from 'ant-design-vue';
 import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
@@ -106,6 +106,10 @@ export function useNodeConfig(
   const DEFAULT_PANEL_WIDTH = UI_CONFIG.configPanel.defaultWidth;
 
   async function handleNodeDoubleClick(node: WorkflowNode) {
+    // 先清除选中状态，等下一帧再设置新节点，避免组件更新时出现 null 引用
+    selectedNode.value = null;
+    await nextTick();
+
     selectedNode.value = node;
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;

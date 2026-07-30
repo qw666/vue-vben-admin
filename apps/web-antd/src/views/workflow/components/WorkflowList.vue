@@ -25,6 +25,7 @@ const startTime = ref<string | undefined>();
 const endTime = ref<string | undefined>();
 const currentPage = ref(1);
 const pageSize = ref(10);
+const runningWorkflowId = ref<string | null>(null);
 let searchTimer: null | ReturnType<typeof setTimeout> = null;
 
 const workflows = computed(() => store.workflows);
@@ -43,11 +44,27 @@ function handleCreate() {
 function handleEdit(workflowId: string) {
   router.push(`/shuzhiliu/workflow/editor/${workflowId}`);
 }
-async function handleRun(_workflowId: string) {
-  message.info('正在运行流程...');
-  setTimeout(() => {
-    message.success('流程运行成功');
-  }, 1500);
+async function handleRun(workflowId: string) {
+  if (runningWorkflowId.value) return;
+  const workflow = workflows.value.find((w) => w.id === workflowId);
+  if (!workflow?.flowId) {
+    message.warning('工作流ID不存在，请先保存流程');
+    return;
+  }
+  runningWorkflowId.value = workflowId;
+  try {
+    const success = await store.runWorkflow(workflowId);
+    if (success) {
+      message.success('流程运行成功');
+    } else {
+      message.error('流程运行失败');
+    }
+  } catch (error) {
+    console.error('Failed to run workflow:', error);
+    message.error('流程运行失败');
+  } finally {
+    runningWorkflowId.value = null;
+  }
 }
 async function handleDelete(workflowId: string) {
   const success = await store.deleteWorkflowById(workflowId);
@@ -98,8 +115,11 @@ function handleDateChange(_dates: [string, string] | [any, any], dateString: [st
   endTime.value = dateString[1] ? `${dateString[1]} 23:59:59` : undefined;
   triggerSearch();
 }
-function handlePageChange(page: number) {
+function handlePageChange(page: number, size?: number) {
   currentPage.value = page;
+  if (size !== undefined) {
+    pageSize.value = size;
+  }
   store.loadWorkflows(
     store.selectedFolderId || undefined,
     searchInput.value,
@@ -109,9 +129,9 @@ function handlePageChange(page: number) {
     pageSize.value,
   );
 }
-function handlePageSizeChange(size: number) {
+function handlePageSizeChange(current: number, size: number) {
+  currentPage.value = current;
   pageSize.value = size;
-  currentPage.value = 1;
   store.loadWorkflows(
     store.selectedFolderId || undefined,
     searchInput.value,
@@ -148,7 +168,6 @@ watch(searchInput, () => {
             <Input
               v-model:value="searchInput"
               placeholder="搜索流程名称"
-              size="small"
               allow-clear
               @clear="handleSearchClear"
             >
@@ -159,7 +178,6 @@ watch(searchInput, () => {
           </div>
           <DatePicker.RangePicker
             :placeholder="['开始时间', '结束时间']"
-            size="small"
             style="width: 320px"
             @change="handleDateChange"
           />
@@ -244,6 +262,8 @@ watch(searchInput, () => {
                   <Button
                     type="text"
                     size="small"
+                    :loading="runningWorkflowId === workflow.id"
+                    :disabled="runningWorkflowId !== null"
                     @click="handleRun(workflow.id)"
                   >
                     <IconifyIcon icon="mdi:play" :size="16" />

@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, Tooltip, message } from 'ant-design-vue';
+import { Button, Input, Tooltip } from 'ant-design-vue';
 
 const props = defineProps<{
   nodeConfigForm: Record<string, any>;
@@ -592,15 +592,7 @@ watch(
 );
 
 function handleValidate() {
-  const isValid = validateCode();
-  if (isValid) {
-    message.success('代码语法校验通过');
-  } else {
-    const errorCount = codeSyntaxErrors.value.filter(e => e.type === 'error').length;
-    const warningCount = codeSyntaxErrors.value.filter(e => e.type === 'warning').length;
-    message.error(`代码校验失败：${errorCount} 个错误，${warningCount} 个警告`);
-  }
-  return isValid;
+  return validateCode();
 }
 
 // 暴露给父组件使用

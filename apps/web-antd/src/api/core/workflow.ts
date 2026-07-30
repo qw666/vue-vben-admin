@@ -310,3 +310,24 @@ export async function validateFlow(
     headers: getHeaders(),
   });
 }
+
+export interface ExecutionTriggerRequest {
+  flowId: string;
+  projectId: number;
+}
+
+export interface ExecutionBriefDTO {
+  executionId?: string | number;
+  flowId?: string;
+  flowName?: string;
+  status?: string;
+  startTime?: string;
+  endTime?: string;
+  [key: string]: any;
+}
+
+export async function runFlow(data: ExecutionTriggerRequest): Promise<ApiResponse> {
+  return requestClient.post(`${BASE_URL}/execution/trigger`, data, {
+    headers: getHeaders(),
+  });
+}

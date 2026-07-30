@@ -151,6 +151,7 @@ const {
 
 const workflowName = ref('未命名流程');
 const isLoading = ref(false);
+const isRunning = ref(false);
 const isPageReady = ref(false);
 const isProjectsLoading = ref(false);
 const workflowLoaded = ref(false);
@@ -343,10 +344,29 @@ async function handleSave() {
 }
 
 async function handleRun() {
-  message.info('正在运行流程...');
-  setTimeout(() => {
-    message.success('流程运行成功');
-  }, 1500);
+  if (isRunning.value) return;
+  if (!store.currentWorkflow) {
+    message.warning('请先创建流程');
+    return;
+  }
+  if (!store.currentWorkflow.flowId) {
+    message.warning('工作流ID不存在，请先保存流程');
+    return;
+  }
+  isRunning.value = true;
+  try {
+    const success = await store.runWorkflow(store.currentWorkflow.id);
+    if (success) {
+      message.success('流程运行成功');
+    } else {
+      message.error('流程运行失败');
+    }
+  } catch (error) {
+    console.error('Failed to run workflow:', error);
+    message.error('流程运行失败');
+  } finally {
+    isRunning.value = false;
+  }
 }
 
 function handleClear() {

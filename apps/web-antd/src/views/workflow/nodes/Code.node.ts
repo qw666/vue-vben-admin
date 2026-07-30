@@ -14,7 +14,7 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_scripts_python_Script',
   config: {
     nodeType: 'idp_scripts_python_Script',
-    nodeName: 'Python代码',
+    nodeName: '代码执行',
     icon: 'mdi:language-python',
     description: 'Python代码执行节点',
     ports: {

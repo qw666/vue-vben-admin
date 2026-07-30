@@ -3,7 +3,7 @@ import { IconifyIcon } from '@vben/icons';
 
 import { Button, Input, Tooltip, message } from 'ant-design-vue';
 
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 
 import CodeConfig from './custom/CodeConfig.vue';
 import FieldRenderer from './FieldRenderer.vue';
@@ -60,18 +60,6 @@ function handleSaveConfig() {
   }
   emit('saveConfig');
 }
-
-// 监听保存配置事件，也添加校验
-watch(
-  () => props.nodeConfigForm,
-  () => {
-    // 实时校验，不阻止保存
-    if (isCodeNode(props.selectedNode?.data?.type) && codeConfigRef.value) {
-      codeConfigRef.value.validate();
-    }
-  },
-  { deep: true }
-);
 </script>
 
 <template>
@@ -103,7 +91,7 @@ watch(
         <div v-else-if="!selectedNode" class="text-center text-gray-500 py-12">
           请选择一个节点
         </div>
-        <div v-else>
+        <div v-else :key="selectedNode?.id">
           <template v-if="selectedNode.data.type !== 'idp_core_flow_Start' && selectedNode.data.type !== 'idp_core_flow_End'">
             <div class="p-2.5 bg-gray-50 rounded-lg">
               <div class="text-sm text-gray-500">节点ID</div>

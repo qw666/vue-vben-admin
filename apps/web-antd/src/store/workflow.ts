@@ -19,6 +19,7 @@ import {
   getFlowPage,
   getFolderTree,
   getProjectList,
+  runFlow,
   updateFlow,
   updateFolder,
   validateFlow as validateFlowApi,
@@ -449,6 +450,28 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  async function runWorkflow(id: string): Promise<boolean> {
+    try {
+      const workflow = findWorkflowById(id);
+      if (!workflow) {
+        console.error('Workflow not found:', id);
+        return false;
+      }
+      if (!workflow.flowId) {
+        console.error('Workflow has no flowId');
+        return false;
+      }
+      await runFlow({
+        flowId: workflow.flowId,
+        projectId: projectId.value,
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to run workflow:', error);
+      return false;
+    }
+  }
+
   async function loadWorkflowDetail(id: string): Promise<any | null> {
     try {
       const numericId = Number.parseInt(id.replace('workflow-', ''));
@@ -508,6 +531,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     deleteWorkflowById,
     saveWorkflowToBackend,
     validateFlow,
+    runWorkflow,
     loadWorkflowDetail,
     selectFolder,
     selectWorkflow,
