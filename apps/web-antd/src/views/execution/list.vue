@@ -221,6 +221,12 @@ async function loadData(isAutoRefresh = false) {
   }
 }
 
+function handlePageChange(page: number, size: number) {
+  currentPage.value = page;
+  pageSize.value = size;
+  loadData();
+}
+
 async function handleKill(executionId: string) {
   const pid = localProjectId.value ?? workflowStore.projectId;
   await executionStore.batchKill({
@@ -477,11 +483,7 @@ function handleVisibilityChange() {
           total: executionStore.totalExecutions,
           showSizeChanger: true,
           showTotal: (total: number) => `共 ${total} 条`,
-          onChange: (page: number, size: number) => {
-            currentPage.value = page;
-            pageSize.value = size;
-            loadData();
-          },
+          onChange: handlePageChange,
         }"
         row-key="id"
         bordered
