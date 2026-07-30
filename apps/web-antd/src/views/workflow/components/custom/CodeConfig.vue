@@ -164,7 +164,9 @@ function validateKeyFormat(key: string): boolean {
             添加变量
           </Button>
           <Tooltip :title="inputsHelpText" placement="right">
-            <IconifyIcon icon="mdi:help-circle-outline" :size="14" class="help-icon" />
+            <span class="help-icon-wrapper">
+              <IconifyIcon icon="mdi:help-circle" :size="14" class="help-icon" />
+            </span>
           </Tooltip>
         </div>
       </div>
@@ -231,7 +233,9 @@ function validateKeyFormat(key: string): boolean {
             </Tooltip>
           </div>
           <Tooltip :title="codeHelpText" placement="right">
-            <IconifyIcon icon="mdi:help-circle-outline" :size="14" class="help-icon" />
+            <span class="help-icon-wrapper">
+              <IconifyIcon icon="mdi:help-circle" :size="14" class="help-icon" />
+            </span>
           </Tooltip>
         </div>
       </div>
@@ -266,7 +270,9 @@ function validateKeyFormat(key: string): boolean {
             添加变量
           </Button>
           <Tooltip :title="outputsHelpText" placement="right">
-            <IconifyIcon icon="mdi:help-circle-outline" :size="14" class="help-icon" />
+            <span class="help-icon-wrapper">
+              <IconifyIcon icon="mdi:help-circle" :size="14" class="help-icon" />
+            </span>
           </Tooltip>
         </div>
       </div>
@@ -358,10 +364,16 @@ function validateKeyFormat(key: string): boolean {
   gap: 8px;
 }
 
+.help-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
 .help-icon {
-  color: #9ca3af;
+  color: #6b7280;
   cursor: help;
   transition: color 0.2s;
+  pointer-events: none;
 }
 
 .help-icon:hover {

@@ -120,7 +120,9 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
       <div style="display: flex; align-items: center; gap: 8px;">
         <span v-if="field.props.fieldType" style="font-size: 12px; padding: 2px 8px; background: #f3f4f6; color: #4b5563; border-radius: 4px;">{{ field.props.fieldType }}</span>
         <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
-          <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af;" />
+          <span class="help-icon-wrapper">
+            <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; pointer-events: none;" />
+          </span>
         </Tooltip>
       </div>
     </div>
@@ -174,3 +176,10 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
     </div>
   </div>
 </template>
+
+<style scoped>
+.help-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+</style>

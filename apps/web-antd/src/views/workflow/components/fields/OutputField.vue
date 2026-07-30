@@ -89,11 +89,13 @@ function removeField(index: number) {
       </label>
       <div style="display: flex; gap: 8px; align-items: center">
         <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
-          <IconifyIcon
-            icon="mdi:help-circle"
-            :size="14"
-            style="color: #9ca3af"
-          />
+          <span class="help-icon-wrapper">
+            <IconifyIcon
+              icon="mdi:help-circle"
+              :size="14"
+              style="color: #6b7280; pointer-events: none"
+            />
+          </span>
         </Tooltip>
       </div>
     </div>
@@ -140,7 +142,9 @@ function removeField(index: number) {
               <div style="display: flex; align-items: center; width: 80px;">
                 <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.id.label }}</span>
                 <Tooltip :title="fieldLabels.id.tooltip">
-                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                  <span class="help-icon-wrapper">
+                    <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: pointer; margin-left: 4px; pointer-events: none;" />
+                  </span>
                 </Tooltip>
               </div>
               <Input
@@ -157,7 +161,9 @@ function removeField(index: number) {
               <div style="display: flex; align-items: center; width: 80px;">
                 <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.type.label }}</span>
                 <Tooltip :title="fieldLabels.type.tooltip">
-                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                  <span class="help-icon-wrapper">
+                    <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: pointer; margin-left: 4px; pointer-events: none;" />
+                  </span>
                 </Tooltip>
               </div>
               <Select
@@ -182,7 +188,9 @@ function removeField(index: number) {
               <div style="display: flex; align-items: center; width: 80px;">
                 <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.value.label }}</span>
                 <Tooltip :title="fieldLabels.value.tooltip">
-                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                  <span class="help-icon-wrapper">
+                    <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: pointer; margin-left: 4px; pointer-events: none;" />
+                  </span>
                 </Tooltip>
               </div>
               <Input
@@ -213,3 +221,10 @@ function removeField(index: number) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.help-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+</style>

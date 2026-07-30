@@ -178,11 +178,13 @@ function getConfigComponent(type: string) {
       </label>
       <div style="display: flex; gap: 8px; align-items: center">
         <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
-          <IconifyIcon
-            icon="mdi:help-circle"
-            :size="14"
-            style="color: #9ca3af"
-          />
+          <span class="help-icon-wrapper">
+            <IconifyIcon
+              icon="mdi:help-circle"
+              :size="14"
+              style="color: #6b7280; pointer-events: none"
+            />
+          </span>
         </Tooltip>
       </div>
     </div>
@@ -249,7 +251,9 @@ function getConfigComponent(type: string) {
               <div style="display: flex; align-items: center; width: 80px;">
                 <span style="font-size: 12px; color: #6b7280;">标识</span>
                 <Tooltip :title="'触发器的唯一标识，用于在流程中引用'">
-                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                  <span class="help-icon-wrapper">
+                    <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: pointer; margin-left: 4px; pointer-events: none;" />
+                  </span>
                 </Tooltip>
               </div>
               <Input
@@ -266,7 +270,9 @@ function getConfigComponent(type: string) {
               <div style="display: flex; align-items: center; width: 80px;">
                 <span style="font-size: 12px; color: #6b7280;">类型</span>
                 <Tooltip :title="'触发器类型，决定了触发流程的方式'">
-                  <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #9ca3af; cursor: pointer; margin-left: 4px;" />
+                  <span class="help-icon-wrapper">
+                    <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: pointer; margin-left: 4px; pointer-events: none;" />
+                  </span>
                 </Tooltip>
               </div>
               <Select
@@ -319,3 +325,10 @@ function getConfigComponent(type: string) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.help-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+</style>
