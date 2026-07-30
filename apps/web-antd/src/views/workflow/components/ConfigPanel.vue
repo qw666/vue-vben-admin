@@ -1,13 +1,15 @@
 <script lang="ts" setup>
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, Tooltip } from 'ant-design-vue';
+import { Button, Input, Tooltip, message } from 'ant-design-vue';
+
+import { ref, watch } from 'vue';
 
 import CodeConfig from './custom/CodeConfig.vue';
 import FieldRenderer from './FieldRenderer.vue';
 import HttpRequestConfig from './custom/HttpRequestConfig.vue';
 
-defineProps<{
+const props = defineProps<{
   currentNodeMeta: any;
   fieldRendererEvents: Record<string, any>;
   isMetaLoading: boolean;
@@ -29,12 +31,14 @@ const emit = defineEmits<{
   (e: 'updateNodeId', value: string): void;
 }>();
 
+const codeConfigRef = ref<InstanceType<typeof CodeConfig> | null>(null);
+
 function isHttpRequestNode(nodeType: string): boolean {
   return nodeType?.includes('http') || nodeType?.includes('request');
 }
 
 function isCodeNode(nodeType: string): boolean {
-  return nodeType?.includes('python') || nodeType?.includes('Code');
+  return nodeType?.includes('python') || nodeType?.includes('Code') || nodeType?.includes('Script');
 }
 
 function updateConfig(formData: Record<string, any>) {
@@ -42,6 +46,32 @@ function updateConfig(formData: Record<string, any>) {
     emit('saveConfig');
   });
 }
+
+function handleSaveConfig() {
+  // 如果是代码节点，先校验代码
+  if (isCodeNode(props.selectedNode?.data?.type)) {
+    if (codeConfigRef.value) {
+      const isValid = codeConfigRef.value.validate();
+      if (!isValid) {
+        message.error('代码校验未通过，请修复错误后再保存');
+        return;
+      }
+    }
+  }
+  emit('saveConfig');
+}
+
+// 监听保存配置事件，也添加校验
+watch(
+  () => props.nodeConfigForm,
+  () => {
+    // 实时校验，不阻止保存
+    if (isCodeNode(props.selectedNode?.data?.type) && codeConfigRef.value) {
+      codeConfigRef.value.validate();
+    }
+  },
+  { deep: true }
+);
 </script>
 
 <template>
@@ -120,6 +150,7 @@ function updateConfig(formData: Record<string, any>) {
           </template>
           <template v-else-if="isCodeNode(selectedNode.data.type)">
             <CodeConfig
+              ref="codeConfigRef"
               :node-config-form="nodeConfigForm"
             />
           </template>
@@ -185,7 +216,7 @@ function updateConfig(formData: Record<string, any>) {
         </div>
       </div>
       <div class="p-4 border-t border-gray-200">
-        <Button type="primary" block @click="emit('saveConfig')">保存配置</Button>
+        <Button type="primary" block @click="handleSaveConfig">保存配置</Button>
       </div>
     </div>
   </div>
