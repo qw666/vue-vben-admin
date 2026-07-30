@@ -11,9 +11,9 @@ const DEFAULT_SOURCE_CODE = `def main(inputs):
     }`;
 
 export const CodeNodeStrategy: FlowControlNodeStrategy = {
-  nodeType: 'idp_core_python_Code',
+  nodeType: 'idp_scripts_python_Script',
   config: {
-    nodeType: 'idp_core_python_Code',
+    nodeType: 'idp_scripts_python_Script',
     nodeName: 'Python代码',
     icon: 'mdi:language-python',
     description: 'Python代码执行节点',
@@ -45,11 +45,17 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
       result.inputParams = config.inputParams.map((item: any) => ({
         key: item.key,
         expression: item.expression || '',
+        defaultValue: item.defaultValue || '',
       }));
     }
 
     if (config.outputKeys && Array.isArray(config.outputKeys) && config.outputKeys.length > 0) {
-      result.outputKeys = config.outputKeys.map((item: any) => item.key || item);
+      result.outputKeys = config.outputKeys.map((item: any) => {
+        if (typeof item === 'string') {
+          return { key: item, remark: '' };
+        }
+        return { key: item.key || '', remark: item.remark || '' };
+      });
     }
 
     return result;
@@ -60,13 +66,14 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
       inputParams: (config.inputParams || []).map((item: any) => ({
         key: item.key || '',
         expression: item.expression || '',
+        defaultValue: item.defaultValue || '',
       })),
       sourceCode: config.sourceCode || DEFAULT_SOURCE_CODE,
       outputKeys: (config.outputKeys || []).map((item: any) => {
         if (typeof item === 'string') {
-          return { key: item };
+          return { key: item, remark: '' };
         }
-        return { key: item.key || '' };
+        return { key: item.key || '', remark: item.remark || '' };
       }),
     };
   },

@@ -18,8 +18,8 @@ const DEFAULT_SOURCE_CODE = `def main(inputs):
 
     }`;
 
-const inputParams = ref<Array<{ key: string; expression: string }>>([]);
-const outputKeys = ref<Array<{ key: string }>>([]);
+const inputParams = ref<Array<{ key: string; expression: string; defaultValue: string }>>([]);
+const outputKeys = ref<Array<{ key: string; remark: string }>>([]);
 
 const codeValidationError = ref('');
 
@@ -47,13 +47,14 @@ function initForm() {
   inputParams.value = props.nodeConfigForm.inputParams.map((item: any) => ({
     key: item.key || '',
     expression: item.expression || '',
+    defaultValue: item.defaultValue || '',
   }));
 
   outputKeys.value = props.nodeConfigForm.outputKeys.map((item: any) => {
     if (typeof item === 'string') {
-      return { key: item };
+      return { key: item, remark: '' };
     }
-    return { key: item.key || '' };
+    return { key: item.key || '', remark: item.remark || '' };
   });
 }
 
@@ -65,6 +66,7 @@ watch(
     inputParams.value = props.nodeConfigForm.inputParams.map((item: any) => ({
       key: item.key || '',
       expression: item.expression || '',
+      defaultValue: item.defaultValue || '',
     }));
   },
   { deep: true },
@@ -75,9 +77,9 @@ watch(
   () => {
     outputKeys.value = props.nodeConfigForm.outputKeys.map((item: any) => {
       if (typeof item === 'string') {
-        return { key: item };
+        return { key: item, remark: '' };
       }
-      return { key: item.key || '' };
+      return { key: item.key || '', remark: item.remark || '' };
     });
   },
   { deep: true },
@@ -173,8 +175,8 @@ function validateKeyFormat(key: string): boolean {
 
       <template v-if="inputParams.length > 0">
         <div class="list-header">
-          <span class="col-key">变量名称</span>
-          <span class="col-expression">变量值</span>
+          <span class="col-key">参数Key</span>
+          <span class="col-expression">上游来源表达式</span>
           <span class="col-action"></span>
         </div>
 
@@ -279,7 +281,7 @@ function validateKeyFormat(key: string): boolean {
 
       <template v-if="outputKeys.length > 0">
         <div class="list-header">
-          <span class="col-output-key">输出变量</span>
+          <span class="col-output-key">输出Key</span>
           <span class="col-action"></span>
         </div>
 

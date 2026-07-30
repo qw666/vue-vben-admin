@@ -23,7 +23,7 @@ const flowControlNodes = computed(() => {
     (node) => node.type !== 'idp_core_flow_Start' && 
              node.type !== 'idp_core_flow_End' &&
              node.type !== 'idp_core_http_Request' &&
-             node.type !== 'idp_core_python_Code'
+             node.type !== 'idp_scripts_python_Script'
   );
 });
 
@@ -32,7 +32,7 @@ const httpRequestNode = computed(() => {
 });
 
 const codeNode = computed(() => {
-  return getFlowControlNodes().find((node) => node.type === 'idp_core_python_Code');
+  return getFlowControlNodes().find((node) => node.type === 'idp_scripts_python_Script');
 });
 
 const mergedPluginGroups = computed(() => {
