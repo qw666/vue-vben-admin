@@ -49,7 +49,6 @@ import {
   FontSize,
   Footer,
   General,
-  GlobalShortcutKeys,
   Header,
   Layout,
   Navigation,
@@ -73,7 +72,6 @@ const appColorWeakMode = defineModel<boolean>('appColorWeakMode');
 const appContentCompact = defineModel<ContentCompactType>('appContentCompact');
 const appWatermark = defineModel<boolean>('appWatermark');
 const appWatermarkContent = defineModel<string>('appWatermarkContent');
-const appEnableCheckUpdates = defineModel<boolean>('appEnableCheckUpdates');
 const appEnableCopyPreferences = defineModel<boolean>(
   'appEnableCopyPreferences',
 );
@@ -159,21 +157,6 @@ const copyrightDate = defineModel<string>('copyrightDate');
 const copyrightIcp = defineModel<string>('copyrightIcp');
 const copyrightIcpLink = defineModel<string>('copyrightIcpLink');
 
-const shortcutKeysEnable = defineModel<boolean>('shortcutKeysEnable');
-const shortcutKeysGlobalSearch = defineModel<boolean>(
-  'shortcutKeysGlobalSearch',
-);
-const shortcutKeysGlobalLogout = defineModel<boolean>(
-  'shortcutKeysGlobalLogout',
-);
-const shortcutKeysGlobalEscape = defineModel<boolean>(
-  'shortcutKeysGlobalEscape',
-);
-
-const shortcutKeysGlobalLockScreen = defineModel<boolean>(
-  'shortcutKeysGlobalLockScreen',
-);
-
 const widgetGlobalSearch = defineModel<boolean>('widgetGlobalSearch');
 const widgetFullscreen = defineModel<boolean>('widgetFullscreen');
 const widgetLanguageToggle = defineModel<boolean>('widgetLanguageToggle');
@@ -247,10 +230,6 @@ const tabs = computed((): SegmentedItem[] => {
     {
       label: $t('preferences.layout'),
       value: 'layout',
-    },
-    {
-      label: $t('preferences.shortcutKeys.title'),
-      value: 'shortcutKey',
     },
     {
       label: $t('preferences.general'),
@@ -360,7 +339,6 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
             <Block :title="$t('preferences.general')">
               <General
                 v-model:app-dynamic-title="appDynamicTitle"
-                v-model:app-enable-check-updates="appEnableCheckUpdates"
                 v-model:app-enable-copy-preferences="appEnableCopyPreferences"
                 v-model:app-locale="appLocale"
                 v-model:app-timezone="appTimezone"
@@ -516,17 +494,6 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
             </Block>
           </template>
 
-          <template #shortcutKey>
-            <Block :title="$t('preferences.shortcutKeys.global')">
-              <GlobalShortcutKeys
-                v-model:shortcut-keys-enable="shortcutKeysEnable"
-                v-model:shortcut-keys-global-search="shortcutKeysGlobalSearch"
-                v-model:shortcut-keys-lock-screen="shortcutKeysGlobalLockScreen"
-                v-model:shortcut-keys-logout="shortcutKeysGlobalLogout"
-                v-model:shortcut-keys-escape="shortcutKeysGlobalEscape"
-              />
-            </Block>
-          </template>
           <template #custom>
             <Block :title="customTabTitle">
               <Custom

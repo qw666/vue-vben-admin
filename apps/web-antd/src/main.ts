@@ -2,7 +2,7 @@ import { initPreferences } from '@vben/preferences';
 import { unmountGlobalLoading } from '@vben/utils';
 
 import { registerOfflineIcons } from './utils/register-icons';
-import { overridesPreferences, preferencesExtension } from './preferences';
+import { overridesPreferences } from './preferences';
 
 /**
  * 应用初始化完成之后再进行页面加载渲染
@@ -19,7 +19,6 @@ async function initApplication() {
 
   // app偏好设置初始化
   await initPreferences({
-    extension: preferencesExtension,
     namespace,
     overrides: overridesPreferences,
   });
