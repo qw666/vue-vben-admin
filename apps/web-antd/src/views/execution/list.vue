@@ -383,7 +383,6 @@ function handleVisibilityChange() {
         <Select
           v-model:value="localProjectId"
           class="w-48"
-          size="small"
           placeholder="选择项目"
           :loading="isLoading || executionStore.isOperationLoading"
           :disabled="executionStore.isOperationLoading"

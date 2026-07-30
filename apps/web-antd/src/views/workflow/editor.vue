@@ -698,7 +698,6 @@ onUnmounted(() => {
           <Input
             v-model:value="workflowName"
             class="w-48 flex-shrink-0"
-            size="small"
             placeholder="请输入流程名称"
           />
         </div>

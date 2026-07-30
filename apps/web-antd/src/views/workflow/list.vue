@@ -50,7 +50,6 @@ watch(() => store.selectedFolderId, async (newId) => {
         <Select
           v-model:value="store.projectId"
           class="w-48"
-          size="small"
           placeholder="选择项目"
           :loading="isLoading"
         >
