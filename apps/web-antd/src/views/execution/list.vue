@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue';
 import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
-import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip, Modal, Radio } from 'ant-design-vue';
+import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip, Modal, Radio, Dropdown } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { useRouter } from 'vue-router';
 import { usePreferences } from '@vben/preferences';
@@ -27,6 +27,94 @@ const startDate = ref<dayjs.Dayjs | null>(null);
 const endDate = ref<dayjs.Dayjs | null>(null);
 const isLoading = ref(true);
 const localProjectId = ref<number | null>(null);
+
+// 列显示配置
+const columnVisibility = ref<Record<string, boolean>>({
+  id: true,
+  flowName: true,
+  trigger: true,
+  state: true,
+  startTime: true,
+  endTime: true,
+  duration: true,
+  log: true,
+  action: true,
+});
+
+const columnVisibilityMenuVisible = ref(false);
+
+const columnVisibilityOptions = [
+  { key: 'id', label: '执行ID' },
+  { key: 'flowName', label: '流程名称' },
+  { key: 'trigger', label: '触发方式' },
+  { key: 'state', label: '状态' },
+  { key: 'startTime', label: '开始时间' },
+  { key: 'endTime', label: '结束时间' },
+  { key: 'duration', label: '耗时' },
+  { key: 'log', label: '日志' },
+  { key: 'action', label: '操作' },
+];
+
+const visibleColumns = computed(() => {
+  const cols = [...columns];
+  if (!columnVisibility.value.id) {
+    const idx = cols.findIndex(c => c.dataIndex === 'id');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.flowName) {
+    const idx = cols.findIndex(c => c.dataIndex === 'flowName');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.trigger) {
+    const idx = cols.findIndex(c => c.dataIndex === 'trigger');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.state) {
+    const idx = cols.findIndex(c => c.dataIndex === 'state');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  // 注意：开始时间、结束时间、耗时使用相同的dataIndex 'state'，需要用title区分
+  if (!columnVisibility.value.startTime) {
+    const idx = cols.findIndex(c => c.title === '开始时间');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.endTime) {
+    const idx = cols.findIndex(c => c.title === '结束时间');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.duration) {
+    const idx = cols.findIndex(c => c.title === '耗时');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.log) {
+    const idx = cols.findIndex(c => c.dataIndex === 'log');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  if (!columnVisibility.value.action) {
+    const idx = cols.findIndex(c => c.dataIndex === 'action');
+    if (idx > -1) cols.splice(idx, 1);
+  }
+  return cols;
+});
+
+function resetColumnVisibility() {
+  columnVisibility.value = {
+    id: true,
+    flowName: true,
+    trigger: true,
+    state: true,
+    startTime: true,
+    endTime: true,
+    duration: true,
+    log: true,
+    action: true,
+  };
+  columnVisibilityMenuVisible.value = false;
+}
+
+function toggleColumn(key: string) {
+  columnVisibility.value[key] = !columnVisibility.value[key];
+}
 
 const showReplayModal = ref(false);
 const replayExecutionId = ref('');
@@ -180,6 +268,20 @@ function getStateLabel(state: string): string {
     FAILED: '失败',
   };
   return labelMap[state] || state;
+}
+
+function getActionButtonClass(enabled: boolean, color: string, _gray: string): string {
+  if (!enabled) {
+    return '!text-gray-300 !bg-transparent cursor-not-allowed rounded-full w-6 h-6 flex items-center justify-center';
+  }
+  const colorMap: Record<string, string> = {
+    blue: '!text-blue-500 hover:!text-blue-700 hover:bg-blue-50',
+    green: '!text-green-500 hover:!text-green-700 hover:bg-green-50',
+    red: '!text-red-500 hover:!text-red-700 hover:bg-red-50',
+    orange: '!text-orange-500 hover:!text-orange-700 hover:bg-orange-50',
+    indigo: '!text-indigo-500 hover:!text-indigo-700 hover:bg-indigo-50',
+  };
+  return `${colorMap[color] || colorMap.blue} rounded-full w-6 h-6 flex items-center justify-center`;
 }
 
 function getTriggerType(record: any): string {
@@ -528,11 +630,57 @@ function handleVisibilityChange() {
       <div class="bg-card rounded-lg shadow-sm">
         <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100">
           <div class="text-base font-semibold" :class="isDark ? 'text-white' : 'text-gray-800'">执行记录</div>
+          <div class="flex items-center gap-2">
+            <!-- 列筛选按钮 -->
+            <a-dropdown
+              v-model:open="columnVisibilityMenuVisible"
+              :trigger="['click']"
+              :overlay-style="{ minWidth: '160px' }"
+            >
+              <button
+                type="button"
+                class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                title="列设置"
+              >
+                <IconifyIcon icon="mdi:table-column" :size="18" />
+              </button>
+              <template #overlay>
+                <div class="column-filter-menu py-2">
+                  <div
+                    v-for="option in columnVisibilityOptions"
+                    :key="option.key"
+                    class="px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center gap-2 transition-colors"
+                    @click="toggleColumn(option.key)"
+                  >
+                    <span
+                      class="w-4 h-4 border rounded flex items-center justify-center"
+                      :class="columnVisibility[option.key] ? 'bg-primary border-primary' : 'border-gray-300'"
+                    >
+                      <IconifyIcon
+                        v-if="columnVisibility[option.key]"
+                        icon="mdi:check"
+                        :size="12"
+                        class="text-white"
+                      />
+                    </span>
+                    <span class="text-sm" :class="isDark ? 'text-gray-300' : 'text-gray-700'">{{ option.label }}</span>
+                  </div>
+                  <div class="border-t border-gray-100 my-1"></div>
+                  <div
+                    class="px-3 py-2 text-sm text-center text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors"
+                    @click="resetColumnVisibility"
+                  >
+                    恢复默认
+                  </div>
+                </div>
+              </template>
+            </a-dropdown>
+          </div>
         </div>
         <div class="px-2 py-2">
           <Spin :spinning="executionStore.isExecutionsLoading">
             <Table
-              :columns="columns"
+              :columns="visibleColumns"
               :data-source="executionStore.executions"
               :pagination="false"
               row-key="id"
@@ -612,65 +760,60 @@ function handleVisibilityChange() {
             <div class="flex items-center justify-center gap-1">
               <Tooltip placement="top" title="暂停">
                 <Button
-                  v-if="record.state.current === 'RUNNING'"
                   type="text"
                   size="small"
                   @click="handlePause(record.id)"
                   :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading"
-                  class="!text-blue-500 hover:!text-blue-700 hover:bg-blue-50 rounded-full w-6 h-6 flex items-center justify-center"
+                  :disabled="executionStore.isOperationLoading || record.state.current !== 'RUNNING'"
+                  :class="getActionButtonClass(record.state.current === 'RUNNING', 'blue', 'gray')"
                 >
                   <IconifyIcon icon="mdi:pause-circle" :size="16" />
                 </Button>
               </Tooltip>
               <Tooltip placement="top" title="恢复">
                 <Button
-                  v-if="record.state.current === 'PAUSED'"
                   type="text"
                   size="small"
                   @click="handleResume(record.id)"
                   :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading"
-                  class="!text-green-500 hover:!text-green-700 hover:bg-green-50 rounded-full w-6 h-6 flex items-center justify-center"
+                  :disabled="executionStore.isOperationLoading || record.state.current !== 'PAUSED'"
+                  :class="getActionButtonClass(record.state.current === 'PAUSED', 'green', 'gray')"
                 >
                   <IconifyIcon icon="mdi:play-circle" :size="16" />
                 </Button>
               </Tooltip>
               <Tooltip placement="top" title="终止">
                 <Button
-                  v-if="record.state.current === 'RUNNING' || record.state.current === 'PAUSED'"
                   type="text"
                   size="small"
                   @click="handleKill(record.id)"
                   :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading"
-                  class="!text-red-500 hover:!text-red-700 hover:bg-red-50 rounded-full w-6 h-6 flex items-center justify-center"
+                  :disabled="executionStore.isOperationLoading || (record.state.current !== 'RUNNING' && record.state.current !== 'PAUSED')"
+                  :class="getActionButtonClass(record.state.current === 'RUNNING' || record.state.current === 'PAUSED', 'red', 'gray')"
                 >
                   <IconifyIcon icon="mdi:stop-circle" :size="16" />
                 </Button>
               </Tooltip>
               <Tooltip placement="top" title="重启">
                 <Button
-                  v-if="record.state.current === 'FAILED' || record.state.current === 'WARNING'"
                   type="text"
                   size="small"
                   @click="handleRestart(record.id)"
                   :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading"
-                  class="!text-orange-500 hover:!text-orange-700 hover:bg-orange-50 rounded-full w-6 h-6 flex items-center justify-center"
+                  :disabled="executionStore.isOperationLoading || (record.state.current !== 'FAILED' && record.state.current !== 'WARNING')"
+                  :class="getActionButtonClass(record.state.current === 'FAILED' || record.state.current === 'WARNING', 'orange', 'gray')"
                 >
                   <IconifyIcon icon="mdi:refresh-circle" :size="16" />
                 </Button>
               </Tooltip>
               <Tooltip placement="top" title="重跑">
                 <Button
-                  v-if="['SUCCESS', 'FAILED', 'WARNING', 'KILLED', 'CANCELLED'].includes(record.state.current)"
                   type="text"
                   size="small"
                   @click="handleReplay(record.id)"
                   :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading"
-                  class="!text-indigo-500 hover:!text-indigo-700 hover:bg-indigo-50 rounded-full w-6 h-6 flex items-center justify-center"
+                  :disabled="executionStore.isOperationLoading || !['SUCCESS', 'FAILED', 'WARNING', 'KILLED', 'CANCELLED'].includes(record.state.current)"
+                  :class="getActionButtonClass(['SUCCESS', 'FAILED', 'WARNING', 'KILLED', 'CANCELLED'].includes(record.state.current), 'indigo', 'gray')"
                 >
                   <IconifyIcon icon="mdi:rotate-3d-variant" :size="16" />
                 </Button>

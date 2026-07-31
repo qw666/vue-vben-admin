@@ -10,10 +10,8 @@ import {
   DatePicker,
   Input,
   message,
-  Pagination,
   Popconfirm,
-  Space,
-  Tag,
+  Select,
   Tooltip,
 } from 'ant-design-vue';
 
@@ -141,11 +139,43 @@ function handleDateChange(_dates: [string, string] | [any, any], dateString: [st
   endTime.value = dateString[1] ? `${dateString[1]} 23:59:59` : undefined;
   triggerSearch();
 }
-function handlePageChange(page: number, size?: number) {
-  currentPage.value = page;
-  if (size !== undefined) {
-    pageSize.value = size;
+
+const totalPages = computed(() => {
+  if (!store.totalWorkflows) return 1;
+  return Math.ceil(store.totalWorkflows / pageSize.value);
+});
+
+const pageList = computed(() => {
+  const total = totalPages.value;
+  const current = currentPage.value;
+  const pages: (number | string)[] = [];
+
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) {
+      pages.push(i);
+    }
+  } else {
+    pages.push(1);
+    if (current > 4) {
+      pages.push('...');
+    }
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (current < total - 3) {
+      pages.push('...');
+    }
+    pages.push(total);
   }
+
+  return pages;
+});
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return;
+  currentPage.value = page;
   store.loadWorkflows(
     store.selectedFolderId || undefined,
     searchInput.value,
@@ -155,9 +185,10 @@ function handlePageChange(page: number, size?: number) {
     pageSize.value,
   );
 }
-function handlePageSizeChange(current: number, size: number) {
-  currentPage.value = current;
-  pageSize.value = size;
+
+function handlePageSizeChange(value: number) {
+  pageSize.value = value;
+  currentPage.value = 1;
   store.loadWorkflows(
     store.selectedFolderId || undefined,
     searchInput.value,
@@ -167,6 +198,7 @@ function handlePageSizeChange(current: number, size: number) {
     pageSize.value,
   );
 }
+
 function formatDate(dateStr: string) {
   try {
     const date = new Date(dateStr);
@@ -376,18 +408,69 @@ watch(searchInput, () => {
 
       <div
         v-if="store.totalWorkflows > 0"
-        class="flex justify-center py-4"
+        class="px-4 py-3 flex items-center justify-between border-t border-gray-100"
       >
-        <Pagination
-          :current="currentPage"
-          :page-size="pageSize"
-          :total="store.totalWorkflows"
-          show-size-changer
-          :page-size-options="['10', '20', '50']"
-          :show-total="(total: number) => `共 ${total} 条`"
-          @change="handlePageChange"
-          @show-size-change="handlePageSizeChange"
-        />
+        <div class="flex items-center gap-3 text-sm text-gray-500">
+          <span>共 {{ store.totalWorkflows }} 条记录</span>
+          <Select
+            v-model:value="pageSize"
+            style="width: 110px"
+            size="small"
+            @change="handlePageSizeChange"
+          >
+            <Select.Option :value="10">10条/页</Select.Option>
+            <Select.Option :value="20">20条/页</Select.Option>
+            <Select.Option :value="50">50条/页</Select.Option>
+          </Select>
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="currentPage === 1"
+            @click="goToPage(1)"
+          >
+            <IconifyIcon icon="mdi:chevron-double-left" :size="18" />
+          </button>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="currentPage === 1"
+            @click="goToPage(currentPage - 1)"
+          >
+            <IconifyIcon icon="mdi:chevron-left" :size="18" />
+          </button>
+          <template v-for="p in pageList" :key="p">
+            <button
+              v-if="p === '...'"
+              class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400"
+            >
+              ...
+            </button>
+            <button
+              v-else
+              class="w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all"
+              :class="p === currentPage
+                ? 'bg-primary text-white hover:bg-primary/90'
+                : 'text-gray-600 hover:bg-gray-100'"
+              @click="goToPage(p)"
+            >
+              {{ p }}
+            </button>
+          </template>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="currentPage === totalPages"
+            @click="goToPage(currentPage + 1)"
+          >
+            <IconifyIcon icon="mdi:chevron-right" :size="18" />
+          </button>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="currentPage === totalPages"
+            @click="goToPage(totalPages)"
+          >
+            <IconifyIcon icon="mdi:chevron-double-right" :size="18" />
+          </button>
+        </div>
       </div>
     </Card>
   </div>
