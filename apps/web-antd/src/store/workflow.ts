@@ -13,6 +13,8 @@ import { defineStore } from 'pinia';
 import {
   addFlow,
   addFolder,
+  batchDisableFlow,
+  batchEnableFlow,
   deleteFlow,
   deleteFolder,
   getFlowDetail,
@@ -472,6 +474,36 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  async function enableWorkflow(flowId: string): Promise<boolean> {
+    try {
+      await batchEnableFlow(projectId.value, [flowId]);
+      // 更新本地状态
+      const workflow = workflows.value.find((w) => w.flowId === flowId);
+      if (workflow) {
+        workflow.enabled = true;
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to enable workflow:', error);
+      return false;
+    }
+  }
+
+  async function disableWorkflow(flowId: string): Promise<boolean> {
+    try {
+      await batchDisableFlow(projectId.value, [flowId]);
+      // 更新本地状态
+      const workflow = workflows.value.find((w) => w.flowId === flowId);
+      if (workflow) {
+        workflow.enabled = false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to disable workflow:', error);
+      return false;
+    }
+  }
+
   async function loadWorkflowDetail(id: string): Promise<any | null> {
     try {
       const numericId = Number.parseInt(id.replace('workflow-', ''));
@@ -532,6 +564,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
     saveWorkflowToBackend,
     validateFlow,
     runWorkflow,
+    enableWorkflow,
+    disableWorkflow,
     loadWorkflowDetail,
     selectFolder,
     selectWorkflow,

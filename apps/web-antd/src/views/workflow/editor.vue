@@ -6,7 +6,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, message, Switch } from 'ant-design-vue';
+import { Button, Input, message, Tag } from 'ant-design-vue';
 
 import { useTitle } from '@vueuse/core';
 
@@ -155,13 +155,8 @@ const isRunning = ref(false);
 const isPageReady = ref(false);
 const isProjectsLoading = ref(false);
 const workflowLoaded = ref(false);
-const workflowEnabled = computed({
-  get: () => store.currentWorkflow?.enabled !== false,
-  set: (val: boolean) => {
-    if (store.currentWorkflow) {
-      store.currentWorkflow.enabled = val;
-    }
-  },
+const workflowEnabled = computed(() => {
+  return store.currentWorkflow?.enabled !== false;
 });
 
 watch(
@@ -703,9 +698,11 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <div class="flex items-center gap-1.5">
-          <span class="text-sm text-gray-600">启用</span>
-          <Switch v-model:checked="workflowEnabled" />
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded-full" :class="workflowEnabled ? 'bg-green-50' : 'bg-orange-50'">
+          <span class="w-2 h-2 rounded-full" :class="workflowEnabled ? 'bg-green-500' : 'bg-orange-500'"></span>
+          <span class="text-xs font-medium" :class="workflowEnabled ? 'text-green-700' : 'text-orange-700'">
+            {{ workflowEnabled ? '已启用' : '已停用' }}
+          </span>
         </div>
         <Button type="text" @click="handleClear">
           <IconifyIcon icon="mdi:trash-can" :size="16" />

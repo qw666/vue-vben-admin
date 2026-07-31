@@ -331,3 +331,35 @@ export async function runFlow(data: ExecutionTriggerRequest): Promise<ApiRespons
     headers: getHeaders(),
   });
 }
+
+/**
+ * 批量启用流程
+ */
+export async function batchEnableFlow(
+  projectId: number,
+  flowIdList: string[],
+): Promise<ApiResponse> {
+  return requestClient.post(
+    `${BASE_URL}/flow/batch/enable?projectId=${projectId}`,
+    flowIdList,
+    {
+      headers: getHeaders(),
+    },
+  );
+}
+
+/**
+ * 批量停用流程
+ */
+export async function batchDisableFlow(
+  projectId: number,
+  flowIdList: string[],
+): Promise<ApiResponse> {
+  return requestClient.post(
+    `${BASE_URL}/flow/batch/disable?projectId=${projectId}`,
+    flowIdList,
+    {
+      headers: getHeaders(),
+    },
+  );
+}

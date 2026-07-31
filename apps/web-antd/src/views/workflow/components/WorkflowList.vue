@@ -51,6 +51,10 @@ async function handleRun(workflowId: string) {
     message.warning('工作流ID不存在，请先保存流程');
     return;
   }
+  if (workflow.enabled === false) {
+    message.warning('流程已停用，请先启用流程');
+    return;
+  }
   runningWorkflowId.value = workflowId;
   try {
     const success = await store.runWorkflow(workflowId);
@@ -72,6 +76,28 @@ async function handleDelete(workflowId: string) {
     message.success('删除成功');
   } else {
     message.error('删除失败');
+  }
+}
+
+async function handleToggleEnable(workflow: any) {
+  if (!workflow.flowId) {
+    message.warning('流程ID不存在，请先保存流程');
+    return;
+  }
+  if (workflow.enabled === false) {
+    const success = await store.enableWorkflow(workflow.flowId);
+    if (success) {
+      message.success('流程已启用');
+    } else {
+      message.error('启用失败');
+    }
+  } else {
+    const success = await store.disableWorkflow(workflow.flowId);
+    if (success) {
+      message.success('流程已停用');
+    } else {
+      message.error('停用失败');
+    }
   }
 }
 function triggerSearch() {
@@ -249,6 +275,26 @@ watch(searchInput, () => {
                 更新于 {{ formatDate(workflow.updatedAt) }}
               </span>
               <Space size="small">
+                <Tooltip :title="workflow.enabled === false ? '启用流程' : '停用流程'">
+                  <Button
+                    type="text"
+                    size="small"
+                    :class="workflow.enabled === false ? 'text-gray-400 hover:text-orange-500' : 'text-green-500'"
+                    @click="handleToggleEnable(workflow)"
+                  >
+                    <div class="flex items-center gap-1">
+                      <div
+                        class="w-8 h-4 rounded-full transition-colors duration-200 relative"
+                        :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
+                      >
+                        <div
+                          class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200"
+                          :class="workflow.enabled === false ? 'left-0.5' : 'left-[18px]'"
+                        ></div>
+                      </div>
+                    </div>
+                  </Button>
+                </Tooltip>
                 <Tooltip title="编辑">
                   <Button
                     type="text"
@@ -258,12 +304,13 @@ watch(searchInput, () => {
                     <IconifyIcon icon="mdi:pencil" :size="16" />
                   </Button>
                 </Tooltip>
-                <Tooltip title="运行">
+                <Tooltip :title="workflow.enabled === false ? '流程已停用，无法运行' : '运行'">
                   <Button
                     type="text"
                     size="small"
                     :loading="runningWorkflowId === workflow.id"
-                    :disabled="runningWorkflowId !== null"
+                    :disabled="runningWorkflowId !== null || workflow.enabled === false"
+                    :class="workflow.enabled === false ? 'text-gray-300 cursor-not-allowed' : ''"
                     @click="handleRun(workflow.id)"
                   >
                     <IconifyIcon icon="mdi:play" :size="16" />
