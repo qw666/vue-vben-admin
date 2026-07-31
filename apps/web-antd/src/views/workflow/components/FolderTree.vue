@@ -3,7 +3,7 @@ import type { Key } from 'ant-design-vue/es/_util/type';
 
 import type { WorkflowFolder } from '#/types/workflow';
 
-import { computed, h, onMounted, ref, watch } from 'vue';
+import { computed, h, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -376,11 +376,6 @@ watch(
   },
   { immediate: true }
 );
-
-onMounted(() => {
-  store.loadFolders();
-  store.loadProjects();
-});
 </script>
 
 <template>
