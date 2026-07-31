@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue';
 import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
@@ -22,6 +22,7 @@ const currentPage = ref(1);
 const pageSize = ref(10);
 const selectedFlowId = ref('');
 const selectedStates = ref<string[]>([]);
+const dateRange = ref<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
 const startDate = ref<dayjs.Dayjs | null>(null);
 const endDate = ref<dayjs.Dayjs | null>(null);
 const isLoading = ref(true);
@@ -51,12 +52,14 @@ const columns = [
     dataIndex: 'id',
     width: 200,
     ellipsis: true,
+    align: 'center',
   },
   {
     title: '流程名称',
     dataIndex: 'flowName',
     width: 200,
     ellipsis: true,
+    align: 'center',
   },
   {
     title: '触发方式',
@@ -74,11 +77,13 @@ const columns = [
     title: '开始时间',
     dataIndex: 'state',
     width: 180,
+    align: 'center',
   },
   {
     title: '结束时间',
     dataIndex: 'state',
     width: 180,
+    align: 'center',
   },
   {
     title: '耗时',
@@ -203,13 +208,15 @@ function viewDetail(executionId: string, flowId: string) {
 
 async function loadData(isAutoRefresh = false) {
   const pid = localProjectId.value ?? workflowStore.projectId;
+  const start = dateRange.value ? dateRange.value[0] : null;
+  const end = dateRange.value ? dateRange.value[1] : null;
   await executionStore.loadExecutions({
     page: currentPage.value,
     size: pageSize.value,
     projectId: pid,
     flowId: selectedFlowId.value || undefined,
-    startDate: startDate.value ? dayjs(startDate.value).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
-    endDate: endDate.value ? dayjs(endDate.value).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
+    startDate: start ? dayjs(start).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
+    endDate: end ? dayjs(end).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
     state: selectedStates.value.length > 0 ? selectedStates.value : undefined,
   }, isAutoRefresh);
   
@@ -224,6 +231,59 @@ async function loadData(isAutoRefresh = false) {
 function handlePageChange(page: number, size: number) {
   currentPage.value = page;
   pageSize.value = size;
+  loadData();
+}
+
+function handlePageSizeChange(value: number) {
+  pageSize.value = value;
+  currentPage.value = 1;
+  loadData();
+}
+
+const totalPages = computed(() => {
+  if (!executionStore.totalExecutions) return 1;
+  return Math.ceil(executionStore.totalExecutions / pageSize.value);
+});
+
+const pageList = computed(() => {
+  const total = totalPages.value;
+  const current = currentPage.value;
+  const pages: (number | string)[] = [];
+  
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) {
+      pages.push(i);
+    }
+  } else {
+    pages.push(1);
+    if (current > 4) {
+      pages.push('...');
+    }
+    const start = Math.max(2, current - 2);
+    const end = Math.min(total - 1, current + 2);
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (current < total - 3) {
+      pages.push('...');
+    }
+    pages.push(total);
+  }
+  
+  return pages;
+});
+
+function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return;
+  currentPage.value = page;
+  loadData();
+}
+
+function resetSearch() {
+  selectedFlowId.value = '';
+  selectedStates.value = [];
+  dateRange.value = null;
+  currentPage.value = 1;
   loadData();
 }
 
@@ -401,96 +461,88 @@ function handleVisibilityChange() {
     </template>
 
     <Spin :spinning="executionStore.isOperationLoading">
-      <div class="mb-4 p-4 bg-card rounded-lg shadow-sm">
-        <div class="flex flex-wrap gap-4 items-center">
-          <div class="flex items-center gap-2">
-            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">流程：</label>
-            <Select
-              v-model:value="selectedFlowId"
-              placeholder="请选择流程"
-              style="width: 200px"
-              allowClear
-              :disabled="executionStore.isOperationLoading"
-            >
-              <Select.Option
-                v-for="workflow in workflowStore.workflows"
-                :key="workflow.flowId"
-                :value="workflow.flowId"
+      <!-- 搜索区域 -->
+      <div class="mb-4 bg-card rounded-lg shadow-sm">
+        <div class="px-6 py-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="flex items-center gap-2">
+              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">流程名称</label>
+              <Select
+                v-model:value="selectedFlowId"
+                placeholder="请输入"
+                class="flex-1"
+                allowClear
+                :disabled="executionStore.isOperationLoading"
               >
-                {{ workflow.name }}
-              </Select.Option>
-            </Select>
-          </div>
+                <Select.Option
+                  v-for="workflow in workflowStore.workflows"
+                  :key="workflow.flowId"
+                  :value="workflow.flowId"
+                >
+                  {{ workflow.name }}
+                </Select.Option>
+              </Select>
+            </div>
 
-          <div class="flex items-center gap-2">
-            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">状态：</label>
-            <Select
-              v-model:value="selectedStates"
-              placeholder="请选择状态"
-              style="width: 200px"
-              mode="multiple"
-              allowClear
-              :disabled="executionStore.isOperationLoading"
-            >
-              <Select.Option
-                v-for="option in stateOptions"
-                :key="option.value"
-                :value="option.value"
+            <div class="flex items-center gap-2">
+              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">状态</label>
+              <Select
+                v-model:value="selectedStates"
+                placeholder="请选择"
+                class="flex-1"
+                mode="multiple"
+                allowClear
+                :disabled="executionStore.isOperationLoading"
               >
-                {{ option.label }}
-              </Select.Option>
-            </Select>
-          </div>
+                <Select.Option
+                  v-for="option in stateOptions"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </Select.Option>
+              </Select>
+            </div>
 
-          <div class="flex items-center gap-2">
-            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">开始时间：</label>
-            <DatePicker
-              v-model:value="startDate"
-              placeholder="开始时间"
-              showTime
-              format="YYYY-MM-DD HH:mm:ss"
-              @change="(date: any) => handleDateChange(date, 'start')"
-              :disabled="executionStore.isOperationLoading"
-            />
+            <div class="flex items-center gap-2 lg:col-span-2">
+              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">创建时间</label>
+              <DatePicker.RangePicker
+                v-model:value="dateRange"
+                class="flex-1"
+                showTime
+                format="YYYY-MM-DD HH:mm:ss"
+                :disabled="executionStore.isOperationLoading"
+              />
+              <Button type="primary" @click="loadData" :disabled="executionStore.isOperationLoading">
+                搜索
+              </Button>
+              <Button @click="resetSearch" :disabled="executionStore.isOperationLoading">
+                重置
+              </Button>
+            </div>
           </div>
-
-          <div class="flex items-center gap-2">
-            <label :class="['text-sm', isDark ? 'text-white/80' : 'text-gray-600']">结束时间：</label>
-            <DatePicker
-              v-model:value="endDate"
-              placeholder="结束时间"
-              showTime
-              format="YYYY-MM-DD HH:mm:ss"
-              @change="(date: any) => handleDateChange(date, 'end')"
-              :disabled="executionStore.isOperationLoading"
-            />
-          </div>
-
-          <Button type="primary" @click="loadData" :disabled="executionStore.isOperationLoading">
-            查询
-          </Button>
         </div>
       </div>
 
-      <Spin :spinning="executionStore.isExecutionsLoading">
-      <Table
-        :columns="columns"
-        :data-source="executionStore.executions"
-        :pagination="{
-          current: currentPage,
-          pageSize: pageSize,
-          total: executionStore.totalExecutions,
-          showSizeChanger: true,
-          showTotal: (total: number) => `共 ${total} 条`,
-          onChange: handlePageChange,
-        }"
-        row-key="id"
-        bordered
-        class="mt-4"
-      >
-        <template #bodyCell="{ column, record }">
+      <!-- 表格区域 -->
+      <div class="bg-card rounded-lg shadow-sm">
+        <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100">
+          <div class="text-base font-semibold" :class="isDark ? 'text-white' : 'text-gray-800'">执行记录</div>
+        </div>
+        <div class="px-2 py-2">
+          <Spin :spinning="executionStore.isExecutionsLoading">
+            <Table
+              :columns="columns"
+              :data-source="executionStore.executions"
+              :pagination="false"
+              row-key="id"
+              size="middle"
+              class="execution-table"
+              :row-class-name="() => ''"
+            >
+              <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'id'">
-            <a class="text-blue-600 hover:text-blue-800" @click="viewDetail(record.id, record.flowId)">
+            <a class="text-primary hover:text-primary/80 font-medium" @click="viewDetail(record.id, record.flowId)">
               {{ record.id }}
             </a>
           </template>
@@ -628,6 +680,73 @@ function handleVisibilityChange() {
         </template>
       </Table>
     </Spin>
+        </div>
+        <!-- 分页区域 -->
+        <div class="px-4 py-3 flex items-center justify-between border-t border-gray-100">
+          <div class="flex items-center gap-3 text-sm" :class="isDark ? 'text-gray-400' : 'text-gray-500'">
+            <span>共 {{ executionStore.totalExecutions }} 条记录</span>
+            <Select
+              v-model:value="pageSize"
+              style="width: 110px"
+              size="small"
+              @change="handlePageSizeChange"
+            >
+              <Select.Option :value="10">10条/页</Select.Option>
+              <Select.Option :value="20">20条/页</Select.Option>
+              <Select.Option :value="50">50条/页</Select.Option>
+              <Select.Option :value="100">100条/页</Select.Option>
+            </Select>
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="currentPage === 1"
+              @click="goToPage(1)"
+            >
+              <IconifyIcon icon="mdi:chevron-double-left" :size="18" />
+            </button>
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="currentPage === 1"
+              @click="goToPage(currentPage - 1)"
+            >
+              <IconifyIcon icon="mdi:chevron-left" :size="18" />
+            </button>
+            <template v-for="p in pageList" :key="p">
+              <button
+                v-if="p === '...'"
+                class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400"
+              >
+                ...
+              </button>
+              <button
+                v-else
+                class="w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all"
+                :class="p === currentPage
+                  ? 'bg-primary text-white hover:bg-primary/90'
+                  : 'text-gray-600 hover:bg-gray-100'"
+                @click="goToPage(p)"
+              >
+                {{ p }}
+              </button>
+            </template>
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="currentPage === totalPages"
+              @click="goToPage(currentPage + 1)"
+            >
+              <IconifyIcon icon="mdi:chevron-right" :size="18" />
+            </button>
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="currentPage === totalPages"
+              @click="goToPage(totalPages)"
+            >
+              <IconifyIcon icon="mdi:chevron-double-right" :size="18" />
+            </button>
+          </div>
+        </div>
+      </div>
     </Spin>
 
     <Modal
@@ -664,3 +783,53 @@ function handleVisibilityChange() {
     />
   </Page>
 </template>
+
+<style scoped>
+.execution-table :deep(.ant-table) {
+  border: none;
+  border-radius: 0;
+}
+
+.execution-table :deep(.ant-table-container) {
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+}
+
+.execution-table :deep(.ant-table-thead > tr > th) {
+  background-color: #f5f7fa !important;
+  color: #323639 !important;
+  font-weight: 600;
+  font-size: 12px;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+}
+
+.execution-table :deep(.ant-table-thead > tr > th:first-child) {
+  border-left: none;
+}
+
+.execution-table :deep(.ant-table-thead > tr > th:last-child) {
+  border-right: none;
+}
+
+.execution-table :deep(.ant-table-tbody > tr > td) {
+  color: #323639;
+  font-size: 12px;
+  text-align: center;
+  border-bottom: 1px solid #f0f0f0;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.execution-table :deep(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: none;
+}
+
+.execution-table :deep(.ant-table-tbody > tr:hover > td) {
+  background-color: #f8fafc;
+}
+</style>
