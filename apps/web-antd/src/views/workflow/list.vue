@@ -68,11 +68,11 @@ watch(() => store.selectedFolderId, async (newId) => {
         <IconifyIcon icon="mdi:loading" :size="32" class="text-blue-500 animate-spin" />
       </Spin>
     </div>
-    <div v-else class="flex flex-1 overflow-hidden">
+    <div v-else class="flex flex-1 overflow-hidden gap-4">
       <div class="w-64 flex-shrink-0">
         <FolderTree />
       </div>
-      <div class="flex-1 flex flex-col overflow-hidden">
+      <div class="flex-1 flex flex-col overflow-hidden gap-4">
         <WorkflowList />
       </div>
     </div>

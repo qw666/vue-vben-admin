@@ -186,8 +186,8 @@ watch(searchInput, () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <Card class="rounded-t-lg rounded-b-none border-b-0">
+  <div class="flex flex-col h-full gap-4">
+    <Card class="flex-shrink-0 rounded-lg">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div class="w-48">
@@ -215,7 +215,7 @@ watch(searchInput, () => {
       </div>
     </Card>
 
-    <Card class="flex-1 overflow-hidden rounded-t-none rounded-b-lg">
+    <Card class="flex-1 overflow-hidden rounded-lg">
       <div
         v-if="store.isWorkflowsLoading"
         class="h-full flex items-center justify-center"
@@ -232,69 +232,86 @@ watch(searchInput, () => {
 
       <div
         v-else-if="workflows.length > 0"
-        class="h-full overflow-y-auto p-2"
+        class="h-full overflow-y-auto"
       >
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card
+        <div class="grid gap-4 p-3" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+          <div
             v-for="workflow in workflows"
             :key="workflow.id"
-            :body-style="{ padding: '12px' }"
+            class="workflow-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-blue-300 transition-all duration-200"
           >
-            <div class="relative">
-              <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground flex-shrink-0">
-                    <IconifyIcon icon="mdi:workflow" :size="20" />
-                  </div>
+            <!-- 头部：图标和状态 -->
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white flex-shrink-0">
+                  <IconifyIcon icon="mdi:workflow" :size="22" />
+                </div>
+                <div class="flex-1 min-w-0">
                   <Tooltip :title="workflow.name">
-                    <h3 class="font-semibold text-card-foreground truncate">
+                    <h3 class="text-base font-semibold text-gray-800 truncate">
                       {{ workflow.name }}
                     </h3>
                   </Tooltip>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <Tooltip
-                    v-if="workflow.triggers && workflow.triggers.length > 0"
-                    :title="workflow.hasActiveTrigger ? '有活跃触发器' : '触发器已禁用'"
-                  >
-                    <div
-                      class="w-6 h-6 rounded-full flex items-center justify-center"
-                      :class="workflow.hasActiveTrigger ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'"
-                    >
-                      <IconifyIcon icon="mdi:flash" :size="14" />
-                    </div>
-                  </Tooltip>
-                  <Tag v-if="workflow.status === 'deleted'" color="red">已删除</Tag>
-                  <Tag v-else-if="workflow.enabled === false" color="orange">禁用</Tag>
-                  <Tag v-else color="green">启用</Tag>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <span class="text-xs text-gray-400">{{ workflow.flowId }}</span>
+                    <span class="text-xs text-gray-300">·</span>
+                    <span class="text-xs text-gray-400">更新于 {{ formatDate(workflow.updatedAt) }}</span>
+                  </div>
                 </div>
               </div>
+              <div class="flex-shrink-0">
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="workflow.enabled === false ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-orange-500' : 'bg-green-500'"></span>
+                  {{ workflow.enabled === false ? '已停用' : '已启用' }}
+                </span>
+              </div>
             </div>
+
+            <!-- 中间：触发器信息 -->
+            <div class="flex items-center gap-4 py-2 mb-3 border-t border-b border-gray-100">
+              <div class="flex items-center gap-1.5 text-sm text-gray-500">
+                <IconifyIcon icon="mdi:cog" :size="16" />
+                <span>触发器</span>
+                <span class="font-semibold text-gray-700">{{ workflow.triggers?.length || 0 }}</span>
+              </div>
+              <div
+                v-if="workflow.triggers && workflow.triggers.length > 0"
+                class="flex items-center gap-1 text-xs"
+                :class="workflow.hasActiveTrigger ? 'text-green-600' : 'text-gray-400'"
+              >
+                <IconifyIcon icon="mdi:flash" :size="14" />
+                <span>{{ workflow.hasActiveTrigger ? '活跃' : '已禁用' }}</span>
+              </div>
+              <div v-else class="text-xs text-gray-400">无触发器</div>
+            </div>
+
+            <!-- 底部：操作按钮 -->
             <div class="flex items-center justify-between">
-              <span class="text-xs text-muted-foreground">
-                更新于 {{ formatDate(workflow.updatedAt) }}
-              </span>
-              <Space size="small">
-                <Tooltip :title="workflow.enabled === false ? '启用流程' : '停用流程'">
-                  <Button
-                    type="text"
-                    size="small"
-                    :class="workflow.enabled === false ? 'text-gray-400 hover:text-orange-500' : 'text-green-500'"
-                    @click="handleToggleEnable(workflow)"
-                  >
-                    <div class="flex items-center gap-1">
-                      <div
-                        class="w-8 h-4 rounded-full transition-colors duration-200 relative"
-                        :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
-                      >
-                        <div
-                          class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200"
-                          :class="workflow.enabled === false ? 'left-0.5' : 'left-[18px]'"
-                        ></div>
-                      </div>
-                    </div>
-                  </Button>
-                </Tooltip>
+              <!-- 启用/停用开关 -->
+              <button
+                type="button"
+                class="flex items-center gap-1.5 cursor-pointer"
+                @click="handleToggleEnable(workflow)"
+              >
+                <div
+                  class="w-8 h-4.5 rounded-full transition-all duration-200 relative"
+                  :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
+                  style="height: 18px;"
+                >
+                  <div
+                    class="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-all duration-200"
+                    :class="workflow.enabled === false ? 'left-0.5' : 'left-[14px]'"
+                    style="width: 14px; height: 14px;"
+                  ></div>
+                </div>
+                <span class="text-xs" :class="workflow.enabled === false ? 'text-gray-500' : 'text-green-600'">
+                  {{ workflow.enabled === false ? '启用' : '停用' }}
+                </span>
+              </button>
+              <div class="flex items-center gap-1">
                 <Tooltip title="编辑">
                   <Button
                     type="text"
@@ -310,31 +327,30 @@ watch(searchInput, () => {
                     size="small"
                     :loading="runningWorkflowId === workflow.id"
                     :disabled="runningWorkflowId !== null || workflow.enabled === false"
-                    :class="workflow.enabled === false ? 'text-gray-300 cursor-not-allowed' : ''"
                     @click="handleRun(workflow.id)"
                   >
-                    <IconifyIcon icon="mdi:play" :size="16" />
+                    <IconifyIcon icon="mdi:play-circle" :size="16" />
                   </Button>
                 </Tooltip>
                 <Popconfirm
                   title="确定删除这个流程吗？"
                   ok-text="确定"
                   cancel-text="取消"
+                  @confirm="handleDelete(workflow.id)"
                 >
                   <Tooltip title="删除">
                     <Button
                       type="text"
                       size="small"
                       danger
-                      @click="handleDelete(workflow.id)"
                     >
                       <IconifyIcon icon="mdi:trash-can" :size="16" />
                     </Button>
                   </Tooltip>
                 </Popconfirm>
-              </Space>
+              </div>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
 
@@ -376,3 +392,27 @@ watch(searchInput, () => {
     </Card>
   </div>
 </template>
+
+<style scoped>
+.workflow-card {
+  min-width: 280px;
+  transition: all 0.2s ease;
+}
+
+.workflow-card:hover {
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+.workflow-card :deep(.ant-btn) {
+  border-radius: 6px;
+}
+
+.workflow-card :deep(.ant-btn:hover) {
+  background-color: #f3f4f6;
+}
+
+.workflow-card :deep(.ant-btn.ant-btn-dangerous:hover) {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
+</style>

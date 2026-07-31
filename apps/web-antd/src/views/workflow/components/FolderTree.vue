@@ -380,7 +380,7 @@ watch(
 
 <template>
   <div
-    class="flex flex-col h-full bg-card border-r border-border text-foreground"
+    class="flex flex-col h-full bg-card border border-border text-foreground rounded-lg overflow-hidden"
   >
     <div class="p-4 border-b border-border flex-1 overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
