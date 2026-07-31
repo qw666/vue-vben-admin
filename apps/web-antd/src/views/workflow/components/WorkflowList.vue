@@ -215,7 +215,7 @@ watch(searchInput, () => {
       </div>
     </Card>
 
-    <Card class="flex-1 overflow-hidden rounded-lg">
+    <Card class="flex-1 overflow-hidden rounded-lg" :body-style="{ padding: '16px' }">
       <div
         v-if="store.isWorkflowsLoading"
         class="h-full flex items-center justify-center"
@@ -234,16 +234,16 @@ watch(searchInput, () => {
         v-else-if="workflows.length > 0"
         class="h-full overflow-y-auto"
       >
-        <div class="grid gap-4 p-3" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+        <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
           <div
             v-for="workflow in workflows"
             :key="workflow.id"
-            class="workflow-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-blue-300 transition-all duration-200"
+            class="workflow-card bg-white border border-gray-200 rounded-lg p-4 transition-all duration-200"
           >
             <!-- 头部：图标和状态 -->
             <div class="flex items-start justify-between mb-3">
               <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white flex-shrink-0">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground flex-shrink-0 shadow-sm shadow-primary/20">
                   <IconifyIcon icon="mdi:workflow" :size="22" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -261,10 +261,10 @@ watch(searchInput, () => {
               </div>
               <div class="flex-shrink-0">
                 <span
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                  :class="workflow.enabled === false ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'"
+                  class="inline-flex items-center gap-1 text-xs font-medium"
+                  :class="workflow.enabled === false ? 'text-orange-500' : 'text-primary'"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-orange-500' : 'bg-green-500'"></span>
+                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-orange-500' : 'bg-primary'"></span>
                   {{ workflow.enabled === false ? '已停用' : '已启用' }}
                 </span>
               </div>
@@ -298,7 +298,7 @@ watch(searchInput, () => {
               >
                 <div
                   class="w-8 h-4.5 rounded-full transition-all duration-200 relative"
-                  :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
+                  :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-primary'"
                   style="height: 18px;"
                 >
                   <div
@@ -307,7 +307,7 @@ watch(searchInput, () => {
                     style="width: 14px; height: 14px;"
                   ></div>
                 </div>
-                <span class="text-xs" :class="workflow.enabled === false ? 'text-gray-500' : 'text-green-600'">
+                <span class="text-xs" :class="workflow.enabled === false ? 'text-gray-500' : 'text-primary'">
                   {{ workflow.enabled === false ? '启用' : '停用' }}
                 </span>
               </button>
@@ -401,14 +401,21 @@ watch(searchInput, () => {
 
 .workflow-card:hover {
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+  border-color: hsl(var(--primary)) !important;
 }
 
 .workflow-card :deep(.ant-btn) {
   border-radius: 6px;
+  color: hsl(var(--primary));
 }
 
 .workflow-card :deep(.ant-btn:hover) {
-  background-color: #f3f4f6;
+  background-color: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
+}
+
+.workflow-card :deep(.ant-btn.ant-btn-dangerous) {
+  color: #ef4444;
 }
 
 .workflow-card :deep(.ant-btn.ant-btn-dangerous:hover) {
