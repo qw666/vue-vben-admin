@@ -332,6 +332,24 @@ export async function runFlow(data: ExecutionTriggerRequest): Promise<ApiRespons
   });
 }
 
+export interface FlowSelectVO {
+  flowId: string;
+  description: string;
+  [key: string]: any;
+}
+
+export async function getFlowSelectList(
+  projectId: number,
+  keyword?: string,
+): Promise<FlowSelectVO[]> {
+  const params: Record<string, any> = { projectId };
+  if (keyword) params.keyword = keyword;
+  return requestClient.get(`${BASE_URL}/flow/select`, {
+    params,
+    headers: getHeaders(),
+  });
+}
+
 /**
  * 批量启用流程
  */

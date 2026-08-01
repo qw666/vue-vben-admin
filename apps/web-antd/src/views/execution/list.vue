@@ -12,6 +12,7 @@ import LogModal from './components/LogModal.vue';
 
 import { useExecutionStore } from '#/store/execution';
 import { useWorkflowStore } from '#/store/workflow';
+import { getFlowSelectList } from '#/api/core/workflow';
 
 const router = useRouter();
 const executionStore = useExecutionStore();
@@ -27,6 +28,38 @@ const startDate = ref<dayjs.Dayjs | null>(null);
 const endDate = ref<dayjs.Dayjs | null>(null);
 const isLoading = ref(true);
 const localProjectId = ref<number | null>(null);
+
+// 流程名称远程搜索
+const flowOptions = ref<{ flowId: string; description: string }[]>([]);
+const flowSearchLoading = ref(false);
+let flowSearchTimer: null | ReturnType<typeof setTimeout> = null;
+
+async function searchFlows(keyword: string) {
+  const pid = localProjectId.value ?? workflowStore.projectId;
+  if (!pid) {
+    flowOptions.value = [];
+    return;
+  }
+  flowSearchLoading.value = true;
+  try {
+    const list = await getFlowSelectList(pid, keyword || undefined);
+    flowOptions.value = (list || []).map((item) => ({
+      flowId: item.flowId,
+      description: item.description || item.flowId,
+    }));
+  } catch {
+    flowOptions.value = [];
+  } finally {
+    flowSearchLoading.value = false;
+  }
+}
+
+function handleFlowSearch(value: string) {
+  if (flowSearchTimer) clearTimeout(flowSearchTimer);
+  flowSearchTimer = setTimeout(() => {
+    searchFlows(value);
+  }, 300);
+}
 
 // 列显示配置
 const columnVisibility = ref<Record<string, boolean>>({
@@ -426,6 +459,7 @@ function resetSearch() {
   selectedStates.value = [];
   dateRange.value = null;
   currentPage.value = 1;
+  searchFlows('');
   loadData();
 }
 
@@ -519,7 +553,9 @@ function handleProjectChange(value: number) {
   localProjectId.value = value;
   workflowStore.setProjectId(value);
   currentPage.value = 1;
-  workflowStore.loadWorkflows(undefined, undefined, undefined, undefined, 1, 1000);
+  selectedFlowId.value = '';
+  flowOptions.value = [];
+  searchFlows('');
   loadData();
 }
 
@@ -529,10 +565,7 @@ onMounted(async () => {
       await workflowStore.loadProjects();
     }
     localProjectId.value = workflowStore.projectId;
-    const pid = localProjectId.value ?? workflowStore.projectId;
-    if (!workflowStore.workflows || workflowStore.workflows.length === 0) {
-      await workflowStore.loadWorkflows(undefined, undefined, undefined, undefined, 1, 1000);
-    }
+    await searchFlows('');
     await loadData();
   } finally {
     isLoading.value = false;
@@ -544,7 +577,9 @@ watch(() => workflowStore.projectId, (newVal) => {
   if (localProjectId.value !== newVal) {
     localProjectId.value = newVal;
     currentPage.value = 1;
-    workflowStore.loadWorkflows(undefined, undefined, undefined, undefined, 1, 1000);
+    selectedFlowId.value = '';
+    flowOptions.value = [];
+    searchFlows('');
     loadData();
   }
 });
@@ -617,17 +652,21 @@ function handleVisibilityChange() {
               <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">流程名称</label>
               <Select
                 v-model:value="selectedFlowId"
-                placeholder="请输入"
+                show-search
+                placeholder="请输入流程名称搜索"
                 class="flex-1"
                 allowClear
+                :filter-option="false"
+                :loading="flowSearchLoading"
                 :disabled="executionStore.isOperationLoading"
+                @search="handleFlowSearch"
               >
                 <Select.Option
-                  v-for="workflow in workflowStore.workflows"
-                  :key="workflow.flowId"
-                  :value="workflow.flowId"
+                  v-for="item in flowOptions"
+                  :key="item.flowId"
+                  :value="item.flowId"
                 >
-                  {{ workflow.name }}
+                  {{ item.description }}
                 </Select.Option>
               </Select>
             </div>
