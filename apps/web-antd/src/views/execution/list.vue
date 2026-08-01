@@ -138,58 +138,59 @@ const columns = [
   {
     title: '执行ID',
     dataIndex: 'id',
-    width: 200,
+    width: 160,
     ellipsis: true,
     align: 'center',
   },
   {
     title: '流程名称',
     dataIndex: 'flowName',
-    width: 200,
+    width: 150,
     ellipsis: true,
     align: 'center',
   },
   {
     title: '触发方式',
     dataIndex: 'trigger',
-    width: 120,
+    width: 100,
     align: 'center',
   },
   {
     title: '状态',
     dataIndex: 'state',
-    width: 100,
+    width: 80,
     align: 'center',
   },
   {
     title: '开始时间',
     dataIndex: 'state',
-    width: 180,
+    width: 150,
     align: 'center',
   },
   {
     title: '结束时间',
     dataIndex: 'state',
-    width: 180,
+    width: 150,
     align: 'center',
   },
   {
     title: '耗时',
     dataIndex: 'state',
-    width: 100,
+    width: 80,
     align: 'center',
   },
   {
     title: '日志',
     dataIndex: 'log',
-    width: 80,
+    width: 60,
     align: 'center',
   },
   {
     title: '操作',
     dataIndex: 'action',
-    width: 120,
+    width: 180,
     align: 'center',
+    fixed: 'right',
   },
 ];
 
@@ -683,6 +684,7 @@ function handleVisibilityChange() {
               :columns="visibleColumns"
               :data-source="executionStore.executions"
               :pagination="false"
+              :scroll="{ x: 1110 }"
               row-key="id"
               size="middle"
               class="execution-table"
