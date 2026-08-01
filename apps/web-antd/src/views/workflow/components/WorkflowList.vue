@@ -266,20 +266,20 @@ watch(searchInput, () => {
         v-else-if="workflows.length > 0"
         class="h-full overflow-y-auto"
       >
-        <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+        <div class="grid gap-4 pt-2" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
           <div
             v-for="workflow in workflows"
             :key="workflow.id"
-            class="workflow-card bg-white border border-gray-200 rounded-lg p-4 transition-all duration-200"
+            class="workflow-card bg-white border border-gray-200 rounded-lg p-5 transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-gray-300 hover:z-10 relative"
           >
             <!-- 头部：图标和状态 -->
             <div class="flex items-start justify-between mb-3">
               <div class="flex items-center gap-3 flex-1 min-w-0">
-                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-600 flex items-center justify-center text-primary-foreground flex-shrink-0 shadow-sm shadow-primary/20">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-700 flex items-center justify-center text-primary-foreground flex-shrink-0 shadow-md shadow-primary/30 ring-1 ring-primary/10">
                   <IconifyIcon icon="mdi:workflow" :size="22" />
                 </div>
                 <div class="flex-1 min-w-0">
-                  <Tooltip :title="workflow.name">
+                  <Tooltip :title="workflow.name" :overlay-style="{ maxWidth: 'none' }">
                     <h3 class="text-base font-semibold text-gray-800 truncate">
                       {{ workflow.name }}
                     </h3>
@@ -294,9 +294,9 @@ watch(searchInput, () => {
               <div class="flex-shrink-0">
                 <span
                   class="inline-flex items-center gap-1 text-xs font-medium"
-                  :class="workflow.enabled === false ? 'text-orange-500' : 'text-green-600'"
+                  :class="workflow.enabled === false ? 'text-red-500' : 'text-green-600'"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-orange-500' : 'bg-green-600'"></span>
+                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-red-500' : 'bg-green-600'"></span>
                   {{ workflow.enabled === false ? '已停用' : '已启用' }}
                 </span>
               </div>
@@ -330,7 +330,7 @@ watch(searchInput, () => {
               >
                 <div
                   class="w-8 h-4.5 rounded-full transition-all duration-200 relative"
-                  :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-primary'"
+                  :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
                   style="height: 18px;"
                 >
                   <div
@@ -339,7 +339,7 @@ watch(searchInput, () => {
                     style="width: 14px; height: 14px;"
                   ></div>
                 </div>
-                <span class="text-xs" :class="workflow.enabled === false ? 'text-gray-500' : 'text-primary'">
+                <span class="text-xs" :class="workflow.enabled === false ? 'text-red-500' : 'text-green-600'">
                   {{ workflow.enabled === false ? '启用' : '停用' }}
                 </span>
               </button>
@@ -348,6 +348,7 @@ watch(searchInput, () => {
                   <Button
                     type="text"
                     size="small"
+                    class="workflow-action-btn"
                     @click="handleEdit(workflow.id)"
                   >
                     <IconifyIcon icon="mdi:pencil" :size="16" />
@@ -357,6 +358,7 @@ watch(searchInput, () => {
                   <Button
                     type="text"
                     size="small"
+                    class="workflow-action-btn"
                     :loading="runningWorkflowId === workflow.id"
                     :disabled="runningWorkflowId !== null || workflow.enabled === false"
                     @click="handleRun(workflow.id)"
@@ -504,5 +506,20 @@ watch(searchInput, () => {
 .workflow-card :deep(.ant-btn.ant-btn-dangerous:hover) {
   background-color: #fef2f2;
   color: #ef4444;
+}
+
+.workflow-card :deep(.workflow-action-btn) {
+  color: #6b7280;
+}
+
+.workflow-card :deep(.workflow-action-btn:hover) {
+  color: #1f2937 !important;
+  background-color: #f3f4f6 !important;
+}
+
+.workflow-card :deep(.workflow-action-btn.ant-btn-disabled),
+.workflow-card :deep(.workflow-action-btn.ant-btn-disabled:hover) {
+  color: #d1d5db !important;
+  background-color: transparent !important;
 }
 </style>
