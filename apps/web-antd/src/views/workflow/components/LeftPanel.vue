@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 import { getFlowControlNodes } from '../config/workflow-node-config';
+import { resolveNodeIcon } from '../utils/nodeIcon';
 
 const props = defineProps<{
   activeTab: string;
@@ -176,7 +177,7 @@ const mergedPluginGroups = computed(() => {
                   <div
                     class="w-7 h-7 rounded-lg flex items-center justify-center text-primary-foreground bg-gradient-to-br from-primary to-primary-600"
                   >
-                    <IconifyIcon :icon="plugin.icon" :size="14" />
+                    <IconifyIcon :icon="resolveNodeIcon(plugin.icon)" :size="14" />
                   </div>
                   <span class="font-medium text-sm text-gray-700">{{ plugin.nodeName }}</span>
                 </div>

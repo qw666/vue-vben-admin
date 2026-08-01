@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Button, Input, InputNumber, Switch, Textarea, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+import { resolveNodeIcon } from '../utils/nodeIcon';
 
 defineProps<{
   show: boolean;
@@ -65,7 +66,7 @@ function getCategoryColor(category: string): string {
                     class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
                     :class="getCategoryColor(group.groupName)"
                   >
-                    <IconifyIcon :icon="plugin.icon" :size="20" />
+                    <IconifyIcon :icon="resolveNodeIcon(plugin.icon)" :size="20" />
                   </div>
                   <div class="flex-1">
                     <div class="text-sm font-medium text-gray-800">{{ plugin.nodeName }}</div>
@@ -93,7 +94,7 @@ function getCategoryColor(category: string): string {
                   class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
                   :class="getCategoryColor(pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === selectedChildNodeType)?.category || '基础')"
                 >
-                  <IconifyIcon :icon="pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === selectedChildNodeType)?.icon" :size="20" />
+                  <IconifyIcon :icon="resolveNodeIcon(pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === selectedChildNodeType)?.icon)" :size="20" />
                 </div>
                 <div>
                   <div class="text-base font-medium text-gray-800">{{ selectedChildNodeLabel }}</div>

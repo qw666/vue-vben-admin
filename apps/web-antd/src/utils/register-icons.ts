@@ -6,6 +6,7 @@ import mdiIcons from '#/assets/icons/mdi-icons.json';
 import lucideIcons from '#/assets/icons/lucide-icons.json';
 import epIcons from '#/assets/icons/ep-icons.json';
 import carbonIcons from '#/assets/icons/carbon-icons.json';
+import bizIcons from '#/assets/icons/biz-icons.json';
 import { _api, addCollection } from '@iconify/vue';
 
 let registered = false;
@@ -20,6 +21,7 @@ export function registerOfflineIcons() {
     addCollection(lucideIcons as any);
     addCollection(epIcons as any);
     addCollection(carbonIcons as any);
+    addCollection(bizIcons as any);
 
     // 使用 setFetch 设置一个返回空响应的 fetch 函数
     // 这样只会影响 Iconify 的请求，不会影响其他 fetch 请求

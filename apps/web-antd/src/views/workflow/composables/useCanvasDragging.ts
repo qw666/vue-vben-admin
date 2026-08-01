@@ -5,6 +5,7 @@ import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
 
 import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
+import { resolveNodeIcon } from '../utils/nodeIcon';
 import { useEventCleanup } from './useEventCleanup';
 
 export function useCanvasDragging(
@@ -88,7 +89,7 @@ export function useCanvasDragging(
           data: {
             label: template?.nodeName || nodeType,
             type: template?.type || nodeType,
-            icon: template?.icon || 'mdi:circle',
+            icon: resolveNodeIcon(template?.icon),
             description: template?.description || template?.category || '自定义节点',
             config: meta && meta.parsedSchema ? {} : {},
           },

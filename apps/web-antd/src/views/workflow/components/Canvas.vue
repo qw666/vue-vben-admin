@@ -4,6 +4,7 @@ import { onMounted, ref, watch } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 import { Tooltip } from 'ant-design-vue';
 import { UI_CONFIG } from '../config/ui-config';
+import { resolveNodeIcon } from '../utils/nodeIcon';
 
 const props = defineProps<{
   configPanelWidth?: number;
@@ -472,7 +473,7 @@ onMounted(() => {
                 class="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground"
                 :class="getCategoryColor()"
               >
-                <IconifyIcon :icon="node.data.icon" :size="14" />
+                <IconifyIcon :icon="resolveNodeIcon(node.data.icon)" :size="14" />
               </div>
               <span class="font-medium text-xs text-card-foreground">{{
                 node.data.label
