@@ -692,12 +692,13 @@ function handleVisibilityChange() {
             </div>
 
             <div class="flex items-center gap-2 lg:col-span-2">
-              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">创建时间</label>
+              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">启动时间</label>
               <DatePicker.RangePicker
                 v-model:value="dateRange"
                 class="flex-1"
-                showTime
+                :show-time="{ format: 'HH:mm:ss' }"
                 format="YYYY-MM-DD HH:mm:ss"
+                :placeholder="['开始时间', '结束时间']"
                 :disabled="executionStore.isOperationLoading"
               />
               <Button type="primary" @click="loadData" :disabled="executionStore.isOperationLoading">
