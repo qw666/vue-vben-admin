@@ -128,10 +128,23 @@ const logState = ref('');
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const stateOptions = [
-  { value: 'CREATED', label: '已创建' },
   { value: 'RUNNING', label: '运行中' },
   { value: 'SUCCESS', label: '成功' },
   { value: 'FAILED', label: '失败' },
+  { value: 'WARNING', label: '警告' },
+  { value: 'CREATED', label: '已创建' },
+  { value: 'QUEUED', label: '排队中' },
+  { value: 'RETRYING', label: '重试中' },
+  { value: 'RETRIED', label: '已重试' },
+  { value: 'PAUSED', label: '已暂停' },
+  { value: 'KILLING', label: '终止中' },
+  { value: 'KILLED', label: '已终止' },
+  { value: 'CANCELLED', label: '已取消' },
+  { value: 'RESTARTED', label: '已重启' },
+  { value: 'SUBMITTED', label: '已提交' },
+  { value: 'RESUBMITTED', label: '已重提' },
+  { value: 'BREAKPOINT', label: '断点' },
+  { value: 'SKIPPED', label: '已跳过' },
 ];
 
 const columns = [
@@ -253,20 +266,46 @@ function formatDate(dateStr: string | undefined): string {
 
 function getStateColor(state: string): string {
   const colorMap: Record<string, string> = {
-    CREATED: 'gray',
-    RUNNING: 'blue',
-    SUCCESS: 'green',
-    FAILED: 'red',
+    RUNNING: '#3b82f6',
+    SUCCESS: '#10b981',
+    FAILED: '#ef4444',
+    WARNING: '#f59e0b',
+    CREATED: '#9ca3af',
+    QUEUED: '#6366f1',
+    RETRYING: '#f97316',
+    RETRIED: '#f97316',
+    PAUSED: '#8b5cf6',
+    KILLING: '#dc2626',
+    KILLED: '#dc2626',
+    CANCELLED: '#6b7280',
+    RESTARTED: '#14b8a6',
+    SUBMITTED: '#64748b',
+    RESUBMITTED: '#0ea5e9',
+    BREAKPOINT: '#ec4899',
+    SKIPPED: '#94a3b8',
   };
-  return colorMap[state] || 'gray';
+  return colorMap[state] || '#9ca3af';
 }
 
 function getStateLabel(state: string): string {
   const labelMap: Record<string, string> = {
-    CREATED: '已创建',
     RUNNING: '运行中',
     SUCCESS: '成功',
     FAILED: '失败',
+    WARNING: '警告',
+    CREATED: '已创建',
+    QUEUED: '排队中',
+    RETRYING: '重试中',
+    RETRIED: '已重试',
+    PAUSED: '已暂停',
+    KILLING: '终止中',
+    KILLED: '已终止',
+    CANCELLED: '已取消',
+    RESTARTED: '已重启',
+    SUBMITTED: '已提交',
+    RESUBMITTED: '已重提',
+    BREAKPOINT: '断点',
+    SKIPPED: '已跳过',
   };
   return labelMap[state] || state;
 }
@@ -480,6 +519,7 @@ function handleProjectChange(value: number) {
   localProjectId.value = value;
   workflowStore.setProjectId(value);
   currentPage.value = 1;
+  workflowStore.loadWorkflows(undefined, undefined, undefined, undefined, 1, 1000);
   loadData();
 }
 
@@ -489,6 +529,10 @@ onMounted(async () => {
       await workflowStore.loadProjects();
     }
     localProjectId.value = workflowStore.projectId;
+    const pid = localProjectId.value ?? workflowStore.projectId;
+    if (!workflowStore.workflows || workflowStore.workflows.length === 0) {
+      await workflowStore.loadWorkflows(undefined, undefined, undefined, undefined, 1, 1000);
+    }
     await loadData();
   } finally {
     isLoading.value = false;
@@ -500,6 +544,7 @@ watch(() => workflowStore.projectId, (newVal) => {
   if (localProjectId.value !== newVal) {
     localProjectId.value = newVal;
     currentPage.value = 1;
+    workflowStore.loadWorkflows(undefined, undefined, undefined, undefined, 1, 1000);
     loadData();
   }
 });
@@ -721,20 +766,20 @@ function handleVisibilityChange() {
                     </div>
                   </div>
                 </template>
-                <span class="flex items-center justify-center gap-1 text-orange-600 cursor-help">
-                  <IconifyIcon icon="mdi:flash" :size="14" />
+                <span :class="['flex items-center justify-center gap-1 cursor-help', isDark ? 'text-white/80' : 'text-gray-800']">
+                  <IconifyIcon icon="mdi:flash" :size="14" class="text-orange-500" />
                   <span>触发器触发</span>
                 </span>
               </Tooltip>
             </div>
-            <span v-else class="text-gray-500 flex items-center justify-center w-full">手动触发</span>
+            <span v-else :class="['flex items-center justify-center w-full', isDark ? 'text-white/80' : 'text-gray-800']">手动触发</span>
           </template>
 
           <template v-else-if="column.dataIndex === 'state'">
             <template v-if="column.title === '状态'">
-              <Tag :color="getStateColor(record.state.current)">
+              <span :style="{ color: getStateColor(record.state.current), fontWeight: 500 }">
                 {{ getStateLabel(record.state.current) }}
-              </Tag>
+              </span>
             </template>
             <template v-else-if="column.title === '开始时间'">
               {{ formatDate(record.state.startDate) }}
@@ -752,7 +797,7 @@ function handleVisibilityChange() {
               type="text"
               size="small"
               @click="handleViewLog(record.id, record.flowId, record.state.current)"
-              class="!text-purple-500 hover:!text-purple-700 hover:bg-purple-50 rounded-full w-6 h-6 flex items-center justify-center"
+              class="!text-blue-500 hover:!text-blue-700 hover:bg-blue-50 rounded-full w-6 h-6 flex items-center justify-center"
             >
               <IconifyIcon icon="mdi:file-document" :size="16" />
             </Button>
@@ -839,7 +884,6 @@ function handleVisibilityChange() {
               <Select.Option :value="10">10条/页</Select.Option>
               <Select.Option :value="20">20条/页</Select.Option>
               <Select.Option :value="50">50条/页</Select.Option>
-              <Select.Option :value="100">100条/页</Select.Option>
             </Select>
           </div>
           <div class="flex items-center gap-1">
