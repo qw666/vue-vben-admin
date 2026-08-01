@@ -105,7 +105,7 @@ const defaultPreferences: Preferences = {
     enable: true,
     height: 38,
     keepAlive: true,
-    maxCount: 0,
+    maxCount: 8,
     middleClickToClose: false,
     persist: true,
     showIcon: true,

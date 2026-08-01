@@ -133,18 +133,11 @@ class PreferenceManager {
 
     // 加载缓存的偏好设置，并仅用缓存补齐初始化配置中未显式设置的字段
     const cachedPreferences = (await this.loadFromCache()) || {};
-    
-    // 移除缓存中与初始设置冲突的字段，确保初始设置（包括 overrides）优先
-    if (cachedPreferences.app && this.initialPreferences.app) {
-      Object.keys(this.initialPreferences.app).forEach(key => {
-        delete cachedPreferences.app[key];
-      });
-    }
-    
+
     const mergedPreference = merge(
       {},
-      this.initialPreferences, // 初始设置优先（包括 overrides）
-      cachedPreferences, // 用户缓存的设置仅补齐缺失字段
+      cachedPreferences, // 用户缓存的设置优先
+      this.initialPreferences, // 初始设置仅补齐缺失字段
     );
 
     // 更新偏好设置

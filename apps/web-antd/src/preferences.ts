@@ -28,6 +28,9 @@ export const overridesPreferences = defineOverridesPreferences({
   sidebar: {
     width: 248,
   },
+  tabbar: {
+    maxCount: 8,
+  },
   widget: {
     fullscreen: false,
     globalSearch: false,
