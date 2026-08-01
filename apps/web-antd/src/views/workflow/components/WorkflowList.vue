@@ -266,44 +266,42 @@ watch(searchInput, () => {
         v-else-if="workflows.length > 0"
         class="h-full overflow-y-auto"
       >
-        <div class="grid gap-4 pt-2" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+        <div class="grid gap-4 pt-2" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); grid-auto-rows: 1fr;">
           <div
             v-for="workflow in workflows"
             :key="workflow.id"
-            class="workflow-card bg-white border border-gray-200 rounded-lg p-5 transition-all duration-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 hover:border-gray-300 hover:z-10 relative"
+            class="workflow-card bg-white border border-gray-200 rounded-lg p-5 transition-all duration-200 shadow-sm relative flex flex-col"
           >
-            <!-- 头部：图标和状态 -->
-            <div class="flex items-start justify-between mb-3">
-              <div class="flex items-center gap-3 flex-1 min-w-0">
+            <!-- 头部：图标、名称、状态、ID -->
+            <div class="mb-0">
+              <!-- 第一行：图标 + 名称 + 状态 -->
+              <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-700 flex items-center justify-center text-primary-foreground flex-shrink-0 shadow-md shadow-primary/30 ring-1 ring-primary/10">
                   <IconifyIcon icon="mdi:workflow" :size="22" />
                 </div>
-                <div class="flex-1 min-w-0">
-                  <Tooltip :title="workflow.name" :overlay-style="{ maxWidth: 'none' }">
-                    <h3 class="text-base font-semibold text-gray-800 truncate">
-                      {{ workflow.name }}
-                    </h3>
-                  </Tooltip>
-                  <div class="flex items-center gap-1 mt-0.5">
-                    <span class="text-xs text-gray-400">{{ workflow.flowId }}</span>
-                    <span class="text-xs text-gray-300">·</span>
-                    <span class="text-xs text-gray-400">更新于 {{ formatDate(workflow.updatedAt) }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="flex-shrink-0">
+                <Tooltip :title="workflow.name" :overlay-style="{ maxWidth: 'none' }">
+                  <h3 class="text-base font-semibold text-gray-800 truncate flex-1 min-w-0">
+                    {{ workflow.name }}
+                  </h3>
+                </Tooltip>
                 <span
-                  class="inline-flex items-center gap-1 text-xs font-medium"
+                  class="inline-flex items-center gap-1 text-xs font-medium flex-shrink-0"
                   :class="workflow.enabled === false ? 'text-red-500' : 'text-green-600'"
                 >
                   <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-red-500' : 'bg-green-600'"></span>
                   {{ workflow.enabled === false ? '已停用' : '已启用' }}
                 </span>
               </div>
+              <!-- 第二行：ID -->
+              <div style="padding-left: 22px;">
+                <Tooltip :title="`ID: ${workflow.flowId}`" :overlay-style="{ maxWidth: 'none' }">
+                  <span class="text-xs text-gray-400 block" style="word-break: break-all; line-height: 16px;">ID: {{ workflow.flowId }}</span>
+                </Tooltip>
+              </div>
             </div>
 
             <!-- 中间：触发器信息 -->
-            <div class="flex items-center gap-4 py-2 mb-3 border-t border-b border-gray-100">
+            <div class="flex items-center gap-4 py-1.5 my-3 border-t border-gray-100 border-b border-gray-100" style="min-height: 32px;">
               <div class="flex items-center gap-1.5 text-sm text-gray-500">
                 <IconifyIcon icon="mdi:cog" :size="16" />
                 <span>触发器</span>
@@ -321,29 +319,30 @@ watch(searchInput, () => {
             </div>
 
             <!-- 底部：操作按钮 -->
-            <div class="flex items-center justify-between">
-              <!-- 启用/停用开关 -->
-              <button
-                type="button"
-                class="flex items-center gap-1.5 cursor-pointer"
-                @click="handleToggleEnable(workflow)"
-              >
-                <div
-                  class="w-8 h-4.5 rounded-full transition-all duration-200 relative"
-                  :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
-                  style="height: 18px;"
-                >
-                  <div
-                    class="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-all duration-200"
-                    :class="workflow.enabled === false ? 'left-0.5' : 'left-[14px]'"
-                    style="width: 14px; height: 14px;"
-                  ></div>
-                </div>
-                <span class="text-xs" :class="workflow.enabled === false ? 'text-red-500' : 'text-green-600'">
-                  {{ workflow.enabled === false ? '启用' : '停用' }}
-                </span>
-              </button>
-              <div class="flex items-center gap-1">
+            <div class="flex items-center pt-0" style="min-height: 46px;">
+              <span class="text-xs text-gray-400">更新于 {{ formatDate(workflow.updatedAt) }}</span>
+              <div class="flex items-center gap-1 ml-auto">
+                <!-- 启用/停用开关 -->
+                <Tooltip :title="workflow.enabled === false ? '启用' : '停用'">
+                  <button
+                    type="button"
+                    class="flex items-center cursor-pointer mr-2"
+                    @click="handleToggleEnable(workflow)"
+                  >
+                    <div
+                      class="w-8 h-4.5 rounded-full transition-all duration-200 relative"
+                      :class="workflow.enabled === false ? 'bg-gray-300' : 'bg-green-500'"
+                      style="height: 18px;"
+                    >
+                      <div
+                        class="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-all duration-200"
+                        :class="workflow.enabled === false ? 'left-0.5' : 'left-[14px]'"
+                        style="width: 14px; height: 14px;"
+                      ></div>
+                    </div>
+                  </button>
+                </Tooltip>
+                <span class="w-px h-4 bg-gray-200"></span>
                 <Tooltip title="编辑">
                   <Button
                     type="text"
@@ -485,8 +484,9 @@ watch(searchInput, () => {
 }
 
 .workflow-card:hover {
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
   border-color: hsl(var(--primary)) !important;
+  transform: translateY(-2px);
 }
 
 .workflow-card :deep(.ant-btn) {

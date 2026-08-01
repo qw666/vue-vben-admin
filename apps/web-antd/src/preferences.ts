@@ -25,6 +25,9 @@ export const overridesPreferences = defineOverridesPreferences({
     source: logoUrl,
     logoMode: 'icon',
   },
+  sidebar: {
+    width: 248,
+  },
   widget: {
     fullscreen: false,
     globalSearch: false,
