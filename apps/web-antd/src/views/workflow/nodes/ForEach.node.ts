@@ -6,7 +6,7 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_ForEach',
   config: {
     nodeType: 'idp_core_flow_ForEach',
-    nodeName: 'ForEach',
+    nodeName: '循环',
     icon: 'mdi:repeat',
     description: '循环执行',
     ports: {

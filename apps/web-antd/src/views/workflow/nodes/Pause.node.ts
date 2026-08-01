@@ -6,7 +6,7 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_Pause',
   config: {
     nodeType: 'idp_core_flow_Pause',
-    nodeName: 'Pause',
+    nodeName: '暂停',
     icon: 'mdi:pause',
     description: '暂停等待',
     ports: {

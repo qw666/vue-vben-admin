@@ -6,7 +6,7 @@ export const SleepNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_Sleep',
   config: {
     nodeType: 'idp_core_flow_Sleep',
-    nodeName: 'Sleep',
+    nodeName: '等待',
     icon: 'mdi:sleep',
     description: '睡眠等待',
     ports: {

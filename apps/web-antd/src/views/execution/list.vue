@@ -633,7 +633,7 @@ function handleVisibilityChange() {
           <div class="text-base font-semibold" :class="isDark ? 'text-white' : 'text-gray-800'">执行记录</div>
           <div class="flex items-center gap-2">
             <!-- 列筛选按钮 -->
-            <a-dropdown
+            <Dropdown
               v-model:open="columnVisibilityMenuVisible"
               :trigger="['click']"
               :overlay-style="{ minWidth: '160px' }"
@@ -675,7 +675,7 @@ function handleVisibilityChange() {
                   </div>
                 </div>
               </template>
-            </a-dropdown>
+            </Dropdown>
           </div>
         </div>
         <div class="px-2 py-2">
