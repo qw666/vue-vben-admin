@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { SupportedLanguagesType } from '@vben/locales';
 import type { CustomPreferencesRecord } from '@vben/preferences';
 import type {
   BreadcrumbStyleType,
@@ -10,7 +9,6 @@ import type {
   LayoutType,
   NavigationStyleType,
   PreferencesButtonPositionType,
-  ThemeModeType,
 } from '@vben/types';
 
 import type { SegmentedItem } from '@vben-core/shadcn-ui';
@@ -44,7 +42,6 @@ import {
   BuiltinTheme,
   ColorMode,
   Content,
-  Copyright,
   Custom,
   FontSize,
   Footer,
@@ -55,7 +52,6 @@ import {
   Radius,
   Sidebar,
   Tabbar,
-  Theme,
   Widget,
 } from './blocks';
 
@@ -63,8 +59,6 @@ const emit = defineEmits<{ clearPreferencesAndLogout: [] }>();
 
 const message = globalShareState.getMessage();
 
-const appLocale = defineModel<SupportedLanguagesType>('appLocale');
-const appTimezone = defineModel<string>('appTimezone');
 const appDynamicTitle = defineModel<boolean>('appDynamicTitle');
 const appLayout = defineModel<LayoutType>('appLayout');
 const appColorGrayMode = defineModel<boolean>('appColorGrayMode');
@@ -89,12 +83,8 @@ const transitionEnable = defineModel<boolean>('transitionEnable');
 
 const themeColorPrimary = defineModel<string>('themeColorPrimary');
 const themeBuiltinType = defineModel<BuiltinThemeType>('themeBuiltinType');
-const themeMode = defineModel<ThemeModeType>('themeMode');
 const themeRadius = defineModel<string>('themeRadius');
 const themeFontSize = defineModel<number>('themeFontSize');
-const themeSemiDarkSidebar = defineModel<boolean>('themeSemiDarkSidebar');
-const themeSemiDarkSidebarSub = defineModel<boolean>('themeSemiDarkSidebarSub');
-const themeSemiDarkHeader = defineModel<boolean>('themeSemiDarkHeader');
 
 const sidebarEnable = defineModel<boolean>('sidebarEnable');
 const sidebarWidth = defineModel<number>('sidebarWidth');
@@ -146,16 +136,6 @@ const navigationAccordion = defineModel<boolean>('navigationAccordion');
 
 const footerEnable = defineModel<boolean>('footerEnable');
 const footerFixed = defineModel<boolean>('footerFixed');
-
-const copyrightSettingShow = defineModel<boolean>('copyrightSettingShow');
-const copyrightEnable = defineModel<boolean>('copyrightEnable');
-const copyrightCompanyName = defineModel<string>('copyrightCompanyName');
-const copyrightCompanySiteLink = defineModel<string>(
-  'copyrightCompanySiteLink',
-);
-const copyrightDate = defineModel<string>('copyrightDate');
-const copyrightIcp = defineModel<string>('copyrightIcp');
-const copyrightIcpLink = defineModel<string>('copyrightIcpLink');
 
 const widgetGlobalSearch = defineModel<boolean>('widgetGlobalSearch');
 const widgetFullscreen = defineModel<boolean>('widgetFullscreen');
@@ -340,8 +320,6 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
               <General
                 v-model:app-dynamic-title="appDynamicTitle"
                 v-model:app-enable-copy-preferences="appEnableCopyPreferences"
-                v-model:app-locale="appLocale"
-                v-model:app-timezone="appTimezone"
                 v-model:app-watermark="appWatermark"
                 v-model:app-watermark-content="appWatermarkContent"
               />
@@ -357,14 +335,6 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
             </Block>
           </template>
           <template #appearance>
-            <Block :title="$t('preferences.theme.title')">
-              <Theme
-                v-model="themeMode"
-                v-model:theme-semi-dark-header="themeSemiDarkHeader"
-                v-model:theme-semi-dark-sidebar="themeSemiDarkSidebar"
-                v-model:theme-semi-dark-sidebar-sub="themeSemiDarkSidebarSub"
-              />
-            </Block>
             <Block :title="$t('preferences.theme.builtin.title')">
               <BuiltinTheme
                 v-model="themeBuiltinType"
@@ -476,20 +446,6 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
               <Footer
                 v-model:footer-enable="footerEnable"
                 v-model:footer-fixed="footerFixed"
-              />
-            </Block>
-            <Block
-              v-if="copyrightSettingShow"
-              :title="$t('preferences.copyright.title')"
-            >
-              <Copyright
-                v-model:copyright-company-name="copyrightCompanyName"
-                v-model:copyright-company-site-link="copyrightCompanySiteLink"
-                v-model:copyright-date="copyrightDate"
-                v-model:copyright-enable="copyrightEnable"
-                v-model:copyright-icp="copyrightIcp"
-                v-model:copyright-icp-link="copyrightIcpLink"
-                :disabled="!footerEnable"
               />
             </Block>
           </template>
