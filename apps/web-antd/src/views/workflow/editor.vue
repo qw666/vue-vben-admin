@@ -162,7 +162,7 @@ const workflowEnabled = computed(() => {
 watch(
   workflowName,
   (newName) => {
-    useTitle(`${newName} - 智能体开发平台`);
+    useTitle(`${newName} - 多模态智能体平台`);
     route.meta.title = newName;
     const tabbarStore = useTabbarStore();
     tabbarStore.addTab({

@@ -1,4 +1,4 @@
-import logoUrl from '#/assets/images/logo.png';
+import logoUrl from '#/assets/images/logo.svg';
 import avatarUrl from '#/assets/images/avatar.svg';
 import {
   appCopyrightPreferences,
@@ -23,6 +23,7 @@ export const overridesPreferences = defineOverridesPreferences({
   },
   logo: {
     source: logoUrl,
+    logoMode: 'icon',
   },
   widget: {
     fullscreen: false,
