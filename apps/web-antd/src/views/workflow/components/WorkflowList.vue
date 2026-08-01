@@ -294,9 +294,9 @@ watch(searchInput, () => {
               <div class="flex-shrink-0">
                 <span
                   class="inline-flex items-center gap-1 text-xs font-medium"
-                  :class="workflow.enabled === false ? 'text-orange-500' : 'text-primary'"
+                  :class="workflow.enabled === false ? 'text-orange-500' : 'text-green-600'"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-orange-500' : 'bg-primary'"></span>
+                  <span class="w-1.5 h-1.5 rounded-full" :class="workflow.enabled === false ? 'bg-orange-500' : 'bg-green-600'"></span>
                   {{ workflow.enabled === false ? '已停用' : '已启用' }}
                 </span>
               </div>
