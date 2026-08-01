@@ -3,11 +3,12 @@ import { IconifyIcon } from '@vben/icons';
 
 import { Button, Input, Tooltip, message } from 'ant-design-vue';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import CodeConfig from './custom/CodeConfig.vue';
 import FieldRenderer from './FieldRenderer.vue';
 import HttpRequestConfig from './custom/HttpRequestConfig.vue';
+import { getFlowControlConfig } from '../config/workflow-node-config';
 
 const props = defineProps<{
   currentNodeMeta: any;
@@ -40,6 +41,16 @@ function isHttpRequestNode(nodeType: string): boolean {
 function isCodeNode(nodeType: string): boolean {
   return nodeType?.includes('python') || nodeType?.includes('Code') || nodeType?.includes('Script');
 }
+
+// 节点类型显示名称：优先使用左侧节点列表中定义的 nodeName，其次取插件标题，最后回退到原始 type
+const nodeTypeDisplayName = computed(() => {
+  const type = props.selectedNode?.data?.type;
+  if (!type) return '';
+  const flowConfig = getFlowControlConfig(type);
+  if (flowConfig?.nodeName) return flowConfig.nodeName;
+  if (props.currentNodeMeta?.title) return props.currentNodeMeta.title;
+  return type;
+});
 
 function updateConfig(formData: Record<string, any>) {
   Object.keys(formData).forEach(() => {
@@ -120,7 +131,7 @@ function handleSaveConfig() {
             <div class="p-2.5 bg-gray-50 rounded-lg">
               <div class="text-sm text-gray-500">节点类型</div>
               <Input
-                :value="selectedNode.data.type"
+                :value="nodeTypeDisplayName"
                 class="mt-0.25"
                 :disabled="true"
               />
