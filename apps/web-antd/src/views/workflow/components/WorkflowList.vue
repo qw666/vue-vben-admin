@@ -270,7 +270,7 @@ watch(searchInput, () => {
           <div
             v-for="workflow in workflows"
             :key="workflow.id"
-            class="workflow-card bg-white border border-gray-200 rounded-lg p-5 transition-all duration-200 shadow-sm relative flex flex-col"
+            class="workflow-card bg-white border border-gray-200 rounded-lg p-4 transition-all duration-200 shadow-sm relative flex flex-col"
           >
             <!-- 头部：图标、名称、状态、ID -->
             <div class="mb-0">
