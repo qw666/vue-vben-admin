@@ -1,4 +1,4 @@
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, nextTick, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
@@ -12,6 +12,25 @@ import { useFormState } from './useFormState';
 import { useWorkflowStore } from '#/store/workflow';
 
 const store = useWorkflowStore();
+
+/**
+ * Watch nodeConfigForm and sync changes back to the store's node data.config in real-time.
+ * This ensures downstream VarPicker can see upstream outputKeys immediately without requiring Save.
+ */
+function setupRealtimeConfigSync(
+  nodeConfigForm: Record<string, any>,
+  selectedNode: ReturnType<typeof ref<WorkflowNode | null>>,
+) {
+  watch(
+    () => ({ ...nodeConfigForm }),
+    () => {
+      if (selectedNode.value) {
+        selectedNode.value.data.config = { ...nodeConfigForm };
+      }
+    },
+    { deep: true },
+  );
+}
 
 export interface FormMeta {
   parsedSchema?: ParserSchemaNode;
@@ -105,12 +124,17 @@ export function useNodeConfig(
 
   const DEFAULT_PANEL_WIDTH = UI_CONFIG.configPanel.defaultWidth;
 
+  // Set up real-time sync so form changes immediately reflect in the store
+  setupRealtimeConfigSync(nodeConfigForm, selectedNode);
+
   async function handleNodeDoubleClick(node: WorkflowNode) {
     // 先清除选中状态，等下一帧再设置新节点，避免组件更新时出现 null 引用
     selectedNode.value = null;
+    store.setSelectedNodeId(null);
     await nextTick();
 
     selectedNode.value = node;
+    store.setSelectedNodeId(node.id);
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 

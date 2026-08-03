@@ -15,6 +15,8 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
+import VarPicker from './VarPicker.vue';
+
 const props = defineProps<{
   field: any;
   nodeConfigForm: Record<string, any>;
@@ -297,15 +299,12 @@ function formatDefaultValue(item: any): any {
                 />
               </template>
               <template v-else>
-                <Input
+                <VarPicker
                   :value="item.defaults"
-                  @input="
-                    (e: any) =>
-                      updateField(index as number, 'defaults', e.target.value)
-                  "
-                  :placeholder="item.type === 'ARRAY' ? '[item1, item2]' : '默认值'"
-                  style="flex: 1"
+                  :placeholder="item.type === 'ARRAY' ? '[item1, item2]' : '默认值或选择变量'"
                   size="small"
+                  style="flex: 1"
+                  @update:value="(val: string) => updateField(index as number, 'defaults', val)"
                 />
               </template>
             </div>

@@ -12,6 +12,8 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
+import VarPicker from './VarPicker.vue';
+
 const props = defineProps<{
   field: any;
   nodeConfigForm: Record<string, any>;
@@ -193,15 +195,12 @@ function removeField(index: number) {
                   </span>
                 </Tooltip>
               </div>
-              <Input
+              <VarPicker
                 :value="item.value"
-                @input="
-                  (e: any) =>
-                    updateField(index as number, 'value', e.target.value)
-                "
                 placeholder="例如: {{ outputs.mytask.value }}"
-                style="flex: 1"
                 size="small"
+                style="flex: 1"
+                @update:value="(val: string) => updateField(index as number, 'value', val)"
               />
             </div>
           </div>

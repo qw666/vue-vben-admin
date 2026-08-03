@@ -60,6 +60,17 @@ function resolveStringField(
       },
     };
   }
+  // $dynamic 字段：可填 Kestra 表达式，渲染为 VarPicker（变量选择器）
+  if (fieldSchema.$dynamic === true) {
+    return {
+      type: 'VarPicker',
+      props: {
+        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
+        placeholder: fieldSchema.description || '点击选择变量',
+        allowExpression: true,
+      },
+    };
+  }
   return {
     type: 'Input',
     props: {

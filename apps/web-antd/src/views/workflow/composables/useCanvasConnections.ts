@@ -124,7 +124,7 @@ export function useCanvasConnections(
             
             connections.value.push(newConnection);
             if (store.currentWorkflow) {
-              store.currentWorkflow.edges = [...store.currentWorkflow.edges, newConnection];
+              store.currentWorkflow.edges.push(newConnection);
             }
 
             syncConnectionToNodeConfig(newConnection, true);

@@ -21,6 +21,8 @@ import NodeSelectModal from './components/NodeSelectModal.vue';
 import { useCanvasInteraction } from './composables/useCanvasInteraction';
 import { useNodeConfig, validateAllNodes } from './composables/useNodeConfig';
 import { usePluginMeta } from './composables/usePluginMeta';
+import { rewriteVarReferences } from './composables/useVarSources';
+import { createVarSelectContext, provideVarSelect } from './composables/varSelectContext';
 import { getFlowControlConfig } from './config/workflow-node-config';
 import {
   convertFlowModelToWorkflow,
@@ -159,6 +161,15 @@ const workflowEnabled = computed(() => {
   return store.currentWorkflow?.enabled !== false;
 });
 
+// ===== 变量选择器上下文（provide 一次，所有 VarPicker 自动可用）=====
+provideVarSelect(
+  createVarSelectContext({
+    selectedNodeId: computed(() => selectedNode.value?.id || store.selectedNodeId || ''),
+    nodes: computed(() => store.currentWorkflow?.nodes || []),
+    edges: computed(() => store.currentWorkflow?.edges || []),
+  }),
+);
+
 watch(
   workflowName,
   (newName) => {
@@ -257,14 +268,87 @@ function updateNodeId(value: string) {
   const node = store.currentWorkflow?.nodes.find(
     (n) => n.id === selectedNode.value?.id,
   );
-  if (node) {
-    const sanitized = value.replaceAll(/[^a-zA-Z0-9_-]/g, '');
-    if (sanitized !== value) {
-      return;
+  if (!node) return;
+
+  const sanitized = value.replaceAll(/[^a-zA-Z0-9_-]/g, '');
+  if (sanitized !== value) return;
+
+  const oldId = node.id;
+  if (oldId === value) return;
+
+  // 校验新 id 不与现有节点冲突
+  const exists = store.currentWorkflow?.nodes.some((n: any) => n.id === value);
+  if (exists) {
+    message.warning(`节点ID "${value}" 已存在`);
+    return;
+  }
+
+  // 1. 更新当前节点 id
+  node.id = value;
+
+  // 2. 更新所有 edges 的 source/target
+  if (store.currentWorkflow) {
+    store.currentWorkflow.edges.forEach((e: any) => {
+      if (e.source === oldId) e.source = value;
+      if (e.target === oldId) e.target = value;
+      // sourceHandle/targetHandle 形如 `${oldId}-output-xxx`
+      if (e.sourceHandle) {
+        e.sourceHandle = e.sourceHandle.replace(`${oldId}-`, `${value}-`);
+      }
+      if (e.targetHandle) {
+        e.targetHandle = e.targetHandle.replace(`${oldId}-`, `${value}-`);
+      }
+    });
+  }
+
+  // 3. 更新其他节点 config 里引用该 id 的表达式（outputs.oldId. → outputs.newId.）
+  //    以及 taskItem.nodeId 引用（容器节点的 tasks/cases 列表）
+  if (store.currentWorkflow) {
+    store.currentWorkflow.nodes.forEach((n: any) => {
+      if (n.id === value) return;
+      if (n.data?.config) {
+        n.data.config = rewriteVarReferences(n.data.config, oldId, value);
+        // 更新容器节点 taskItem.nodeId 引用
+        rewriteTaskItemNodeIds(n.data.config, oldId, value);
+      }
+    });
+  }
+
+  // 4. 更新当前节点 config 里 taskItem 对自身的引用（少见，但兜底）
+  if (node.data?.config) {
+    rewriteTaskItemNodeIds(node.data.config, oldId, value);
+  }
+
+  // 5. 刷新选中节点引用
+  const freshNode = store.currentWorkflow?.nodes.find(
+    (n: any) => n.id === value,
+  );
+  if (freshNode) {
+    selectedNode.value = freshNode;
+  }
+}
+
+/** 遍历 config 里的 tasks/cases/then/else 等列表，更新 taskItem.nodeId */
+function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
+  if (!config || typeof config !== 'object') return;
+  const listFields = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults'];
+  for (const field of listFields) {
+    const val = config[field];
+    if (Array.isArray(val)) {
+      val.forEach((item: any) => {
+        if (item && item.nodeId === oldId) item.nodeId = newId;
+      });
+    } else if (val && typeof val === 'object') {
+      // cases 是 Record<string, Array>
+      Object.keys(val).forEach((caseKey) => {
+        const arr = val[caseKey];
+        if (Array.isArray(arr)) {
+          arr.forEach((item: any) => {
+            if (item && item.nodeId === oldId) item.nodeId = newId;
+          });
+        }
+      });
     }
-    const oldId = node.id;
-    node.id = value;
-    store.updateNode(oldId, { id: value });
   }
 }
 

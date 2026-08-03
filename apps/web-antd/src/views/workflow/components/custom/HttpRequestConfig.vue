@@ -15,6 +15,9 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
+import VarPicker from '../fields/VarPicker.vue';
+import VarInserter from '../fields/VarInserter.vue';
+
 const props = defineProps<{
   nodeConfigForm: Record<string, any>;
 }>();
@@ -330,9 +333,9 @@ watch(
           :options="methodOptions"
           class="method-select"
         />
-        <Input
+        <VarPicker
           v-model:value="nodeConfigForm.uri"
-          placeholder="请输入请求URL"
+          placeholder="请输入请求URL，输入 / 选择变量"
           class="url-input"
         />
         <span class="required-star">*</span>
@@ -371,7 +374,7 @@ watch(
                 size="small"
                 class="key-input"
               />
-              <Input
+              <VarPicker
                 v-model:value="item.value"
                 placeholder="Value"
                 size="small"
@@ -425,7 +428,7 @@ watch(
                 size="small"
                 class="key-input"
               />
-              <Input
+              <VarPicker
                 v-model:value="item.value"
                 placeholder="Value"
                 size="small"
@@ -508,7 +511,7 @@ watch(
                   size="small"
                   class="key-input"
                 />
-                <Input
+                <VarPicker
                   v-model:value="item.value"
                   placeholder="Value"
                   size="small"
@@ -542,12 +545,11 @@ watch(
                 <IconifyIcon icon="mdi:code-braces" :size="14" /> 格式化
               </Button>
             </div>
-            <textarea
-              v-model="nodeConfigForm.body"
-              rows="8"
-              class="raw-textarea"
-              placeholder="请输入JSON内容"
-            ></textarea>
+            <VarInserter
+              v-model:value="nodeConfigForm.body"
+              :rows="8"
+              placeholder="请输入JSON内容，可插入 {{ }} 变量"
+            />
           </div>
         </div>
       </Tabs.TabPane>

@@ -119,14 +119,14 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
   getRequiredFields(): { props: Record<string, any>; type: string }[] {
     return [
       {
-        type: 'Input',
+        type: 'VarPicker',
         props: {
           key: 'condition',
           label: '条件表达式',
           required: true,
           description: 'If判断条件，可填写任意能解析为布尔值的表达式',
-          tooltip: '',
-          dynamic: false,
+          tooltip: '支持变量选择或手写表达式，输入 / 选择变量，如 {{ outputs.nodeA.code }} == 200',
+          dynamic: true,
         },
       },
     ];

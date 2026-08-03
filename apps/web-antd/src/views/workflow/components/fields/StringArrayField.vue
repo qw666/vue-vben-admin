@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Button, Input, Tooltip } from 'ant-design-vue';
+import { Button, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+
+import VarPicker from './VarPicker.vue';
 
 const props = defineProps<{
   field: any;
@@ -41,9 +43,10 @@ const emit = defineEmits<{
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div v-for="(_, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-string-' + (index as number)" style="display: flex; align-items: center; gap: 8px;">
-          <Input
-            v-model:value="nodeConfigForm[fieldKey][index as number]"
-            :placeholder="'请输入'"
+          <VarPicker
+            :value="nodeConfigForm[fieldKey][index as number]"
+            @update:value="(val: string) => (nodeConfigForm[fieldKey][index as number] = val)"
+            :placeholder="'输入 / 选择变量'"
             style="flex: 1;"
             size="small"
           />

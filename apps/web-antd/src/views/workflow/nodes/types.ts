@@ -23,6 +23,15 @@ export interface FlowControlNodeConfig {
   taskFields?: string[];
 }
 
+export interface NodeOutputDef {
+  /** 输出 key，对应 Kestra 表达式 outputs.<nodeId>.<key> 的最后一段 */
+  key: string;
+  /** 显示名，默认与 key 相同 */
+  label?: string;
+  /** 类型提示，默认 any */
+  type?: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
+}
+
 export interface FlowControlNodeStrategy {
   nodeType: string;
   config: FlowControlNodeConfig;
@@ -38,6 +47,12 @@ export interface FlowControlNodeStrategy {
     store?: any;
   }): void;
   saveConfig?(config: Record<string, any>, store: any): void;
+  /**
+   * 声明该节点的输出变量，供下游 VarPicker 选择。
+   * 返回空数组表示该节点无业务输出（如容器节点、终止节点）。
+   * 动态插件节点不经过此方法，由 schema outputs 解析。
+   */
+  getOutputs?(config: Record<string, any>): NodeOutputDef[];
 }
 
 class FlowControlNodeRegistry {
@@ -114,6 +129,20 @@ class FlowControlNodeRegistry {
     const strategy = this.get(nodeType);
     if (strategy?.saveConfig) {
       strategy.saveConfig(config, store);
+    }
+  }
+
+  /**
+   * 获取节点声明的输出。未实现 getOutputs 的节点返回空数组。
+   * 动态插件节点不走此方法，应在调用方另行从 schema 解析。
+   */
+  getOutputs(nodeType: string, config: Record<string, any>): NodeOutputDef[] {
+    const strategy = this.strategies.get(nodeType);
+    if (!strategy?.getOutputs) return [];
+    try {
+      return strategy.getOutputs(config || {}) || [];
+    } catch {
+      return [];
     }
   }
 }

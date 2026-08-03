@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Button, Input, InputNumber, Select, Switch, Tooltip } from 'ant-design-vue';
+import { Button, InputNumber, Select, Switch, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+
+import VarPicker from './VarPicker.vue';
 
 const props = defineProps<{
   field: any;
@@ -51,14 +53,14 @@ const emit = defineEmits<{
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <div v-for="(prop, propKey) in (field.props.itemsSchema?.properties || {})" :key="propKey">
               <label style="font-size: 12px; color: #6b7280;">{{ prop.title || propKey }}<span v-if="prop.$required" style="color: #ef4444; margin-left: 4px;">*</span></label>
-              <Input
+              <VarPicker
                 v-if="prop.type === 'string'"
                 :value="nodeConfigForm[fieldKey][index as number][propKey]"
-                @input="(e: any) => emit('updateArrayItemValue', fieldKey, index as number, propKey as string, e.target.value)"
-                :placeholder="prop.description || '请输入'"
+                @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, propKey as string, val)"
+                :placeholder="prop.description || '输入 / 选择变量'"
                 :disabled="prop.$dynamic === false"
-                style="width: 100%;"
                 size="small"
+                style="width: 100%;"
               />
               <InputNumber
                 v-else-if="prop.type === 'number' || prop.type === 'integer'"

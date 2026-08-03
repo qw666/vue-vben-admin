@@ -1,7 +1,10 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Input, Tooltip } from 'ant-design-vue';
+
+import { Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+
+import VarPicker from './VarPicker.vue';
 
 const props = defineProps<{
   field: any;
@@ -27,9 +30,10 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
         </Tooltip>
       </div>
     </div>
-    <Input
-      v-model:value="nodeConfigForm[fieldKey]"
-      :placeholder="field.props.placeholder"
+    <VarPicker
+      :field="field"
+      :node-config-form="nodeConfigForm"
+      :placeholder="field.props.placeholder || '输入 / 选择变量'"
       style="width: 100%;"
     />
   </div>

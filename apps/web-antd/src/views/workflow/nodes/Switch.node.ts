@@ -179,14 +179,14 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
   getRequiredFields(): { props: Record<string, any>; type: string }[] {
     return [
       {
-        type: 'Input',
+        type: 'VarPicker',
         props: {
           key: 'value',
           label: '匹配值',
           required: true,
           description: '用于分支匹配判断的表达式/值',
-          tooltip: '',
-          dynamic: false,
+          tooltip: '支持变量选择或手写表达式，输入 / 选择变量',
+          dynamic: true,
         },
       },
     ];

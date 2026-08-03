@@ -4,6 +4,9 @@ import { initFormFieldValue } from './useSchemaParser';
 import { useEventCleanup } from './useEventCleanup';
 import { UI_CONFIG } from '../config/ui-config';
 import type { NodeConfigForm } from '../types/workflow';
+import { useWorkflowStore } from '#/store/workflow';
+
+const store = useWorkflowStore();
 
 export function useFormState() {
   const nodeConfigForm = reactive<NodeConfigForm>({});
@@ -172,6 +175,7 @@ export function useFormState() {
   function handleConfigClose() {
     isConfigPanelOpen.value = false;
     clearForm();
+    store.setSelectedNodeId(null);
   }
 
   return {

@@ -1,4 +1,4 @@
-import type { FlowControlNodeStrategy } from './types';
+import type { FlowControlNodeStrategy, NodeOutputDef } from './types';
 import { flowControlNodeRegistry } from './types';
 
 const DEFAULT_SOURCE_CODE = `def main(inputs):
@@ -79,6 +79,17 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
   },
 
   handleConnection(): void {
+  },
+
+  getOutputs(config: Record<string, any>): NodeOutputDef[] {
+    const keys = config?.outputKeys;
+    if (!Array.isArray(keys)) return [];
+    return keys
+      .map((item: any) => {
+        if (typeof item === 'string') return { key: item, label: item };
+        return { key: item?.key || '', label: item?.key || '', type: 'any' as const };
+      })
+      .filter((item: NodeOutputDef) => item.key);
   },
 
   getRequiredFields(): { type: string; props: Record<string, any> }[] {

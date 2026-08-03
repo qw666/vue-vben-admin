@@ -1,4 +1,4 @@
-import type { FlowControlNodeStrategy } from './types';
+import type { FlowControlNodeStrategy, NodeOutputDef } from './types';
 import { flowControlNodeRegistry } from './types';
 
 export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
@@ -15,6 +15,14 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
       ],
     },
     taskFields: [],
+  },
+
+  getOutputs(): NodeOutputDef[] {
+    return [
+      { key: 'body', label: '响应体', type: 'string' },
+      { key: 'code', label: '状态码', type: 'number' },
+      { key: 'headers', label: '响应头', type: 'object' },
+    ];
   },
 
   initConfig(savedConfig: Record<string, any>): Record<string, any> {

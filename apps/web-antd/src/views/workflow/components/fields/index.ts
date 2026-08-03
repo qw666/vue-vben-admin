@@ -24,6 +24,7 @@ import InputsField from './InputsField.vue';
 import TriggersField from './TriggersField.vue';
 import DurationField from './DurationField.vue';
 import InfoBoxField from './InfoBoxField.vue';
+import VarPicker from './VarPicker.vue';
 
 const fieldComponentRegistry: Record<string, Component> = {
   AnyOfRadio: markRaw(AnyOfRadioField),
@@ -48,6 +49,7 @@ const fieldComponentRegistry: Record<string, Component> = {
   SwitchCases: markRaw(SwitchCasesField),
   Textarea: markRaw(TextareaField),
   Triggers: markRaw(TriggersField),
+  VarPicker: markRaw(VarPicker),
 };
 
 export function registerFieldComponent(type: string, component: Component): void {

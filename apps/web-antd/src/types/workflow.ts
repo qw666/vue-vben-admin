@@ -63,6 +63,14 @@ export interface Workflow {
   hasActiveTrigger?: boolean;
   /** 画布布局信息，用于保存和恢复节点位置 */
   flowLayout?: string;
+  /** 流程级变量（vars.*） */
+  variables?: Array<{ key: string; value: string; label?: string }>;
+  /** 标签（labels.*） */
+  labels?: Array<{ key: string; value: string }>;
+  /** 环境变量（envs.*） */
+  envs?: Array<{ key: string; value: string }>;
+  /** 全局配置（globals.*） */
+  globals?: Array<{ key: string; value: string }>;
 }
 
 export interface WorkflowInput {
@@ -94,4 +102,87 @@ export interface NodeTemplate {
   icon: string;
   category: string;
   description: string;
+}
+
+// ===== 变量选择器相关类型 =====
+
+/** 变量类型，用于类型提示与校验（当前仅用于展示，不阻断） */
+export type VarType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
+
+/** 变量来源分组，对齐 Kestra 执行上下文 */
+export type VarGroup =
+  | 'upstream'
+  | 'inputs'
+  | 'trigger'
+  | 'loop'
+  | 'system'
+  | 'vars'
+  | 'labels'
+  | 'envs'
+  | 'globals';
+
+/**
+ * 变量树节点。
+ * - 叶子节点：有 expression，选中后直接写入字段
+ * - 分支节点：有 children，仅用于分组展示
+ */
+export interface VarNode {
+  /** 唯一标识，用于搜索和定位 */
+  key: string;
+  /** 显示名 */
+  label: string;
+  /** 选中后生成的 Kestra 表达式，如 '{{ outputs.nodeA.body }}'。分支节点为空 */
+  expression?: string;
+  /** 变量类型提示 */
+  type?: VarType;
+  /** 来源分组 */
+  group: VarGroup;
+  /** 图标名（mdi 系列），可选 */
+  icon?: string;
+  /** 禁用原因（如并行分支隔离）。设置后该节点不可选 */
+  disabledReason?: string;
+  /** 子节点（分支节点） */
+  children?: VarNode[];
+}
+
+/** 变量来源 provider 接口，用于注册不同来源的变量 */
+export interface VarSourceProvider {
+  /** 来源标识 */
+  id: string;
+  /** 分组标签 */
+  label: string;
+  /** 分组 */
+  group: VarGroup;
+  /** 图标 */
+  icon?: string;
+  /** 排序权重，数字越小越靠前 */
+  order?: number;
+  /** 获取该来源下的变量节点列表 */
+  getVars(ctx: VarSourceContext): VarNode[];
+  /** 是否启用（默认 true） */
+  enabled?: (ctx: VarSourceContext) => boolean;
+}
+
+/** 变量来源上下文，传递给 provider */
+export interface VarSourceContext {
+  /** 当前节点 ID */
+  currentNodeId: string;
+  /** 画布全部节点 */
+  nodes: WorkflowNode[];
+  /** 画布全部连线 */
+  edges: WorkflowEdge[];
+  /** 流程输入 */
+  inputs?: WorkflowInput[];
+  /** 流程触发器 */
+  triggers?: WorkflowTrigger[];
+  /** 流程输出 */
+  outputs?: WorkflowOutput[];
+  /** 流程变量（vars.*） */
+  vars?: Array<{ key: string; label?: string; value?: any }>;
+  /** 标签（labels.*） */
+  labels?: Array<{ key: string; label?: string }>;
+  /** 环境变量（envs.*） */
+  envs?: Array<{ key: string; label?: string }>;
+  /** 全局配置（globals.*） */
+  globals?: Array<{ key: string; label?: string }>;
 }

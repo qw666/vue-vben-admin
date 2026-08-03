@@ -1,9 +1,11 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
 import { Button, Input, Tooltip } from 'ant-design-vue';
+
+import VarPicker from '../fields/VarPicker.vue';
 
 const props = defineProps<{
   nodeConfigForm: Record<string, any>;
@@ -21,12 +23,16 @@ const DEFAULT_SOURCE_CODE = `def main(inputs):
 const inputParams = ref<Array<{ key: string; expression: string; defaultValue: string }>>([]);
 const outputKeys = ref<Array<{ key: string; remark: string }>>([]);
 
+// 组件卸载保护
+let isUnmounting = false;
+onBeforeUnmount(() => { isUnmounting = true; });
+
 const codeValidationError = ref('');
 const codeSyntaxErrors = ref<Array<{ line: number; message: string; type: 'error' | 'warning' }>>([]);
 
 const inputsHelpText = `配置输入变量，在代码中通过 inputs["key"] 获取。
 - 参数Key：英文字母或下划线开头，仅支持英文字母、数字、下划线
-- 变量值：绑定上游变量，如 {{ vars.payload.data }}`;
+- 上游来源：点击选择上游节点输出或全局变量，自动生成 {{ }} 表达式；点右上角 </> 可切换为手填模式`;
 
 const outputsHelpText = `输出变量仅用于画布下游节点下拉选择变量，不会注入运行代码。
 真实输出由代码中 return 的字典决定，保证运行和配置解耦。`;
@@ -121,11 +127,15 @@ function removeOutputKey(index: number) {
 }
 
 function syncInputParamsToForm() {
-  props.nodeConfigForm.inputParams = inputParams.value.map(item => ({ ...item }));
+  if (isUnmounting) return;
+  // 总是创建新数组引用，确保 deep watcher 能检测到变化
+  props.nodeConfigForm.inputParams = [...inputParams.value];
 }
 
 function syncOutputKeysToForm() {
-  props.nodeConfigForm.outputKeys = outputKeys.value.map(item => ({ ...item }));
+  if (isUnmounting) return;
+  // 总是创建新数组引用，确保 deep watcher 能检测到变化
+  props.nodeConfigForm.outputKeys = [...outputKeys.value];
 }
 
 // ===== 校验辅助函数（所有函数按依赖顺序定义）=====
@@ -645,15 +655,17 @@ function validateKeyFormat(key: string): boolean {
           <Input
             v-model:value="param.key"
             placeholder="英文、下划线开头"
+            size="small"
             class="col-key"
             @input="syncInputParamsToForm"
             :status="!validateKeyFormat(param.key) || duplicateKeyError.includes(param.key) ? 'error' : ''"
           />
-          <Input
-            v-model:value="param.expression"
-            placeholder="{{ vars.xxx }}"
+          <VarPicker
+            :value="param.expression"
+            placeholder="输入 / 选择变量"
             class="col-expression"
-            @input="syncInputParamsToForm"
+            size="small"
+            @update:value="(val: string) => { param.expression = val; syncInputParamsToForm(); }"
           />
           <Button
             type="text"

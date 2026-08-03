@@ -3,6 +3,8 @@ import { computed } from 'vue';
 import { Button, Input, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
+import VarPicker from './VarPicker.vue';
+
 const props = defineProps<{
   field: any;
   nodeConfigForm: Record<string, any>;
@@ -49,10 +51,10 @@ const emit = defineEmits<{
             style="width: 80px;"
             size="small"
           />
-          <Input
+          <VarPicker
             :value="entry.value"
-            @input="(e: any) => emit('updateObjectValue', fieldKey, index as number, e.target.value)"
-            :placeholder="'Value'"
+            @update:value="(val: string) => emit('updateObjectValue', fieldKey, index as number, val)"
+            :placeholder="'输入 / 选择变量'"
             style="flex: 1; min-width: 0;"
             size="small"
           />

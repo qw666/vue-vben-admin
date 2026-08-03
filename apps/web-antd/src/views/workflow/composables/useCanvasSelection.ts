@@ -18,6 +18,8 @@ export function useCanvasSelection(
 
   function selectNode(nodeId: string) {
     selectedNodeId.value = nodeId;
+    // 同步到 store，供 VarPicker 等组件读取
+    store.setSelectedNodeId(nodeId);
   }
 
   function deleteSelectedNode(nodeId: string) {
@@ -31,6 +33,7 @@ export function useCanvasSelection(
     connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
     if (selectedNodeId.value === nodeId) {
       selectedNodeId.value = null;
+      store.setSelectedNodeId(null);
     }
     onNodeDeleted?.(nodeId);
   }
@@ -53,6 +56,7 @@ export function useCanvasSelection(
         store.removeNode(nodeId);
         connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
         selectedNodeId.value = null;
+        store.setSelectedNodeId(null);
         onNodeDeleted?.(nodeId);
       }
     }
