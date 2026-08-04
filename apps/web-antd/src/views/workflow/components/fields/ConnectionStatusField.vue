@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+import { useWorkflowStore } from '#/store/workflow';
 
 const props = defineProps<{
   field: any;
@@ -9,11 +10,68 @@ const props = defineProps<{
   pluginGroups: any[];
 }>();
 
+const store = useWorkflowStore();
+
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
+// Collect all items including chain descendants via edges
+const allItems = computed(() => {
+  const configItems = props.nodeConfigForm[fieldKey.value];
+  if (!Array.isArray(configItems)) return [];
+
+  const workflow = store.currentWorkflow;
+  const edges = workflow?.edges || [];
+  const nodes = workflow?.nodes || [];
+
+  const result: any[] = [];
+  const visitedIds = new Set<string>();
+
+  for (const item of configItems) {
+    if (item.nodeId) {
+      if (!visitedIds.has(item.nodeId)) {
+        visitedIds.add(item.nodeId);
+        result.push(item);
+      }
+      // Collect chain descendants via edges
+      let currentId = item.nodeId;
+      while (currentId) {
+        const downstreamEdges = edges.filter((e: any) => e.source === currentId);
+        let nextId: string | undefined;
+        for (const edge of downstreamEdges) {
+          const targetNode = nodes.find((n: any) => n.id === edge.target);
+          if (!targetNode) continue;
+          if (visitedIds.has(targetNode.id)) continue;
+          // Skip flow control nodes and end nodes
+          if (targetNode.data.type === 'idp_core_flow_End') continue;
+          // Check if it's a flow control container node (has taskFields)
+          const fcConfig = targetNode.data.config;
+          const hasTaskFields = fcConfig && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else || fcConfig.tasks);
+          if (hasTaskFields && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else)) {
+            continue;
+          }
+          visitedIds.add(targetNode.id);
+          // Create display item from node
+          const displayItem = {
+            nodeId: targetNode.id,
+            type: targetNode.data.type,
+            label: targetNode.data.label,
+          };
+          result.push(displayItem);
+          nextId = targetNode.id;
+          break;
+        }
+        currentId = nextId;
+      }
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result;
+});
+
 function getConnectionCount() {
-  const connections = props.nodeConfigForm[fieldKey.value];
-  return Array.isArray(connections) ? connections.length : 0;
+  return allItems.value.length;
 }
 </script>
 
@@ -40,7 +98,7 @@ function getConnectionCount() {
         <span style="font-size: 12px; color: #6b7280;">({{ getConnectionCount() }} 个节点)</span>
       </div>
       <div v-if="getConnectionCount() > 0" style="display: flex; flex-direction: column; gap: 6px;">
-        <div v-for="(item, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-conn-' + index"
+        <div v-for="(item, index) in allItems" :key="fieldKey + '-conn-' + index"
              style="display: flex; align-items: center; gap: 8px; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
           <IconifyIcon icon="mdi:arrow-right-bottom" :size="14" class="text-green-500" />
           <span style="font-size: 13px; color: #374151; flex: 1;">

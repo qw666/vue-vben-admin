@@ -2,12 +2,15 @@
 import { computed } from 'vue';
 import { Input, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+import { useWorkflowStore } from '#/store/workflow';
 
 const props = defineProps<{
   field: any;
   nodeConfigForm: Record<string, any>;
   pluginGroups: any[];
 }>();
+
+const store = useWorkflowStore();
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
@@ -22,6 +25,58 @@ function getCaseCount() {
   return typeof cases === 'object' && cases !== null && !Array.isArray(cases)
     ? Object.keys(cases).length
     : 0;
+}
+
+// Collect chain descendants for a given nodeId
+function collectChainDescendants(nodeId: string): any[] {
+  const workflow = store.currentWorkflow;
+  const edges = workflow?.edges || [];
+  const nodes = workflow?.nodes || [];
+  const result: any[] = [];
+  const visitedIds = new Set<string>([nodeId]);
+
+  let currentId = nodeId;
+  while (currentId) {
+    const downstreamEdges = edges.filter((e: any) => e.source === currentId);
+    let nextId: string | undefined;
+    for (const edge of downstreamEdges) {
+      const targetNode = nodes.find((n: any) => n.id === edge.target);
+      if (!targetNode) continue;
+      if (visitedIds.has(targetNode.id)) continue;
+      if (targetNode.data.type === 'idp_core_flow_End') continue;
+      // Skip flow control container nodes
+      const fcConfig = targetNode.data.config;
+      const hasTaskFields = fcConfig && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else || fcConfig.tasks);
+      if (hasTaskFields && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else)) {
+        continue;
+      }
+      visitedIds.add(targetNode.id);
+      result.push({
+        nodeId: targetNode.id,
+        type: targetNode.data.type,
+        label: targetNode.data.label,
+      });
+      nextId = targetNode.id;
+      break;
+    }
+    currentId = nextId;
+  }
+  return result;
+}
+
+// Get all items for a case, including chain descendants
+function getAllCaseItems(caseItems: any[]): any[] {
+  const result: any[] = [];
+  if (!Array.isArray(caseItems)) return result;
+
+  for (const item of caseItems) {
+    result.push(item);
+    if (item.nodeId) {
+      const chainItems = collectChainDescendants(item.nodeId);
+      result.push(...chainItems);
+    }
+  }
+  return result;
 }
 </script>
 
@@ -50,7 +105,7 @@ function getCaseCount() {
       <div v-if="getCaseCount() > 0" style="display: flex; flex-direction: column; gap: 8px;">
         <template v-for="(caseItems, caseKey, caseIndex) in (nodeConfigForm[fieldKey] || {})" :key="fieldKey + '-case-' + caseIndex">
           <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div v-for="(item, index) in caseItems" :key="fieldKey + '-case-' + caseIndex + '-item-' + index"
+            <div v-for="(item, index) in getAllCaseItems(caseItems as any[])" :key="fieldKey + '-case-' + caseIndex + '-item-' + index"
                  style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fffbeb; border-radius: 4px;">
               <Input
                 v-if="index === 0"
