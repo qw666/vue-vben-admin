@@ -90,11 +90,13 @@ export function useCanvasConnections(
               const flowControlConfig = getFlowControlConfig(node.data.type);
               if (!flowControlConfig.ports?.output) return false;
               const sourceHandle = portId.replace(`${node.id}-output-`, '');
-              const port = flowControlConfig.ports.output.find((p: any) => 
+              const port = flowControlConfig.ports.output.find((p: any) =>
                 sourceHandle === p.field || sourceHandle.startsWith(p.field + '-')
               );
               if (!port) return false;
-              return port.connectionType !== 'single';
+              // Only parallel mode allows multiple direct connections;
+              // sequential and single modes allow only 1 direct connection
+              return port.connectionMode === 'parallel';
             };
             
             const sourceHandle = connectingFromPortId.value;
@@ -124,7 +126,7 @@ export function useCanvasConnections(
             
             connections.value.push(newConnection);
             if (store.currentWorkflow) {
-              store.currentWorkflow.edges.push(newConnection);
+              store.currentWorkflow.edges = [...store.currentWorkflow.edges, newConnection];
             }
 
             syncConnectionToNodeConfig(newConnection, true);
@@ -235,51 +237,6 @@ export function useCanvasConnections(
           nodeConfigForm,
           store,
         });
-      }
-    } else if (parentNodeId && parentNode && flowControlNodeRegistry.isFlowControlNode(parentNode.data.type)) {
-      const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
-      if (targetNode) {
-        const flowControlConfig = getFlowControlConfig(parentNode.data.type);
-        
-        if (flowControlConfig.taskFields) {
-          const taskFields = flowControlConfig.taskFields.filter(f => f !== 'next');
-          let targetField: string | undefined;
-          let caseKey: string | undefined;
-          
-          for (const field of taskFields) {
-            const fieldValue = parentNode.data.config?.[field];
-            if (fieldValue) {
-              if (Array.isArray(fieldValue)) {
-                if (fieldValue.some(item => item.nodeId === conn.source)) {
-                  targetField = field;
-                  break;
-                }
-              } else if (typeof fieldValue === 'object' && fieldValue !== null) {
-                for (const [key, value] of Object.entries(fieldValue)) {
-                  if (Array.isArray(value) && value.some((item: any) => item.nodeId === conn.source)) {
-                    targetField = field;
-                    caseKey = key;
-                    break;
-                  }
-                }
-                if (caseKey) break;
-              }
-            }
-          }
-          
-          if (targetField) {
-            flowControlNodeRegistry.handleConnection(parentNode.data.type, {
-              conn: {
-                ...conn,
-                source: parentNodeId,
-                sourceHandle: caseKey ? `${parentNodeId}-output-${targetField}-${caseKey}` : `${parentNodeId}-output-${targetField}`,
-              },
-              isAdd,
-              nodeConfigForm,
-              store,
-            });
-          }
-        }
       }
     }
 

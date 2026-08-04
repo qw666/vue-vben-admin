@@ -25,7 +25,12 @@ function setupRealtimeConfigSync(
     () => ({ ...nodeConfigForm }),
     () => {
       if (selectedNode.value) {
-        selectedNode.value.data.config = { ...nodeConfigForm };
+        // Merge instead of replace to preserve flow control fields (cases/defaults/then/else)
+        // that are managed separately through handleConnection, not through nodeConfigForm
+        selectedNode.value.data.config = {
+          ...selectedNode.value.data.config,
+          ...nodeConfigForm,
+        };
       }
     },
     { deep: true },

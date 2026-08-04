@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Button, Input, Tooltip } from 'ant-design-vue';
+import { Input, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 const props = defineProps<{
@@ -52,9 +52,6 @@ function getCaseCount() {
           <div style="display: flex; flex-direction: column; gap: 2px;">
             <div v-for="(item, index) in caseItems" :key="fieldKey + '-case-' + caseIndex + '-item-' + index"
                  style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: #fffbeb; border-radius: 4px;">
-              <Button size="small" danger ghost circle style="padding: 2px;" @click="emit('removeNodeFromCase', fieldKey, caseKey as string, index as number)">
-                <IconifyIcon icon="mdi:minus" :size="12" />
-              </Button>
               <Input
                 v-if="index === 0"
                 :value="caseKey"
@@ -66,7 +63,7 @@ function getCaseCount() {
               <span v-else style="width: 80px; text-align: left;"></span>
               <IconifyIcon icon="mdi:arrow-right-bottom" :size="12" class="text-green-500" />
               <span style="font-size: 12px; color: #374151; flex: 1;">
-                {{ pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
+                {{ item.label || pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
               </span>
               <span v-if="item.nodeId" style="font-size: 10px; color: #9ca3af;">画布节点</span>
             </div>

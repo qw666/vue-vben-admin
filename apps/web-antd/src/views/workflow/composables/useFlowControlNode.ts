@@ -31,15 +31,45 @@ export function useFlowControlNode(
     const childIds: string[] = [];
     const taskFields = flowControlConfig.taskFields || [];
     const excludeFields = getExcludeFields(flowControlConfig);
+    const edges = store.currentWorkflow?.edges || [];
+
+    // Follow edges to collect chain descendants (sequential mode only)
+    const collectChainDescendants = (startNodeId: string, collected: string[]) => {
+      const downstreamEdges = edges.filter(e => e.source === startNodeId);
+      for (const edge of downstreamEdges) {
+        const targetNode = store.currentWorkflow?.nodes.find(n => n.id === edge.target);
+        if (!targetNode) continue;
+        if (flowControlNodeRegistry.isFlowControlNode(targetNode.data.type)) continue;
+        if (targetNode.data.type === 'idp_core_flow_End') continue;
+        if (!collected.includes(targetNode.id)) {
+          collected.push(targetNode.id);
+          collectChainDescendants(targetNode.id, collected);
+          const nestedChildIds = getChildNodeIds(targetNode.id);
+          nestedChildIds.forEach(id => {
+            if (!collected.includes(id)) collected.push(id);
+          });
+        }
+      }
+    };
 
     taskFields.forEach(field => {
       if (excludeFields.includes(field)) return;
       const configValue = node.data.config?.[field];
+
+      // Get connectionMode for this field
+      const port = flowControlConfig.ports?.output?.find((p: any) => p.field === field);
+      const mode = port?.connectionMode || 'sequential';
+
       forEachTaskField(configValue, (item) => {
         if (item.nodeId) {
           if (!childIds.includes(item.nodeId)) {
             childIds.push(item.nodeId);
           }
+          // For sequential mode, collect chain via edges from child node
+          if (mode !== 'parallel') {
+            collectChainDescendants(item.nodeId, childIds);
+          }
+          // Recursively get nested flow control children
           const nestedChildIds = getChildNodeIds(item.nodeId);
           nestedChildIds.forEach(nestedId => {
             if (!childIds.includes(nestedId)) {
@@ -81,12 +111,23 @@ export function useFlowControlNode(
         const configValue = node.data.config?.[field];
         let found = false;
 
+        const checkItems = (items: any[]): boolean => {
+          for (const item of items) {
+            if (item.nodeId === nodeId) return true;
+            if (item.nodeId) {
+              const descendants = getChildNodeIds(item.nodeId);
+              if (descendants.includes(nodeId)) return true;
+            }
+          }
+          return false;
+        };
+
         if (Array.isArray(configValue)) {
-          found = configValue.some((item: any) => item.nodeId === nodeId);
+          found = checkItems(configValue);
         } else if (typeof configValue === 'object' && configValue !== null) {
           for (const caseKey of Object.keys(configValue)) {
             const caseItems = configValue[caseKey];
-            if (Array.isArray(caseItems) && caseItems.some((item: any) => item.nodeId === nodeId)) {
+            if (Array.isArray(caseItems) && checkItems(caseItems)) {
               found = true;
               break;
             }

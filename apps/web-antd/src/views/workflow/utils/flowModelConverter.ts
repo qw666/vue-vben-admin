@@ -451,10 +451,12 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
     list.push(edge);
   });
 
-  function convertNode(node: WorkflowNode): FlowTask {
-    visited.add(node.id);
+  // Convert a single node to FlowTask (handles nested flow control children)
+  function convertSingleNode(nodeId: string): FlowTask | null {
+    const node = workflow.nodes.find((n) => n.id === nodeId);
+    if (!node || visited.has(node.id)) return null;
+    visited.add(nodeId);
 
-    const flowControlConfig = getFlowControlConfig(node.data.type);
     const task: FlowTask = {
       id: node.id,
       type: node.data.type,
@@ -464,32 +466,69 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
     const config = node.data.config;
     if (config) {
       const serializedConfig = flowControlNodeRegistry.serializeConfig(node.data.type, config);
+      const childFlowConfig = getFlowControlConfig(node.data.type);
 
       Object.keys(serializedConfig).forEach((key) => {
+        if (key === 'next') return;
+
         const configValue = serializedConfig[key];
 
-        if (key === 'next') {
-          return;
-        }
+        if (childFlowConfig.taskFields?.includes(key)) {
+          const port = childFlowConfig.ports?.output?.find((p: any) => p.field === key);
+          const mode = port?.connectionMode || 'sequential';
 
-        if (flowControlConfig.taskFields?.includes(key)) {
-          const mapped = mapTaskField(configValue, (item) => {
-            if (item.nodeId) {
-              const childNode = workflow.nodes.find(
-                (n) => n.id === item.nodeId,
-              );
-              if (childNode && !visited.has(childNode.id)) {
-                const converted = convertNode(childNode);
-                const result: FlowTask = { ...converted };
-                delete result.nodeId;
-                delete result.label;
-                return result;
+          if (mode === 'parallel') {
+            // Parallel: each item is independent, no chain collection
+            if (Array.isArray(configValue)) {
+              task[key] = configValue.map((item: any) => {
+                if (item.nodeId) {
+                  const converted = convertSingleNode(item.nodeId);
+                  if (converted) return converted;
+                }
+                const cleaned: any = { ...item };
+                delete cleaned.nodeId;
+                delete cleaned.label;
+                return cleaned;
+              }).filter((t: any) => t !== null);
+            }
+          } else {
+            // Sequential: collect chain via edges
+            if (Array.isArray(configValue)) {
+              const result: FlowTask[] = [];
+              for (const item of configValue) {
+                if (item.nodeId) {
+                  result.push(...collectChain(item.nodeId));
+                } else {
+                  const cleaned: any = { ...item };
+                  delete cleaned.nodeId;
+                  delete cleaned.label;
+                  result.push(cleaned);
+                }
+              }
+              task[key] = result;
+            } else if (typeof configValue === 'object' && configValue !== null) {
+              const mapped: Record<string, FlowTask[]> = {};
+              for (const caseKey of Object.keys(configValue)) {
+                const caseItems = configValue[caseKey];
+                if (Array.isArray(caseItems)) {
+                  const caseResult: FlowTask[] = [];
+                  for (const item of caseItems) {
+                    if (item.nodeId) {
+                      caseResult.push(...collectChain(item.nodeId));
+                    } else {
+                      const cleaned: any = { ...item };
+                      delete cleaned.nodeId;
+                      delete cleaned.label;
+                      caseResult.push(cleaned);
+                    }
+                  }
+                  mapped[caseKey] = caseResult;
+                }
+              }
+              if (Object.keys(mapped).length > 0) {
+                task[key] = mapped;
               }
             }
-            return item;
-          });
-          if (mapped !== undefined) {
-            task[key] = mapped;
           }
         } else {
           task[key] = configValue;
@@ -498,6 +537,41 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
     }
 
     return task;
+  }
+
+  // Collect a chain of nodes starting from startNodeId, following edges (sequential mode)
+  function collectChain(startNodeId: string): FlowTask[] {
+    const chain: FlowTask[] = [];
+    let currentId: string | undefined = startNodeId;
+
+    while (currentId) {
+      const task = convertSingleNode(currentId);
+      if (!task) break;
+      chain.push(task);
+
+      // Find next node in chain: directly filter edges by source
+      const downstreamEdges = workflow.edges.filter(e => e.source === currentId);
+      let nextId: string | undefined;
+
+      for (const edge of downstreamEdges) {
+        const targetNode = workflow.nodes.find((n) => n.id === edge.target);
+        if (!targetNode) continue;
+        if (visited.has(targetNode.id)) continue;
+        if (targetNode.data.type === 'idp_core_flow_End') continue;
+        if (flowControlNodeRegistry.isFlowControlNode(targetNode.data.type)) continue;
+
+        nextId = targetNode.id;
+        break;
+      }
+      currentId = nextId;
+    }
+
+    return chain;
+  }
+
+  function convertNode(node: WorkflowNode): FlowTask {
+    const task = convertSingleNode(node.id);
+    return task || { id: node.id, type: node.data.type, description: node.data.label || '' };
   }
 
   const inDegree = new Map<string, number>();

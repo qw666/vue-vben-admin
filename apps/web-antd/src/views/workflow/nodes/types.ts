@@ -75,7 +75,11 @@ class FlowControlNodeRegistry {
   }
 
   isFlowControlNode(nodeType: string): boolean {
-    return this.strategies.has(nodeType);
+    // Only nodes with taskFields are real flow-control nodes (containers)
+    const strategy = this.strategies.get(nodeType);
+    if (!strategy) return false;
+    const taskFields = strategy.config.taskFields || [];
+    return taskFields.length > 0;
   }
 
   getFlowControlNodes(): { type: string; nodeName: string; icon: string; description: string }[] {

@@ -44,7 +44,7 @@ function getConnectionCount() {
              style="display: flex; align-items: center; gap: 8px; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
           <IconifyIcon icon="mdi:arrow-right-bottom" :size="14" class="text-green-500" />
           <span style="font-size: 13px; color: #374151; flex: 1;">
-            {{ pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
+            {{ item.label || pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
           </span>
           <span v-if="item.nodeId" style="font-size: 11px; color: #9ca3af;">画布节点</span>
         </div>

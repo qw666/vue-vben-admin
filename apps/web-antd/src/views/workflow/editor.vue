@@ -24,6 +24,7 @@ import { usePluginMeta } from './composables/usePluginMeta';
 import { rewriteVarReferences } from './composables/useVarSources';
 import { createVarSelectContext, provideVarSelect } from './composables/varSelectContext';
 import { getFlowControlConfig } from './config/workflow-node-config';
+import { useFlowControlNode } from './composables/useFlowControlNode';
 import {
   convertFlowModelToWorkflow,
   buildFlowSavePayload,
@@ -101,6 +102,8 @@ const {
   resolveRef,
   pluginGroups,
 );
+
+const { getParentNodeFieldInfo, getChildNodeIds } = useFlowControlNode(nodeConfigForm, selectedNode);
 
 const {
   isDraggingNode,
@@ -255,6 +258,40 @@ function updateNodeLabel(value: string) {
   if (node) {
     node.data.label = value;
     store.updateNode(node.id, { data: { ...node.data } });
+
+    // Sync label to parent flow control node's config (cases/defaults/etc.)
+    const parentInfo = getParentNodeFieldInfo(node.id);
+    if (parentInfo) {
+      const parentNode = store.currentWorkflow?.nodes.find(n => n.id === parentInfo.parentId);
+      if (parentNode) {
+        const configValue = parentNode.data.config?.[parentInfo.field];
+        const updateLabelInItems = (items: any[]) => {
+          for (const item of items) {
+            if (item.nodeId === node.id) {
+              item.label = value;
+            }
+          }
+        };
+        if (Array.isArray(configValue)) {
+          updateLabelInItems(configValue);
+        } else if (typeof configValue === 'object' && configValue !== null) {
+          for (const caseKey of Object.keys(configValue)) {
+            if (Array.isArray(configValue[caseKey])) {
+              updateLabelInItems(configValue[caseKey]);
+            }
+          }
+        }
+        // Force Vue reactivity by assigning a new reference
+        parentNode.data.config = { ...parentNode.data.config };
+        store.updateNode(parentNode.id, { data: { ...parentNode.data } });
+
+        // Sync to nodeConfigForm so the right panel reflects the change immediately
+        if (nodeConfigForm[parentInfo.field]) {
+          nodeConfigForm[parentInfo.field] = parentNode.data.config[parentInfo.field];
+        }
+      }
+    }
+
     const freshNode = store.currentWorkflow?.nodes.find(
       (n) => n.id === selectedNode.value?.id,
     );
@@ -331,7 +368,7 @@ function updateNodeId(value: string) {
 /** 遍历 config 里的 tasks/cases/then/else 等列表，更新 taskItem.nodeId */
 function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
   if (!config || typeof config !== 'object') return;
-  const listFields = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults'];
+  const listFields = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults', 'cases'];
   for (const field of listFields) {
     const val = config[field];
     if (Array.isArray(val)) {

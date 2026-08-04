@@ -23,6 +23,25 @@ export function getParentNodeFieldInfo(
   workflow: Workflow,
   nodeId: string,
 ): { parentId: string; field: string } | null {
+  const edges = workflow.edges;
+
+  // Collect all descendant node IDs starting from a direct child node
+  const collectDescendants = (startId: string, visited: Set<string>): string[] => {
+    const result: string[] = [];
+    const downstreamEdges = edges.filter((e) => e.source === startId);
+    for (const edge of downstreamEdges) {
+      const targetNode = workflow.nodes.find((n) => n.id === edge.target);
+      if (!targetNode) continue;
+      if (targetNode.data.type === 'idp_core_flow_End') continue;
+      if (flowControlNodeRegistry.isFlowControlNode(targetNode.data.type)) continue;
+      if (visited.has(targetNode.id)) continue;
+      visited.add(targetNode.id);
+      result.push(targetNode.id);
+      result.push(...collectDescendants(targetNode.id, visited));
+    }
+    return result;
+  };
+
   for (const node of workflow.nodes) {
     if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
 
@@ -33,15 +52,23 @@ export function getParentNodeFieldInfo(
       const configValue = node.data.config?.[field];
       let found = false;
 
+      const checkItems = (items: any[]): boolean => {
+        for (const item of items) {
+          if (item.nodeId === nodeId) return true;
+          if (item.nodeId) {
+            const descendants = collectDescendants(item.nodeId, new Set<string>([item.nodeId]));
+            if (descendants.includes(nodeId)) return true;
+          }
+        }
+        return false;
+      };
+
       if (Array.isArray(configValue)) {
-        found = configValue.some((item: any) => item.nodeId === nodeId);
+        found = checkItems(configValue);
       } else if (typeof configValue === 'object' && configValue !== null) {
         for (const caseKey of Object.keys(configValue)) {
           const caseItems = configValue[caseKey];
-          if (
-            Array.isArray(caseItems) &&
-            caseItems.some((item: any) => item.nodeId === nodeId)
-          ) {
+          if (Array.isArray(caseItems) && checkItems(caseItems)) {
             found = true;
             break;
           }
