@@ -129,21 +129,21 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
           dynamic: true,
         },
       },
-    ];
-  },
-  getOptionalFields(): { props: Record<string, any>; type: string }[] {
-    return [
       {
         type: 'ConnectionStatus',
         props: {
           key: 'then',
           label: 'IF',
-          required: false,
-          description: '条件成立时执行的任务列表',
+          required: true,
+          description: '条件成立时执行的任务列表（至少1个任务）',
           tooltip: '',
           dynamic: false,
         },
       },
+    ];
+  },
+  getOptionalFields(): { props: Record<string, any>; type: string }[] {
+    return [
       {
         type: 'ConnectionStatus',
         props: {

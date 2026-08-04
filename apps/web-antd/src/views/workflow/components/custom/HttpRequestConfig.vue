@@ -325,7 +325,15 @@ watch(
   <div class="http-request-config">
     <div class="config-section">
       <div class="section-header">
-        <span style="font-size: 14px; font-weight: 500; color: #374151">请求方式</span>
+        <span style="font-size: 14px; font-weight: 500; color: #374151">
+          请求URL
+          <span style="color: #ef4444; margin-left: 4px;">*</span>
+        </span>
+        <Tooltip title="请求的目标地址，支持变量选择。输入 / 可选择上游变量">
+          <span class="help-icon-wrapper">
+            <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: help;" />
+          </span>
+        </Tooltip>
       </div>
       <div class="request-bar">
         <Select
@@ -338,7 +346,6 @@ watch(
           placeholder="请输入请求URL，输入 / 选择变量"
           class="url-input"
         />
-        <span class="required-star">*</span>
       </div>
     </div>
 
@@ -762,6 +769,9 @@ watch(
 }
 
 .section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 8px;
 }
 
@@ -772,11 +782,16 @@ watch(
 }
 
 .method-select {
-  width: 80px !important;
+  width: 110px !important;
 }
 
 .url-input {
   flex: 1;
+}
+
+.help-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
 }
 
 .required-star {

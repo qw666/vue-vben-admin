@@ -12,14 +12,19 @@ export const SubflowNodeStrategy: FlowControlNodeStrategy = {
     ports: {
       input: 1,
       output: [
-        { field: 'tasks', label: 'Tasks', color: '#8b5cf6', connectionType: 'list', connectionMode: 'sequential' },
+        { field: 'next', label: 'Next', color: '#8b5cf6', connectionType: 'single', connectionMode: 'sequential' },
       ],
     },
-    taskFields: ['tasks'],
+    taskFields: [],
   },
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
     return {
-      tasks: savedConfig.tasks || [],
+      flowId: savedConfig.flowId || '',
+      namespace: savedConfig.namespace || '',
+      wait: savedConfig.wait ?? true,
+      transmitFailed: savedConfig.transmitFailed ?? true,
+      inputs: savedConfig.inputs || {},
+      next: savedConfig.next || [],
     };
   },
 
@@ -97,13 +102,40 @@ export const SubflowNodeStrategy: FlowControlNodeStrategy = {
     store.updateNode(conn.source, { data: { ...sourceNode.data } });
   },
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
-    return [];
+    return [
+      {
+        type: 'VarPicker',
+        props: {
+          key: 'namespace',
+          label: '命名空间',
+          required: true,
+          description: '目标子流程所在的命名空间',
+          tooltip: '要调用的子流程的命名空间，输入 / 可选择变量',
+          dynamic: true,
+        },
+      },
+      {
+        type: 'VarPicker',
+        props: {
+          key: 'flowId',
+          label: '流程ID',
+          required: true,
+          description: '要调用的子流程ID',
+          tooltip: '要调用的子流程的ID，输入 / 可选择变量',
+          dynamic: true,
+        },
+      },
+    ];
   },
   getOptionalFields(): { type: string; props: Record<string, any> }[] {
     return [
       {
-        type: 'ConnectionStatus',
-        props: { key: 'tasks', label: 'Tasks', required: false, description: '子流程任务列表', tooltip: '', dynamic: false },
+        type: 'Switch',
+        props: { key: 'wait', label: '等待完成', required: false, description: '是否等待子流程执行完成', tooltip: '默认 true。若设为 false，父流程不等待子流程完成即继续执行。', dynamic: false },
+      },
+      {
+        type: 'Switch',
+        props: { key: 'transmitFailed', label: '传递失败', required: false, description: '子流程失败时是否使父流程也失败', tooltip: '默认 true。仅当 wait=true 时生效。', dynamic: false },
       },
     ];
   },

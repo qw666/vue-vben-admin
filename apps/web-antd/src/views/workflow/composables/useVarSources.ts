@@ -288,6 +288,13 @@ const systemProvider: VarSourceProvider = {
     const loopNode = findEnclosingLoopNode(ctx);
     const items: VarNode[] = [
       {
+        key: 'execution-id',
+        label: '流程执行ID',
+        expression: `{{ execution.id }}`,
+        type: 'string',
+        group: 'system',
+      },
+      {
         key: 'execution-startDate',
         label: '流程开始执行时间',
         expression: `{{ execution.startDate }}`,
@@ -295,8 +302,29 @@ const systemProvider: VarSourceProvider = {
         group: 'system',
       },
       {
+        key: 'flow-id',
+        label: '流程ID',
+        expression: `{{ flow.id }}`,
+        type: 'string',
+        group: 'system',
+      },
+      {
+        key: 'task-id',
+        label: '当前节点任务ID',
+        expression: `{{ task.id }}`,
+        type: 'string',
+        group: 'system',
+      },
+      {
+        key: 'taskrun-id',
+        label: '当前节点运行ID',
+        expression: `{{ taskrun.id }}`,
+        type: 'string',
+        group: 'system',
+      },
+      {
         key: 'taskrun-startDate',
-        label: '当前任务开始时间',
+        label: '当前节点开始时间',
         expression: `{{ taskrun.startDate }}`,
         type: 'string',
         group: 'system',

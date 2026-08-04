@@ -77,6 +77,12 @@ function getCaseCount() {
         在画布上从 Switch 节点的端口拖线连接子节点，自动创建分支
       </div>
     </div>
+    <div
+      v-if="field.props.description"
+      style="margin-top: 4px; font-size: 12px; color: #9ca3af;"
+    >
+      {{ field.props.description }}
+    </div>
   </div>
 </template>
 

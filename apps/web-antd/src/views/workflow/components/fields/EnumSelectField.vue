@@ -40,6 +40,12 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
         {{ opt.label || opt }}
       </Select.Option>
     </Select>
+    <div
+      v-if="field.props.description"
+      style="margin-top: 4px; font-size: 12px; color: #9ca3af;"
+    >
+      {{ field.props.description }}
+    </div>
   </div>
 </template>
 

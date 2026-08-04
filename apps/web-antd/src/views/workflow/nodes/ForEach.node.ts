@@ -135,6 +135,18 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
           dynamic: false,
         },
       },
+      {
+        type: 'ConnectionStatus',
+        props: {
+          key: 'tasks',
+          label: 'Tasks',
+          required: true,
+          description: '循环执行的任务列表（至少1个任务）',
+          tooltip:
+            '每次迭代执行的子任务。子任务可通过 {{taskrun.value}} 访问当前迭代项。',
+          dynamic: false,
+        },
+      },
     ];
   },
   getOptionalFields(): { props: Record<string, any>; type: string }[] {
@@ -151,18 +163,6 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
           dynamic: false,
           connectionField: 'tasks',
           maxLimited: false,
-        },
-      },
-      {
-        type: 'ConnectionStatus',
-        props: {
-          key: 'tasks',
-          label: 'Tasks',
-          required: false,
-          description: '循环执行的任务列表',
-          tooltip:
-            '每次迭代执行的子任务。子任务可通过 {{taskrun.value}} 访问当前迭代项。',
-          dynamic: false,
         },
       },
     ];

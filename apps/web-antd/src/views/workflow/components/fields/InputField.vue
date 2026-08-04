@@ -36,6 +36,12 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
       :placeholder="field.props.placeholder || '输入 / 选择变量'"
       style="width: 100%;"
     />
+    <div
+      v-if="field.props.description"
+      style="margin-top: 4px; font-size: 12px; color: #9ca3af;"
+    >
+      {{ field.props.description }}
+    </div>
   </div>
 </template>
 

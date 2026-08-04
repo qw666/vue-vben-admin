@@ -299,7 +299,7 @@ export function useNodeConfig(
       flowControlNodeRegistry.saveConfig(selectedNode.value.data.type, config, store);
 
       message.success('节点配置已保存');
-      handleConfigClose();
+      closeConfigPanel();
       return;
     }
 
@@ -345,6 +345,13 @@ export function useNodeConfig(
 
     selectedNode.value.data.config = config;
     message.success('节点配置已保存');
+    closeConfigPanel();
+  }
+
+  // 关闭面板时必须先置空 selectedNode，再清空表单。
+  // 否则 setupRealtimeConfigSync 的 watch 会把空表单同步到节点 config，导致数据丢失。
+  function closeConfigPanel() {
+    selectedNode.value = null;
     handleConfigClose();
   }
 
@@ -361,7 +368,7 @@ export function useNodeConfig(
     childNodeConfigForm,
     selectedChildNodeLabel,
     handleNodeDoubleClick,
-    handleConfigClose,
+    handleConfigClose: closeConfigPanel,
     startResize,
     addArrayItem,
     removeArrayItem,

@@ -218,6 +218,12 @@ function removeField(index: number) {
         </div>
       </div>
     </div>
+    <div
+      v-if="field.props.description"
+      style="margin-top: 4px; font-size: 12px; color: #9ca3af;"
+    >
+      {{ field.props.description }}
+    </div>
   </div>
 </template>
 

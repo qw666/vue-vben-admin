@@ -106,21 +106,22 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
     store.updateNode(conn.source, { data: { ...sourceNode.data } });
   },
   getRequiredFields(): { props: Record<string, any>; type: string }[] {
-    return [];
-  },
-  getOptionalFields(): { props: Record<string, any>; type: string }[] {
     return [
       {
         type: 'ConnectionStatus',
         props: {
           key: 'tasks',
           label: 'Tasks',
-          required: false,
-          description: '并行执行的任务列表',
+          required: true,
+          description: '并行执行的任务列表（至少1个任务）',
           tooltip: '',
           dynamic: false,
         },
       },
+    ];
+  },
+  getOptionalFields(): { props: Record<string, any>; type: string }[] {
+    return [
       {
         type: 'Concurrent',
         props: {

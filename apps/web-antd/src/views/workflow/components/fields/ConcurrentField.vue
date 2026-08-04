@@ -89,6 +89,12 @@ function increase() {
     <div v-if="maxLimited" style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
       最大值: {{ connectionCount }} (已连接节点数)
     </div>
+    <div
+      v-if="field.props.description"
+      style="margin-top: 4px; font-size: 12px; color: #9ca3af;"
+    >
+      {{ field.props.description }}
+    </div>
   </div>
 </template>
 
