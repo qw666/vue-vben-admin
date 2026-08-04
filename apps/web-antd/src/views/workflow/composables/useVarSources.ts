@@ -17,6 +17,7 @@ import { useVarSelect } from './varSelectContext';
 /**
  * 从当前节点出发，沿 edges.target → edges.source 反向遍历，
  * 收集所有能到达当前节点的上游节点。
+ * 包括容器节点（Switch/If/ForEach/Parallel）的子节点配置中的节点。
  * 不包含当前节点自己。
  */
 function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
@@ -25,8 +26,44 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
   const queue: string[] = [currentNodeId];
   const result: WorkflowNode[] = [];
 
+  // Helper: extract node IDs from container node's config (cases/errors/finally etc.)
+  function extractChildNodeIds(nodeConfig: any): string[] {
+    if (!nodeConfig || typeof nodeConfig !== 'object') return [];
+    const ids: string[] = [];
+    const taskFields = ['cases', 'errors', 'finally', 'tasks', 'then', 'else', 'foreach', 'parallel'];
+    
+    for (const field of taskFields) {
+      const value = nodeConfig[field];
+      if (!value) continue;
+      
+      // Handle array fields (tasks, then, else, foreach, parallel)
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item?.nodeId && !ids.includes(item.nodeId)) {
+            ids.push(item.nodeId);
+          }
+        }
+      } 
+      // Handle object fields (cases: { CASE_1: [...], CASE_2: [...] })
+      else if (typeof value === 'object') {
+        for (const [, items] of Object.entries(value)) {
+          if (Array.isArray(items)) {
+            for (const item of items) {
+              if (item?.nodeId && !ids.includes(item.nodeId)) {
+                ids.push(item.nodeId);
+              }
+            }
+          }
+        }
+      }
+    }
+    return ids;
+  }
+
   while (queue.length > 0) {
     const id = queue.shift()!;
+    
+    // Find nodes connected via edges
     edges.forEach((e) => {
       if (e.target === id && !visited.has(e.source)) {
         visited.add(e.source);
@@ -35,6 +72,21 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
         if (node) result.push(node);
       }
     });
+    
+    // Also check container node's config for child nodes
+    // This handles Switch/If/ForEach/Parallel where child nodes are nested in config
+    const currentNode = nodes.find((n) => n.id === id);
+    if (currentNode) {
+      const childIds = extractChildNodeIds(currentNode.data?.config);
+      for (const childId of childIds) {
+        if (!visited.has(childId)) {
+          visited.add(childId);
+          queue.push(childId);
+          const childNode = nodes.find((n) => n.id === childId);
+          if (childNode) result.push(childNode);
+        }
+      }
+    }
   }
   return result;
 }
@@ -78,6 +130,19 @@ const upstreamProvider: VarSourceProvider = {
   order: 10,
   getVars(ctx: VarSourceContext): VarNode[] {
     const upstream = findUpstreamNodes(ctx);
+    // Write debug info to window
+    if (typeof window !== 'undefined') {
+      (window as any).__varDebug = (window as any).__varDebug || [];
+      (window as any).__varDebug.push({
+        currentNode: ctx.currentNodeId,
+        upstreamNodes: upstream.map(n => ({
+          id: n.id,
+          type: n.data?.type,
+          config: n.data?.config
+        })),
+        timestamp: Date.now()
+      });
+    }
     return upstream
       .map((node) => {
         const outputs = getNodeOutputs(node);
@@ -115,7 +180,22 @@ function getNodeOutputs(node: WorkflowNode): Array<{
   // 使用 hasNodeOutputs 判断，而非 isFlowControlContainer，
   // 因为 Code、Http、Script 等普通节点也可能有输出变量
   if (flowControlNodeRegistry.hasNodeOutputs(nodeType)) {
-    return flowControlNodeRegistry.getOutputs(nodeType, node.data?.config || {});
+    const config = node.data?.config || {};
+    const outputs = flowControlNodeRegistry.getOutputs(nodeType, config);
+    
+    // Debug: log to window for testing
+    if (typeof window !== 'undefined') {
+      (window as any).__outputDebug = (window as any).__outputDebug || [];
+      (window as any).__outputDebug.push({
+        nodeId: node.id,
+        nodeType,
+        config: JSON.parse(JSON.stringify(config)),
+        outputs: JSON.parse(JSON.stringify(outputs)),
+        timestamp: Date.now()
+      });
+    }
+    
+    return outputs;
   }
 
   // 动态插件节点：从 _declaredOutputs 或 outputKeys 配置获取

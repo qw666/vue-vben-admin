@@ -10,6 +10,7 @@ import './Sleep.node';
 import './Default.node';
 import './HttpRequest.node';
 import './Code.node';
+import './OutputValues.node';
 
 export { flowControlNodeRegistry } from './types';
 export type { FlowControlNodeConfig, FlowControlNodeStrategy } from './types';

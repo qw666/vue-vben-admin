@@ -34,8 +34,21 @@ export function validateNodeConfig(node: any, pluginMetaCache: Record<string, an
     const requiredFieldKeys = strategy.getRequiredFields();
     const config = node.data.config || {};
     requiredFieldKeys.forEach(field => {
-      if (field.props && isEmptyValue(config[field.props.key])) {
-        missingFields.push(field.props.label);
+      if (field.props) {
+        const fieldValue = config[field.props.key];
+        // ArrayTable fields allow empty arrays (user can choose not to configure any items)
+        const isArrayTableField = field.type === 'ArrayTable';
+        if (isArrayTableField) {
+          // For ArrayTable, if the value is undefined, null, or empty array, it's valid
+          // (user simply didn't add any items)
+          if (fieldValue === undefined || fieldValue === null || 
+              (Array.isArray(fieldValue) && fieldValue.length === 0)) {
+            return; // Skip validation for empty ArrayTable
+          }
+        }
+        if (isEmptyValue(fieldValue)) {
+          missingFields.push(field.props.label);
+        }
       }
     });
     return { isValid: missingFields.length === 0, missingFields };

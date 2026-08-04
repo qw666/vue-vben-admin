@@ -69,8 +69,12 @@ initForm();
 
 watch(
   () => props.nodeConfigForm.inputParams,
-  () => {
-    inputParams.value = props.nodeConfigForm.inputParams.map((item: any) => ({
+  (newVal) => {
+    if (!Array.isArray(newVal)) {
+      inputParams.value = [];
+      return;
+    }
+    inputParams.value = newVal.map((item: any) => ({
       key: item.key || '',
       expression: item.expression || '',
       defaultValue: item.defaultValue || '',
@@ -81,8 +85,12 @@ watch(
 
 watch(
   () => props.nodeConfigForm.outputKeys,
-  () => {
-    outputKeys.value = props.nodeConfigForm.outputKeys.map((item: any) => {
+  (newVal) => {
+    if (!Array.isArray(newVal)) {
+      outputKeys.value = [];
+      return;
+    }
+    outputKeys.value = newVal.map((item: any) => {
       if (typeof item === 'string') {
         return { key: item, remark: '' };
       }

@@ -143,8 +143,11 @@ export function useNodeConfig(
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 
-    if (flowControlNodeRegistry.isFlowControlContainer(node.data.type)) {
-      const strategy = flowControlNodeRegistry.get(node.data.type);
+    // OutputValues、Code 等自定义节点也需要使用策略初始化配置
+    const strategy = flowControlNodeRegistry.get(node.data.type);
+    const hasStrategy = !!strategy;
+    
+    if (flowControlNodeRegistry.isFlowControlContainer(node.data.type) || hasStrategy) {
       const savedConfig = node.data.config || {};
       const newConfig = strategy.initConfig(savedConfig);
 
@@ -221,8 +224,10 @@ export function useNodeConfig(
   const requiredFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type)) {
-      const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const hasStrategy = !!strategy;
+    
+    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type) || hasStrategy) {
       return strategy.getRequiredFields();
     }
 
@@ -251,8 +256,10 @@ export function useNodeConfig(
   const optionalFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type)) {
-      const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const hasStrategy = !!strategy;
+    
+    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type) || hasStrategy) {
       return strategy.getOptionalFields();
     }
 
@@ -286,11 +293,26 @@ export function useNodeConfig(
       return;
     }
 
-    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type)) {
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const hasStrategy = !!strategy;
+    
+    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type) || hasStrategy) {
       const config: Record<string, any> = {};
       Object.keys(nodeConfigForm).forEach(key => {
         config[key] = nodeConfigForm[key];
       });
+
+      // Debug: log the config before saving
+      if (typeof window !== 'undefined') {
+        (window as any).__debugLogs = (window as any).__debugLogs || [];
+        (window as any).__debugLogs.push({
+          fn: 'handleSaveConfig',
+          nodeType: selectedNode.value.data.type,
+          nodeConfigForm: JSON.parse(JSON.stringify(nodeConfigForm)),
+          configToSave: JSON.parse(JSON.stringify(config)),
+          timestamp: Date.now()
+        });
+      }
 
       if (selectedNode.value.data.type === 'idp_core_http_Request') {
         if (!config.uri || !config.uri.trim()) {
@@ -300,8 +322,20 @@ export function useNodeConfig(
       }
 
       selectedNode.value.data.config = config;
+      
+      // Debug: verify the config was saved
+      if (typeof window !== 'undefined') {
+        (window as any).__debugLogs.push({
+          fn: 'handleSaveConfig',
+          savedConfig: JSON.parse(JSON.stringify(selectedNode.value.data.config)),
+          timestamp: Date.now()
+        });
+      }
 
-      flowControlNodeRegistry.saveConfig(selectedNode.value.data.type, config, store);
+      // Use strategy saveConfig if available, otherwise just update the node
+      if (strategy?.saveConfig) {
+        strategy.saveConfig(config, store);
+      }
 
       message.success('节点配置已保存');
       closeConfigPanel();

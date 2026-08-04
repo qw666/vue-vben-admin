@@ -392,6 +392,18 @@ function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
 async function handleSave() {
   isLoading.value = true;
   try {
+    // Debug: log that handleSave was called
+    if (typeof window !== 'undefined') {
+      (window as any).__debugLogs = (window as any).__debugLogs || [];
+      (window as any).__debugLogs.push({
+        fn: 'handleSave',
+        action: 'started',
+        hasWorkflow: !!store.currentWorkflow,
+        workflowName: workflowName.value,
+        timestamp: Date.now()
+      });
+    }
+    
     if (!store.currentWorkflow) {
       message.error('请先创建流程');
       return;
@@ -406,6 +418,18 @@ async function handleSave() {
       store.currentWorkflow.nodes,
       pluginMetaCache.value,
     );
+
+    // Debug: log config validation result
+    if (typeof window !== 'undefined') {
+      (window as any).__debugLogs.push({
+        fn: 'handleSave',
+        configValidation: {
+          valid: configValidation.isValid,
+          errors: configValidation.errors?.slice(0, 3) || []
+        },
+        timestamp: Date.now()
+      });
+    }
 
     if (!configValidation.isValid) {
       const errorMessages = configValidation.errors.map(
@@ -436,6 +460,16 @@ async function handleSave() {
       store.projectId,
       workflowName.value,
     );
+
+    // Debug: log the payload
+    if (typeof window !== 'undefined') {
+      (window as any).__debugLogs = (window as any).__debugLogs || [];
+      (window as any).__debugLogs.push({
+        fn: 'handleSave',
+        payloadFlowModel: JSON.parse(JSON.stringify(payload.flowModel)),
+        timestamp: Date.now()
+      });
+    }
 
     const backendValidationResult = await store.validateFlow(payload);
 

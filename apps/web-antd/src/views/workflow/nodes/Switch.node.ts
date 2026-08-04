@@ -39,18 +39,54 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
 
   deserializeConfig(config: Record<string, any>): Record<string, any> {
     const casesValue = config.cases;
+    
+    // Helper: deserialize child node config in task items
+    function deserializeTaskItems(items: any[]): any[] {
+      if (!Array.isArray(items)) return items;
+      return items.map(item => {
+        if (!item || !item.type) return item;
+        // Get the strategy for this child node type
+        const strategy = flowControlNodeRegistry.get(item.type);
+        if (strategy?.deserializeConfig) {
+          // Extract child node config from task item (everything except type, nodeId, label)
+          const { type, nodeId, label, ...childConfig } = item;
+          const deserializedConfig = strategy.deserializeConfig(childConfig);
+          return { type, nodeId, label, ...deserializedConfig };
+        }
+        return item;
+      });
+    }
+    
+    // Process cases - they are objects with case keys mapping to arrays of task items
+    let deserializedCases: Record<string, any[]> = {};
+    if (typeof casesValue === 'object' && casesValue !== null && !Array.isArray(casesValue)) {
+      deserializedCases = {};
+      for (const [caseKey, taskItems] of Object.entries(casesValue)) {
+        deserializedCases[caseKey] = deserializeTaskItems(taskItems as any[]);
+      }
+    }
+    
+    // Process other task fields (defaults, errors, finally)
+    const deserializedDefaults = deserializeTaskItems(
+      Array.isArray(config.defaults) ? config.defaults : []
+    );
+    const deserializedErrors = deserializeTaskItems(
+      Array.isArray(config.errors) ? config.errors : []
+    );
+    const deserializedFinally = deserializeTaskItems(
+      Array.isArray(config.finally) ? config.finally : []
+    );
+    const deserializedNext = deserializeTaskItems(
+      Array.isArray(config.next) ? config.next : []
+    );
+    
     return {
       ...config,
-      cases:
-        typeof casesValue === 'object' &&
-        casesValue !== null &&
-        !Array.isArray(casesValue)
-          ? JSON.parse(JSON.stringify(casesValue))
-          : {},
-      defaults: Array.isArray(config.defaults) ? [...config.defaults] : [],
-      errors: Array.isArray(config.errors) ? [...config.errors] : [],
-      finally: Array.isArray(config.finally) ? [...config.finally] : [],
-      next: Array.isArray(config.next) ? [...config.next] : [],
+      cases: deserializedCases,
+      defaults: deserializedDefaults,
+      errors: deserializedErrors,
+      finally: deserializedFinally,
+      next: deserializedNext,
     };
   },
 
