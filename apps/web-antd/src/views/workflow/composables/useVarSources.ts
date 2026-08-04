@@ -116,9 +116,10 @@ function getNodeOutputs(node: WorkflowNode): Array<{
   const nodeType = node.data?.type;
   if (!nodeType) return [];
 
-  // 优先使用节点策略的 getOutputs 方法（Code、Http、Switch 等都实现了此方法）
-  const strategy = flowControlNodeRegistry.get(nodeType);
-  if (strategy?.getOutputs) {
+  // 优先使用节点策略的 getOutputs 方法
+  // 使用 hasNodeOutputs 判断，而非 isFlowControlContainer，
+  // 因为 Code、Http、Script 等普通节点也可能有输出变量
+  if (flowControlNodeRegistry.hasNodeOutputs(nodeType)) {
     return flowControlNodeRegistry.getOutputs(nodeType, node.data?.config || {});
   }
 

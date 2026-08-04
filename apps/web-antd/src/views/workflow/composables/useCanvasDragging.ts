@@ -56,7 +56,7 @@ export function useCanvasDragging(
         let template: any = null;
 
         const flowControlConfig = getFlowControlConfig(nodeType);
-        if (flowControlNodeRegistry.isFlowControlNode(nodeType)) {
+        if (flowControlNodeRegistry.isFlowControlContainer(nodeType)) {
           template = {
             nodeName: flowControlConfig.nodeName,
             type: nodeType,

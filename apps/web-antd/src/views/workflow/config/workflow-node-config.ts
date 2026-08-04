@@ -30,8 +30,19 @@ export const WORKFLOW_NODE_CONFIG: Record<string, WorkflowNodeConfig> = (() => {
   return config;
 })();
 
+/**
+ * 判断节点是否是流控容器节点（有 taskFields）
+ */
+export function isFlowControlContainer(nodeType: string): boolean {
+  return flowControlNodeRegistry.isFlowControlContainer(nodeType);
+}
+
+/**
+ * @deprecated Use isFlowControlContainer() instead.
+ * 保留为兼容层
+ */
 export function isFlowControlNode(nodeType: string): boolean {
-  return flowControlNodeRegistry.isFlowControlNode(nodeType);
+  return flowControlNodeRegistry.isFlowControlContainer(nodeType);
 }
 
 export function getFlowControlConfig(nodeType: string): FlowControlNodeConfig {

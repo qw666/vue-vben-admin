@@ -74,12 +74,32 @@ class FlowControlNodeRegistry {
     return Array.from(this.strategies.values());
   }
 
-  isFlowControlNode(nodeType: string): boolean {
-    // Only nodes with taskFields are real flow-control nodes (containers)
+  /**
+   * 判断节点是否是流控容器节点（有 taskFields，如 Switch/If/ForEach/Parallel）。
+   * 用于：连线管理、拖拽判断、端口计算、配置面板、序列化等场景。
+   */
+  isFlowControlContainer(nodeType: string): boolean {
     const strategy = this.strategies.get(nodeType);
     if (!strategy) return false;
     const taskFields = strategy.config.taskFields || [];
     return taskFields.length > 0;
+  }
+
+  /**
+   * 判断节点是否实现了 getOutputs 方法（有可声明的输出变量）。
+   * 用于：变量收集、VarPicker 数据源等场景。
+   */
+  hasNodeOutputs(nodeType: string): boolean {
+    const strategy = this.strategies.get(nodeType);
+    return !!strategy?.getOutputs;
+  }
+
+  /**
+   * @deprecated Use isFlowControlContainer() instead.
+   * 保留为兼容层，避免影响现有调用。
+   */
+  isFlowControlNode(nodeType: string): boolean {
+    return this.isFlowControlContainer(nodeType);
   }
 
   getFlowControlNodes(): { type: string; nodeName: string; icon: string; description: string }[] {

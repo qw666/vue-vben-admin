@@ -39,7 +39,7 @@ export function useFlowControlNode(
       for (const edge of downstreamEdges) {
         const targetNode = store.currentWorkflow?.nodes.find(n => n.id === edge.target);
         if (!targetNode) continue;
-        if (flowControlNodeRegistry.isFlowControlNode(targetNode.data.type)) continue;
+        if (flowControlNodeRegistry.isFlowControlContainer(targetNode.data.type)) continue;
         if (targetNode.data.type === 'idp_core_flow_End') continue;
         if (!collected.includes(targetNode.id)) {
           collected.push(targetNode.id);
@@ -87,7 +87,7 @@ export function useFlowControlNode(
     if (!store.currentWorkflow) return null;
 
     for (const node of store.currentWorkflow.nodes) {
-      if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
+      if (!flowControlNodeRegistry.isFlowControlContainer(node.data.type)) continue;
 
       const directChildIds = getDirectChildNodeIds(node.id);
       if (directChildIds.includes(nodeId)) {
@@ -102,7 +102,7 @@ export function useFlowControlNode(
     if (!store.currentWorkflow) return null;
 
     for (const node of store.currentWorkflow.nodes) {
-      if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
+      if (!flowControlNodeRegistry.isFlowControlContainer(node.data.type)) continue;
 
       const flowControlConfig = getFlowControlConfig(node.data.type);
       const taskFields = flowControlConfig.taskFields || [];

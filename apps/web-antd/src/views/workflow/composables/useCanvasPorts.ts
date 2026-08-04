@@ -137,9 +137,9 @@ export function getNodePorts(nodeId: string, nodeType: string): NodePort[] {
   const ports: NodePort[] = [];
 
   const flowControlConfig = getFlowControlConfig(nodeType);
-  const groupBounds = flowControlNodeRegistry.isFlowControlNode(nodeType) ? getGroupBounds(nodeId) : null;
+  const groupBounds = flowControlNodeRegistry.isFlowControlContainer(nodeType) ? getGroupBounds(nodeId) : null;
 
-  if (!flowControlNodeRegistry.isFlowControlNode(nodeType) || flowControlConfig.ports.input !== 0) {
+  if (!flowControlNodeRegistry.isFlowControlContainer(nodeType) || flowControlConfig.ports.input !== 0) {
     const inputX = groupBounds ? groupBounds.x + groupBounds.width / 2 : node.position.x + NODE_WIDTH / 2;
     const inputY = groupBounds ? groupBounds.y - PORT_MARGIN : node.position.y - PORT_MARGIN;
     ports.push({

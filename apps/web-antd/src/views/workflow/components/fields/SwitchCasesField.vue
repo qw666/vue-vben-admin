@@ -27,13 +27,13 @@ function getCaseCount() {
     : 0;
 }
 
-// Collect chain descendants for a given nodeId
-function collectChainDescendants(nodeId: string): any[] {
+// Collect chain descendants for a given nodeId, excluding nodes already used by other cases
+function collectChainDescendants(nodeId: string, excludeNodeIds: Set<string> = new Set()): any[] {
   const workflow = store.currentWorkflow;
   const edges = workflow?.edges || [];
   const nodes = workflow?.nodes || [];
   const result: any[] = [];
-  const visitedIds = new Set<string>([nodeId]);
+  const visitedIds = new Set<string>([nodeId, ...excludeNodeIds]);
 
   let currentId = nodeId;
   while (currentId) {
@@ -44,10 +44,10 @@ function collectChainDescendants(nodeId: string): any[] {
       if (!targetNode) continue;
       if (visitedIds.has(targetNode.id)) continue;
       if (targetNode.data.type === 'idp_core_flow_End') continue;
-      // Skip flow control container nodes
+      // Skip flow control container nodes (has taskFields like cases/defaults/then/else)
       const fcConfig = targetNode.data.config;
-      const hasTaskFields = fcConfig && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else || fcConfig.tasks);
-      if (hasTaskFields && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else)) {
+      const hasTaskFields = fcConfig && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else);
+      if (hasTaskFields) {
         continue;
       }
       visitedIds.add(targetNode.id);
@@ -64,18 +64,51 @@ function collectChainDescendants(nodeId: string): any[] {
   return result;
 }
 
+// Get all items for all cases, used to collect excluded node IDs
+function getAllUsedNodeIds(): Set<string> {
+  const usedIds = new Set<string>();
+  const casesData = props.nodeConfigForm[fieldKey.value];
+  if (!casesData || typeof casesData !== 'object') return usedIds;
+
+  for (const caseKey of Object.keys(casesData)) {
+    const caseItems = casesData[caseKey];
+    if (Array.isArray(caseItems)) {
+      for (const item of caseItems) {
+        if (item.nodeId) {
+          usedIds.add(item.nodeId);
+        }
+      }
+    }
+  }
+  return usedIds;
+}
+
 // Get all items for a case, including chain descendants
 function getAllCaseItems(caseItems: any[]): any[] {
   const result: any[] = [];
-  if (!Array.isArray(caseItems)) return result;
+  if (!Array.isArray(caseItems) || caseItems.length === 0) return result;
 
+  // Step 1: Add all items from caseItems
+  const seenNodeIds = new Set<string>();
   for (const item of caseItems) {
-    result.push(item);
     if (item.nodeId) {
-      const chainItems = collectChainDescendants(item.nodeId);
-      result.push(...chainItems);
+      seenNodeIds.add(item.nodeId);
+    }
+    result.push(item);
+  }
+
+  // Step 2: Collect chain descendants from the LAST item
+  // These are nodes connected after the last item in the chain
+  const lastItem = caseItems[caseItems.length - 1];
+  if (lastItem && lastItem.nodeId) {
+    // Collect nodes that are NOT already in this caseItems array
+    const chainItems = collectChainDescendants(lastItem.nodeId, seenNodeIds);
+    for (const chainItem of chainItems) {
+      result.push(chainItem);
+      seenNodeIds.add(chainItem.nodeId);
     }
   }
+
   return result;
 }
 </script>

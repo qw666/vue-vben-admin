@@ -143,7 +143,7 @@ export function useNodeConfig(
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 
-    if (flowControlNodeRegistry.isFlowControlNode(node.data.type)) {
+    if (flowControlNodeRegistry.isFlowControlContainer(node.data.type)) {
       const strategy = flowControlNodeRegistry.get(node.data.type);
       const savedConfig = node.data.config || {};
       const newConfig = strategy.initConfig(savedConfig);
@@ -221,7 +221,7 @@ export function useNodeConfig(
   const requiredFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    if (flowControlNodeRegistry.isFlowControlNode(selectedNode.value.data.type)) {
+    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type)) {
       const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
       return strategy.getRequiredFields();
     }
@@ -251,7 +251,7 @@ export function useNodeConfig(
   const optionalFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    if (flowControlNodeRegistry.isFlowControlNode(selectedNode.value.data.type)) {
+    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type)) {
       const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
       return strategy.getOptionalFields();
     }
@@ -286,7 +286,7 @@ export function useNodeConfig(
       return;
     }
 
-    if (flowControlNodeRegistry.isFlowControlNode(selectedNode.value.data.type)) {
+    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type)) {
       const config: Record<string, any> = {};
       Object.keys(nodeConfigForm).forEach(key => {
         config[key] = nodeConfigForm[key];

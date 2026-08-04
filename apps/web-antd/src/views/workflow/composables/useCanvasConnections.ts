@@ -172,12 +172,12 @@ export function useCanvasConnections(
     const parentNodeId = getParentNodeId(conn.source);
     const parentNode = parentNodeId ? store.currentWorkflow?.nodes.find(n => n.id === parentNodeId) : null;
     
-    let flowControlNodeId = flowControlNodeRegistry.isFlowControlNode(nodeType) ? conn.source : parentNodeId;
+    let flowControlNodeId = flowControlNodeRegistry.isFlowControlContainer(nodeType) ? conn.source : parentNodeId;
     
     const isNextPort = conn.sourceHandle?.endsWith('-next');
     
-    if (flowControlNodeRegistry.isFlowControlNode(nodeType)) {
-      if (isNextPort && parentNodeId && parentNode && flowControlNodeRegistry.isFlowControlNode(parentNode.data.type)) {
+    if (flowControlNodeRegistry.isFlowControlContainer(nodeType)) {
+      if (isNextPort && parentNodeId && parentNode && flowControlNodeRegistry.isFlowControlContainer(parentNode.data.type)) {
         const targetNode = store.currentWorkflow?.nodes.find(n => n.id === conn.target);
         if (targetNode) {
           const flowControlConfig = getFlowControlConfig(parentNode.data.type);

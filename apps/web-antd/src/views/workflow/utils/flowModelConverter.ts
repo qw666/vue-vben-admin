@@ -312,7 +312,7 @@ export function convertFlowModelToWorkflow(
     let icon = flowControlConfig.icon || 'mdi:circle';
     let description = flowControlConfig.description || '基础';
 
-    if (!flowControlNodeRegistry.isFlowControlNode(task.type)) {
+    if (!flowControlNodeRegistry.isFlowControlContainer(task.type)) {
       for (const category of Object.values(pluginGroupsCache)) {
         for (const group of category) {
           if (group.pluginList) {
@@ -558,7 +558,7 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
         if (!targetNode) continue;
         if (visited.has(targetNode.id)) continue;
         if (targetNode.data.type === 'idp_core_flow_End') continue;
-        if (flowControlNodeRegistry.isFlowControlNode(targetNode.data.type)) continue;
+        if (flowControlNodeRegistry.isFlowControlContainer(targetNode.data.type)) continue;
 
         nextId = targetNode.id;
         break;

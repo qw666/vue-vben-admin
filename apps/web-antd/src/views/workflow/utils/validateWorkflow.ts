@@ -33,7 +33,7 @@ export function getParentNodeFieldInfo(
       const targetNode = workflow.nodes.find((n) => n.id === edge.target);
       if (!targetNode) continue;
       if (targetNode.data.type === 'idp_core_flow_End') continue;
-      if (flowControlNodeRegistry.isFlowControlNode(targetNode.data.type)) continue;
+      if (flowControlNodeRegistry.isFlowControlContainer(targetNode.data.type)) continue;
       if (visited.has(targetNode.id)) continue;
       visited.add(targetNode.id);
       result.push(targetNode.id);
@@ -43,7 +43,7 @@ export function getParentNodeFieldInfo(
   };
 
   for (const node of workflow.nodes) {
-    if (!flowControlNodeRegistry.isFlowControlNode(node.data.type)) continue;
+    if (!flowControlNodeRegistry.isFlowControlContainer(node.data.type)) continue;
 
     const flowControlConfig = getFlowControlConfig(node.data.type);
     const taskFields = flowControlConfig.taskFields || [];
@@ -160,7 +160,7 @@ export function validateNodeConnections(workflow: Workflow): ValidationError[] {
     (n) =>
       n.data.type !== START_NODE_TYPE &&
       n.data.type !== END_NODE_TYPE &&
-      !flowControlNodeRegistry.isFlowControlNode(n.data.type),
+      !flowControlNodeRegistry.isFlowControlContainer(n.data.type),
   );
 
   for (const node of normalNodes) {
@@ -210,7 +210,7 @@ export function validateContainerInPorts(workflow: Workflow): ValidationError[] 
   const errors: ValidationError[] = [];
 
   const containerNodes = workflow.nodes.filter((n) =>
-    flowControlNodeRegistry.isFlowControlNode(n.data.type),
+    flowControlNodeRegistry.isFlowControlContainer(n.data.type),
   );
 
   for (const container of containerNodes) {
