@@ -50,8 +50,19 @@ const currentValue = computed<string>(() => {
   return props.value || '';
 });
 
+/**
+ * 本地输入值 ref —— 解决受控 Input 的时序问题。
+ * 用户输入时立即更新本地 ref，Input 不会因为 currentValue 尚未同步而擦除字符。
+ */
+const inputValue = ref(currentValue.value);
+
+watch(currentValue, (val) => {
+  if (val !== inputValue.value) {
+    inputValue.value = val;
+  }
+}, { immediate: true });
+
 const isUnmounting = ref(false);
-let isWriting = false;
 
 onBeforeUnmount(() => {
   isUnmounting.value = true;
@@ -59,20 +70,12 @@ onBeforeUnmount(() => {
 
 function writeValue(val: string) {
   if (isUnmounting.value) return;
-  if (isWriting) return;
-  if (val === currentValue.value) return;
-  isWriting = true;
-  try {
-    if (props.field && props.nodeConfigForm) {
-      props.nodeConfigForm[fieldKey.value] = val;
-    }
-    emit('update:value', val);
-    emit('change', val);
-  } finally {
-    setTimeout(() => {
-      isWriting = false;
-    }, 0);
+  inputValue.value = val;
+  if (props.field && props.nodeConfigForm) {
+    props.nodeConfigForm[fieldKey.value] = val;
   }
+  emit('update:value', val);
+  emit('change', val);
 }
 
 // ===== 状态 =====
@@ -289,6 +292,7 @@ function getNativeInput(): HTMLInputElement | null {
 
 function handleInput(e: Event) {
   const target = e.target as HTMLInputElement;
+  // inputValue 已通过 v-model 自动更新，这里只需同步到父组件并检测 / 触发
   writeValue(target.value);
 
   const cursor = target.selectionStart ?? target.value.length;
@@ -301,16 +305,13 @@ function handleInput(e: Event) {
     return;
   }
 
-  const charBeforeSlash = lastSlashIdx > 0 ? textBefore[lastSlashIdx - 1] : ' ';
-  const isTriggerContext = !charBeforeSlash || /[\s\W]/.test(charBeforeSlash);
-
-  if (isTriggerContext) {
-    const query = textBefore.slice(lastSlashIdx + 1);
-    if (!query.includes(' ')) {
-      slashQuery.value = query;
-      popoverOpen.value = true;
-      return;
-    }
+  // 输入 / 即触发变量选择（与 Dify 行为一致）
+  // 搜索词（/ 后到光标之间的文本）不含空格时保持面板打开
+  const query = textBefore.slice(lastSlashIdx + 1);
+  if (!query.includes(' ')) {
+    slashQuery.value = query;
+    popoverOpen.value = true;
+    return;
   }
 
   popoverOpen.value = false;
@@ -380,19 +381,16 @@ function insertAtCursor(expression: string) {
   }
 
   const input = getNativeInput();
-  const value = currentValue.value;
+  const value = inputValue.value;
   const cursor = input ? (input.selectionStart ?? value.length) : value.length;
 
   const textBefore = value.slice(0, cursor);
   const lastSlashIdx = textBefore.lastIndexOf('/');
 
+  // 找到触发变量选择的 / 位置，选中的变量将替换 / 及其后的搜索词
   let insertStart = cursor;
   if (lastSlashIdx >= 0) {
-    const charBeforeSlash = lastSlashIdx > 0 ? textBefore[lastSlashIdx - 1] : ' ';
-    const isTriggerContext = !charBeforeSlash || /[\s\W]/.test(charBeforeSlash);
-    if (isTriggerContext) {
-      insertStart = lastSlashIdx;
-    }
+    insertStart = lastSlashIdx;
   }
 
   const rawExpr = expression.includes('{{') ? expression : '{{ ' + expression + ' }}';
@@ -516,7 +514,7 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
     </template>
     <Input
       ref="inputRef"
-      :value="currentValue"
+      :value="inputValue"
       :placeholder="placeholder"
       :size="size"
       :disabled="disabled"
