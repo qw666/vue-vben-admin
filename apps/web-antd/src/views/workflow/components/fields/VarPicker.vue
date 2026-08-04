@@ -121,10 +121,10 @@ const flatSections = computed<FlatSection[]>(() => {
 
   for (const group of availableVars.value) {
     if (group.group === 'upstream') {
-      const nodeSections: FlatSection[] = [];
+      // 直接将每个有输出的上游节点作为一级 section，移除"上游节点输出"这一层
       for (const child of group.children || []) {
         if (child.children && child.children.length > 0) {
-          nodeSections.push({
+          sections.push({
             key: child.key,
             title: child.label,
             icon: child.icon || 'mdi:cube-outline',
@@ -136,30 +136,7 @@ const flatSections = computed<FlatSection[]>(() => {
               type: c.type,
             })),
           });
-        } else {
-          nodeSections.push({
-            key: child.key,
-            title: child.label,
-            icon: child.icon || 'mdi:cube-outline',
-            order: 0,
-            items: [{
-              key: `${child.key}-placeholder`,
-              label: '暂无输出变量',
-              expression: '',
-              disabled: true,
-            }],
-          });
         }
-      }
-      if (nodeSections.length > 0) {
-        sections.push({
-          key: group.key,
-          title: group.label,
-          icon: group.icon || 'mdi:source-branch',
-          order: group.order ?? 10,
-          items: [],
-          children: nodeSections,
-        });
       }
       continue;
     }
@@ -553,27 +530,35 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
 .trigger-icon:hover {
   color: #1677ff;
 }
+</style>
 
-/* ===== 下拉面板 ===== */
-.var-dropdown {
+<style>
+/* ===== VarPicker 下拉面板样式 ===== */
+.var-picker-popover .ant-popover-inner {
+  padding: 0 !important;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+}
+
+.var-picker-popover .var-dropdown {
   width: 320px;
   max-height: 420px;
   overflow: hidden;
 }
 
-.var-list-wrap {
+.var-picker-popover .var-list-wrap {
   max-height: 380px;
   overflow-y: auto;
   padding: 4px 0;
 }
 
-.var-section {
+.var-picker-popover .var-section {
   padding: 2px 0;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
+.var-picker-popover .section-header {
+  display: flex !important;
+  align-items: center !important;
   gap: 6px;
   padding: 6px 10px;
   user-select: none;
@@ -583,65 +568,72 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
   background: #fafafa;
 }
 
-.section-title {
-  flex: 1;
+.var-picker-popover .section-title {
+  flex: 1 !important;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.section-icon {
+.var-picker-popover .section-icon {
   color: #6b7280;
 }
 
-.var-items {
+.var-picker-popover .var-items {
   padding: 2px 0;
 }
 
-.var-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.var-picker-popover .var-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   padding: 6px 12px 6px 32px;
   cursor: pointer;
   transition: background 0.15s;
+  width: 100%;
 }
 
-.var-item:hover {
+.var-picker-popover .var-item:hover {
   background: #e6f4ff;
 }
 
-.var-item.disabled {
+.var-picker-popover .var-item.disabled {
   color: #bfbfbf;
   cursor: not-allowed;
   background: transparent;
 }
 
-.item-label {
-  flex: 1;
+.var-picker-popover .item-label {
+  flex: 1 1 0% !important;
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  width: 100%;
 }
 
-.item-type {
+.var-picker-popover .item-type {
   font-size: 11px;
   color: #9ca3af;
   padding: 1px 6px;
   background: #f3f4f6;
   border-radius: 3px;
+  flex: 0 0 auto !important;
+  flex-shrink: 0;
+  margin-left: auto !important;
+  display: inline-block !important;
 }
 
-.var-subsections {
+.var-picker-popover .var-subsections {
   padding: 2px 0;
 }
 
-.var-subsection {
+.var-picker-popover .var-subsection {
   padding: 0;
 }
 
-.subsection-header {
+.var-picker-popover .subsection-header {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -652,26 +644,18 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
   color: #6b7280;
 }
 
-.subsection-icon {
+.var-picker-popover .subsection-icon {
   color: #9ca3af;
 }
 
-.subsection-title {
+.var-picker-popover .subsection-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.var-empty {
+.var-picker-popover .var-empty {
   padding: 32px 16px;
-}
-</style>
-
-<style>
-.var-picker-popover .ant-popover-inner {
-  padding: 0 !important;
-  border-radius: 8px;
-  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
 }
 </style>

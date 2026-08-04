@@ -78,32 +78,27 @@ const upstreamProvider: VarSourceProvider = {
   order: 10,
   getVars(ctx: VarSourceContext): VarNode[] {
     const upstream = findUpstreamNodes(ctx);
-    return upstream.map((node) => {
-      const outputs = getNodeOutputs(node);
-      const children = outputs.map((o) => ({
-        key: `upstream-${node.id}-${o.key}`,
-        label: o.label || o.key,
-        expression: `{{ outputs.${node.id}.${o.key} }}`,
-        type: o.type || 'any',
-        group: 'upstream' as const,
-      }));
-      // 即使没有输出变量，也显示节点（占位提示）
-      const displayChildren = children.length > 0 ? children : [{
-        key: `upstream-${node.id}-placeholder`,
-        label: '（暂无输出变量）',
-        expression: '',
-        type: 'any',
-        disabled: true,
-        group: 'upstream' as const,
-      }];
-      return {
-        key: `upstream-${node.id}`,
-        label: node.data?.label || node.id,
-        group: 'upstream' as const,
-        icon: 'mdi:cube-outline',
-        children: displayChildren,
-      } as VarNode;
-    });
+    return upstream
+      .map((node) => {
+        const outputs = getNodeOutputs(node);
+        // Skip nodes without output variables
+        if (outputs.length === 0) return null;
+        const children = outputs.map((o) => ({
+          key: `upstream-${node.id}-${o.key}`,
+          label: o.label || o.key,
+          expression: `{{ outputs.${node.id}.${o.key} }}`,
+          type: o.type || 'any',
+          group: 'upstream' as const,
+        }));
+        return {
+          key: `upstream-${node.id}`,
+          label: node.data?.label || node.id,
+          group: 'upstream' as const,
+          icon: 'mdi:cube-outline',
+          children,
+        } as VarNode;
+      })
+      .filter((node): node is VarNode => node !== null);
   },
 };
 
