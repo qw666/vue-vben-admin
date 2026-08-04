@@ -115,14 +115,18 @@ function getNodeOutputs(node: WorkflowNode): Array<{
 }> {
   const nodeType = node.data?.type;
   if (!nodeType) return [];
-  if (flowControlNodeRegistry.isFlowControlNode(nodeType)) {
+
+  // 优先使用节点策略的 getOutputs 方法（Code、Http、Switch 等都实现了此方法）
+  const strategy = flowControlNodeRegistry.get(nodeType);
+  if (strategy?.getOutputs) {
     return flowControlNodeRegistry.getOutputs(nodeType, node.data?.config || {});
   }
+
+  // 动态插件节点：从 _declaredOutputs 或 outputKeys 配置获取
   const declared = node.data?.config?._declaredOutputs;
   if (Array.isArray(declared) && declared.length > 0) {
     return declared.filter((d: any) => d?.key);
   }
-  // 对于 Code/HTTP 等节点，从 outputKeys 配置获取
   const outputKeys = node.data?.config?.outputKeys;
   if (Array.isArray(outputKeys) && outputKeys.length > 0) {
     return outputKeys.map((k: any) => {
