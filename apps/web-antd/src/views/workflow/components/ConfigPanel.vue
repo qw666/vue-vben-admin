@@ -90,7 +90,12 @@ function handleSaveConfig() {
       :style="{ width: `${width}px` }"
     >
       <div class="py-2 px-4 border-b border-gray-200 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-gray-800">节点配置</h2>
+        <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-1">
+          节点配置
+          <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
+            <IconifyIcon icon="mdi:help-circle" :size="14" class="text-gray-400 cursor-help" />
+          </Tooltip>
+        </h2>
         <Button type="text" @click="emit('close')">
           <IconifyIcon icon="mdi:close" :size="14" />
         </Button>
@@ -123,9 +128,6 @@ function handleSaveConfig() {
                   @input="(e: any) => emit('updateNodeLabel', e.target.value)"
                   placeholder="请输入节点名称"
                 />
-                <Tooltip v-if="currentNodeMeta?.description" :title="currentNodeMeta.description">
-                  <IconifyIcon icon="mdi:help-circle" :size="12" class="text-gray-400 cursor-help" />
-                </Tooltip>
               </div>
             </div>
             <div class="p-2.5 bg-gray-50 rounded-lg">
@@ -136,10 +138,7 @@ function handleSaveConfig() {
                 :disabled="true"
               />
             </div>
-            <div v-if="currentNodeMeta?.description" class="p-4 bg-blue-50 rounded-lg">
-              <div class="text-sm text-blue-600 font-medium mb-1">配置说明</div>
-              <div class="text-sm text-blue-800">{{ currentNodeMeta.description }}</div>
-            </div>
+
           </template>
           <template v-if="isHttpRequestNode(selectedNode.data.type)">
             <HttpRequestConfig
