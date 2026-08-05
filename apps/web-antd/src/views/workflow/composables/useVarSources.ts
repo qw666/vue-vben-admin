@@ -136,7 +136,6 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
 
         if (visitedChildBranchKeys.size > 0) {
           // 1a. 当前节点在容器内部：只提取已访问分支的兄弟节点（分支隔离）
-          // 排除下游节点（当前节点执行后才执行的节点）
           for (const child of allChildren) {
             if (visitedChildBranchKeys.has(child.branchKey) && !visited.has(child.nodeId) && !downstreamIds.has(child.nodeId)) {
               visited.add(child.nodeId);
@@ -145,8 +144,8 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
               if (childNode) result.push(childNode);
             }
           }
-        } else {
-          // 1b. 当前节点在容器外部：提取所有分支的子节点（下游可见所有分支输出）
+        } else if (id !== currentNodeId) {
+          // 1b. 当前节点在容器外部（不是起点）：提取所有分支的子节点
           for (const child of allChildren) {
             if (!visited.has(child.nodeId)) {
               visited.add(child.nodeId);
@@ -156,6 +155,7 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
             }
           }
         }
+        // 1c. 当前节点是容器且是起点：跳过，子节点是容器的下游
       }
     }
 
