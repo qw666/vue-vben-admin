@@ -258,6 +258,9 @@ const storedValue = ref(currentValue.value);
 /** 标记是否由外部 watch 触发渲染，避免 input 事件循环 */
 let isInternalRender = false;
 
+/** 标记是否正在用户输入中，用于跳过 watch 的 DOM 同步 */
+let isUserInputting = false;
+
 const isUnmounting = ref(false);
 
 onBeforeUnmount(() => {
@@ -292,6 +295,12 @@ function writeStoredFromDom() {
 }
 
 watch(currentValue, (val) => {
+  // 如果正在用户输入，跳过 DOM 同步，避免干扰用户输入
+  if (isUserInputting) {
+    // 只更新 storedValue，不重建 DOM
+    storedValue.value = val;
+    return;
+  }
   if (val !== storedValue.value) {
     storedValue.value = val;
     syncDomFromStored();
@@ -301,9 +310,7 @@ watch(currentValue, (val) => {
 onMounted(() => {
   // 组件挂载后首次同步 DOM（确保 editorRef 已就绪）
   nextTick(() => {
-    if (storedValue.value) {
-      syncDomFromStored();
-    }
+    syncDomFromStored();
   });
 
   // 添加全局点击监听，点击外部关闭面板
@@ -342,7 +349,16 @@ watch(storedValue, () => {
 
 function handleInput() {
   if (isInternalRender) return;
+  
+  // 标记正在用户输入中
+  isUserInputting = true;
+  
   writeStoredFromDom();
+  
+  // 用户输入完成后，在微任务中清除标记
+  nextTick(() => {
+    isUserInputting = false;
+  });
 
   // 检测 / 触发变量面板
   const sel = window.getSelection();

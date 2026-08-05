@@ -15,6 +15,7 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
 const emit = defineEmits<{
   (e: 'addStringArrayItem', fieldKey: string): void;
   (e: 'removeArrayItem', fieldKey: string, index: number): void;
+  (e: 'updateArrayItemValue', fieldKey: string, index: number, itemKey: string, value: any): void;
 }>();
 </script>
 
@@ -44,8 +45,9 @@ const emit = defineEmits<{
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div v-for="(_, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-string-' + (index as number)" style="display: flex; align-items: center; gap: 8px;">
           <VarPicker
+            :key="`${fieldKey}-${index}`"
             :value="nodeConfigForm[fieldKey][index as number]"
-            @update:value="(val: string) => (nodeConfigForm[fieldKey][index as number] = val)"
+            @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, '', val)"
             :placeholder="'输入 / 选择变量'"
             style="flex: 1;"
             size="small"

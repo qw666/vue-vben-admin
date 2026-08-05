@@ -97,13 +97,18 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
         selectedIndex = i;
         break;
       }
-      if (option.type && option.type === typeof savedValue) {
+      // 数组类型需要特殊处理：typeof [] === 'object'，不能直接用 typeof 判断
+      if (option.type === 'array' && Array.isArray(savedValue)) {
+        selectedIndex = i;
+        break;
+      }
+      if (option.type && option.type !== 'array' && option.type === typeof savedValue) {
         selectedIndex = i;
         break;
       }
       if (option.$ref) {
         const refSchema = internalResolveRef(option.$ref, this.meta.formDefs);
-        if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object') {
+        if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object' && !Array.isArray(savedValue)) {
           selectedIndex = i;
           break;
         }

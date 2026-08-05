@@ -55,6 +55,7 @@ const emit = defineEmits<{
               <label style="font-size: 12px; color: #6b7280;">{{ prop.title || propKey }}<span v-if="prop.$required" style="color: #ef4444; margin-left: 4px;">*</span></label>
               <VarPicker
                 v-if="prop.type === 'string'"
+                :key="`${fieldKey}-${index}-${propKey}`"
                 :value="nodeConfigForm[fieldKey][index as number][propKey]"
                 @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, propKey as string, val)"
                 :placeholder="prop.description || '输入 / 选择变量'"

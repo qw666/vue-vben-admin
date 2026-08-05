@@ -149,6 +149,46 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
   if (cur[index]) cur[index][itemKey] = val;
   obj[subKey] = [...cur];
 }
+
+/** 针对 renderedField 路径的数组操作（直接在 nodeConfigForm[valueKey] 上操作） */
+function addStringArrayItemDirect(key: string) {
+  const cur = props.nodeConfigForm[key] || [];
+  props.nodeConfigForm[key] = [...cur, ''];
+}
+
+function addNumberArrayItemDirect(key: string) {
+  const cur = props.nodeConfigForm[key] || [];
+  props.nodeConfigForm[key] = [...cur, 0];
+}
+
+function addArrayItemDirect(key: string, itemsSchema: any) {
+  const cur = props.nodeConfigForm[key] || [];
+  let newItem: any = {};
+  if (itemsSchema && itemsSchema.$ref) {
+    newItem = { type: '' };
+  } else if (itemsSchema && itemsSchema.properties) {
+    newItem = {};
+    Object.keys(itemsSchema.properties).forEach((pk: string) => {
+      newItem[pk] = itemsSchema.properties[pk].type === 'boolean' ? false : '';
+    });
+  }
+  props.nodeConfigForm[key] = [...cur, newItem];
+}
+
+function removeArrayItemDirect(key: string, index: number) {
+  const cur = props.nodeConfigForm[key] || [];
+  props.nodeConfigForm[key] = cur.filter((_: any, i: number) => i !== index);
+}
+
+function updateArrayItemValueDirect(key: string, index: number, itemKey: string, val: any) {
+  const cur = props.nodeConfigForm[key] || [];
+  if (itemKey === '' || itemKey === undefined) {
+    cur[index] = val;
+  } else {
+    if (cur[index]) cur[index][itemKey] = val;
+  }
+  props.nodeConfigForm[key] = [...cur];
+}
 </script>
 
 <template>
@@ -223,11 +263,11 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
           @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAt(fieldKey + '_value', fk, idx, val)"
           @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAt(fieldKey + '_value', fk, idx, val)"
           @remove-object-item="(fk: string, idx: number) => removeObjectItemAt(fieldKey + '_value', fk, idx)"
-          @add-string-array-item="(fk: string) => addStringArrayItemTo(fieldKey + '_value', fk)"
-          @add-number-array-item="(fk: string) => addNumberArrayItemTo(fieldKey + '_value', fk)"
-          @add-array-item="(fk: string, schema: any) => addArrayItemTo(fieldKey + '_value', fk, schema)"
-          @remove-array-item="(fk: string, idx: number) => removeArrayItemAt(fieldKey + '_value', fk, idx)"
-          @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAt(fieldKey + '_value', fk, idx, pk, val)"
+          @add-string-array-item="(fk: string) => addStringArrayItemDirect(fk)"
+          @add-number-array-item="(fk: string) => addNumberArrayItemDirect(fk)"
+          @add-array-item="(fk: string, schema: any) => addArrayItemDirect(fk, schema)"
+          @remove-array-item="(fk: string, idx: number) => removeArrayItemDirect(fk, idx)"
+          @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueDirect(fk, idx, pk, val)"
           @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fieldKey + '_value.' + fk)"
           @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fieldKey + '_value.' + fk, idx)"
         />
