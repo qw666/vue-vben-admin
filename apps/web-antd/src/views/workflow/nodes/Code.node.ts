@@ -84,12 +84,15 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
   getOutputs(config: Record<string, any>): NodeOutputDef[] {
     const keys = config?.outputKeys;
     if (!Array.isArray(keys)) return [];
-    return keys
-      .map((item: any) => {
-        if (typeof item === 'string') return { key: item, label: item };
-        return { key: item?.key || '', label: item?.key || '', type: 'any' as const };
-      })
-      .filter((item: NodeOutputDef) => item.key);
+    const result: NodeOutputDef[] = [];
+    for (const item of keys) {
+      const key = typeof item === 'string' ? item : (item?.key || '');
+      if (!key) continue;
+      // Kestra Python Script 输出变量存储在 vars 对象下
+      // 访问格式: {{ outputs.nodeId.vars.keyName }}
+      result.push({ key: `vars.${key}`, label: key, type: 'any' });
+    }
+    return result;
   },
 
   getRequiredFields(): { type: string; props: Record<string, any> }[] {

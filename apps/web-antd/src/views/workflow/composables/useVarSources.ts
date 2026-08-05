@@ -11,6 +11,7 @@ import { computed, type Ref } from 'vue';
 import { useWorkflowStore } from '#/store/workflow';
 import { flowControlNodeRegistry } from '../nodes/types';
 import { useVarSelect } from './varSelectContext';
+import { usePluginMeta } from './usePluginMeta';
 
 // ===== 反向 BFS：找当前节点的所有上游节点 =====
 
@@ -19,46 +20,73 @@ import { useVarSelect } from './varSelectContext';
  * 收集所有能到达当前节点的上游节点。
  * 包括容器节点（Switch/If/ForEach/Parallel）的子节点配置中的节点。
  * 不包含当前节点自己。
+ * 
+ * 关键逻辑：分支隔离 - 容器节点内的子节点只能看到同一分支内的上游节点。
+ * 当处理容器节点时，只提取当前节点所在分支的子节点，不提取兄弟分支的子节点。
  */
+interface ContainerBranch {
+  branchKey: string;
+  nodeIds: string[];
+}
+
+/**
+ * 从容器配置中提取所有分支及其子节点 ID。
+ * 统一处理 cases/parallel（对象字段）和 then/else/tasks/foreach（数组字段）。
+ */
+function getContainerBranches(config: any): ContainerBranch[] {
+  if (!config || typeof config !== 'object') return [];
+  const branches: ContainerBranch[] = [];
+
+  // 对象类型字段: cases (Switch), parallel
+  for (const field of ['cases', 'parallel'] as const) {
+    const value = config[field];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [key, tasks] of Object.entries(value)) {
+        if (Array.isArray(tasks)) {
+          const nodeIds = tasks.filter((t: any) => t?.nodeId).map((t: any) => t.nodeId);
+          if (nodeIds.length > 0) {
+            branches.push({ branchKey: `${field}.${key}`, nodeIds });
+          }
+        }
+      }
+    }
+  }
+
+  // 数组类型字段: then, else, tasks, foreach
+  for (const field of ['then', 'else', 'tasks', 'foreach'] as const) {
+    const value = config[field];
+    if (Array.isArray(value)) {
+      const nodeIds = value.filter((t: any) => t?.nodeId).map((t: any) => t.nodeId);
+      if (nodeIds.length > 0) {
+        branches.push({ branchKey: field, nodeIds });
+      }
+    }
+  }
+
+  return branches;
+}
+
+/** 找到某个 nodeId 在容器配置中所属的分支 */
+function findBranchInContainer(config: any, nodeId: string): ContainerBranch | null {
+  return getContainerBranches(config).find((b) => b.nodeIds.includes(nodeId)) || null;
+}
+
+/** 从容器配置中获取所有子节点 ID 及其所属分支 */
+function getAllBranchChildIds(config: any): { nodeId: string; branchKey: string }[] {
+  const result: { nodeId: string; branchKey: string }[] = [];
+  for (const branch of getContainerBranches(config)) {
+    for (const nodeId of branch.nodeIds) {
+      result.push({ nodeId, branchKey: branch.branchKey });
+    }
+  }
+  return result;
+}
+
 function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
   const { currentNodeId, nodes, edges } = ctx;
   const visited = new Set<string>([currentNodeId]);
   const queue: string[] = [currentNodeId];
   const result: WorkflowNode[] = [];
-
-  // Helper: extract node IDs from container node's config (cases/errors/finally etc.)
-  function extractChildNodeIds(nodeConfig: any): string[] {
-    if (!nodeConfig || typeof nodeConfig !== 'object') return [];
-    const ids: string[] = [];
-    const taskFields = ['cases', 'errors', 'finally', 'tasks', 'then', 'else', 'foreach', 'parallel'];
-    
-    for (const field of taskFields) {
-      const value = nodeConfig[field];
-      if (!value) continue;
-      
-      // Handle array fields (tasks, then, else, foreach, parallel)
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          if (item?.nodeId && !ids.includes(item.nodeId)) {
-            ids.push(item.nodeId);
-          }
-        }
-      } 
-      // Handle object fields (cases: { CASE_1: [...], CASE_2: [...] })
-      else if (typeof value === 'object') {
-        for (const [, items] of Object.entries(value)) {
-          if (Array.isArray(items)) {
-            for (const item of items) {
-              if (item?.nodeId && !ids.includes(item.nodeId)) {
-                ids.push(item.nodeId);
-              }
-            }
-          }
-        }
-      }
-    }
-    return ids;
-  }
 
   while (queue.length > 0) {
     const id = queue.shift()!;
@@ -73,17 +101,54 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
       }
     });
     
-    // Also check container node's config for child nodes
-    // This handles Switch/If/ForEach/Parallel where child nodes are nested in config
+    // Handle container node's child nodes (branch-aware)
     const currentNode = nodes.find((n) => n.id === id);
-    if (currentNode) {
-      const childIds = extractChildNodeIds(currentNode.data?.config);
-      for (const childId of childIds) {
-        if (!visited.has(childId)) {
-          visited.add(childId);
-          queue.push(childId);
-          const childNode = nodes.find((n) => n.id === childId);
-          if (childNode) result.push(childNode);
+    if (currentNode && currentNode.data?.config) {
+      const config = currentNode.data.config;
+      
+      // Case 1: 当前节点是容器节点 - 只提取已访问分支的兄弟节点
+      const allChildren = getAllBranchChildIds(config);
+      if (allChildren.length > 0) {
+        // 找出哪些子节点已在visited中
+        const visitedChildBranchKeys = new Set<string>();
+        for (const child of allChildren) {
+          if (visited.has(child.nodeId)) {
+            visitedChildBranchKeys.add(child.branchKey);
+          }
+        }
+
+        // 如果有已访问的分支，只添加这些分支的兄弟节点
+        if (visitedChildBranchKeys.size > 0) {
+          for (const child of allChildren) {
+            if (visitedChildBranchKeys.has(child.branchKey) && !visited.has(child.nodeId)) {
+              visited.add(child.nodeId);
+              queue.push(child.nodeId);
+              const childNode = nodes.find((n) => n.id === child.nodeId);
+              if (childNode) result.push(childNode);
+            }
+          }
+        }
+      }
+    }
+
+    // Case 2: 当前节点可能是容器节点的子节点 - 检查其父容器
+    // 通过边连接找父容器（反向）
+    const parentEdges = edges.filter((e) => e.target === id);
+    for (const parentEdge of parentEdges) {
+      const parentNode = nodes.find((n) => n.id === parentEdge.source);
+      if (parentNode && parentNode.data?.config) {
+        const branchInfo = findBranchInContainer(parentNode.data.config, id);
+        if (branchInfo) {
+          // 当前节点在父容器的某个分支中
+          // 将同分支的兄弟节点添加到队列
+          for (const siblingId of branchInfo.nodeIds) {
+            if (!visited.has(siblingId) && siblingId !== id) {
+              visited.add(siblingId);
+              queue.push(siblingId);
+              const siblingNode = nodes.find((n) => n.id === siblingId);
+              if (siblingNode) result.push(siblingNode);
+            }
+          }
         }
       }
     }
@@ -130,22 +195,9 @@ const upstreamProvider: VarSourceProvider = {
   order: 10,
   getVars(ctx: VarSourceContext): VarNode[] {
     const upstream = findUpstreamNodes(ctx);
-    // Write debug info to window
-    if (typeof window !== 'undefined') {
-      (window as any).__varDebug = (window as any).__varDebug || [];
-      (window as any).__varDebug.push({
-        currentNode: ctx.currentNodeId,
-        upstreamNodes: upstream.map(n => ({
-          id: n.id,
-          type: n.data?.type,
-          config: n.data?.config
-        })),
-        timestamp: Date.now()
-      });
-    }
     return upstream
       .map((node) => {
-        const outputs = getNodeOutputs(node);
+        const outputs = getNodeOutputs(node, ctx.pluginMetaCache);
         // Skip nodes without output variables
         if (outputs.length === 0) return null;
         const children = outputs.map((o) => ({
@@ -167,8 +219,45 @@ const upstreamProvider: VarSourceProvider = {
   },
 };
 
+/**
+ * 评估条件表达式，判断输出变量是否可用。
+ * 支持的格式：
+ * - "field == 'value'" 或 'field == "value"'：字段等于指定值
+ * - "field in ['v1', 'v2']" 或 'field in ["v1", "v2"]'：字段在指定值列表中
+ * - 无 condition 或空字符串：总是返回 true
+ */
+function evalCondition(condition: string | undefined, config: Record<string, any>): boolean {
+  if (!condition || !condition.trim()) return true;
+
+  const cond = condition.trim();
+
+  // 匹配 "field == 'value'" 或 'field == "value"' 格式
+  const eqMatch = cond.match(/^(\w+)\s*==\s*['"]([^'"]*)['"]$/);
+  if (eqMatch && eqMatch[1]) {
+    const field = eqMatch[1];
+    const value = eqMatch[2] || '';
+    return String(config[field] ?? '') === value;
+  }
+
+  // 匹配 "field in ['v1', 'v2']" 或 'field in ["v1", "v2"]' 格式
+  const inMatch = cond.match(/^(\w+)\s+in\s*\[([^\]]*)\]$/);
+  if (inMatch && inMatch[1]) {
+    const field = inMatch[1];
+    const valuesStr = inMatch[2] || '';
+    // 同时支持单引号和双引号
+    const values = valuesStr.match(/['"]([^'"]*)['"]/g)?.map((s) => s.slice(1, -1)) || [];
+    return values.includes(String(config[field] ?? ''));
+  }
+
+  // 未知格式，默认显示
+  return true;
+}
+
 /** 获取节点的输出声明 */
-function getNodeOutputs(node: WorkflowNode): Array<{
+function getNodeOutputs(
+  node: WorkflowNode,
+  pluginMetaCache?: Record<string, any>,
+): Array<{
   key: string;
   label?: string;
   type?: any;
@@ -176,29 +265,29 @@ function getNodeOutputs(node: WorkflowNode): Array<{
   const nodeType = node.data?.type;
   if (!nodeType) return [];
 
-  // 优先使用节点策略的 getOutputs 方法
-  // 使用 hasNodeOutputs 判断，而非 isFlowControlContainer，
-  // 因为 Code、Http、Script 等普通节点也可能有输出变量
+  // 优先使用节点策略的 getOutputs 方法（包括 OutputValues 等前端策略节点）
   if (flowControlNodeRegistry.hasNodeOutputs(nodeType)) {
     const config = node.data?.config || {};
-    const outputs = flowControlNodeRegistry.getOutputs(nodeType, config);
-    
-    // Debug: log to window for testing
-    if (typeof window !== 'undefined') {
-      (window as any).__outputDebug = (window as any).__outputDebug || [];
-      (window as any).__outputDebug.push({
-        nodeId: node.id,
-        nodeType,
-        config: JSON.parse(JSON.stringify(config)),
-        outputs: JSON.parse(JSON.stringify(outputs)),
-        timestamp: Date.now()
-      });
-    }
-    
-    return outputs;
+    return flowControlNodeRegistry.getOutputs(nodeType, config);
   }
 
-  // 动态插件节点：从 _declaredOutputs 或 outputKeys 配置获取
+  // 从插件元数据获取动态节点的 outputs 声明
+  // parseMetaSchema 已保证 meta.outputs 是数组，这里只读取不写入
+  if (pluginMetaCache) {
+    const meta = pluginMetaCache[nodeType];
+    if (meta?.outputs && Array.isArray(meta.outputs)) {
+      const config = node.data?.config || {};
+      return meta.outputs
+        .filter((o: any) => o?.key && evalCondition(o.condition, config))
+        .map((o: any) => ({
+          key: o.key,
+          label: o.label || o.key,
+          type: o.type || 'any',
+        }));
+    }
+  }
+
+  // 动态插件节点：从 _declaredOutputs 或 outputKeys 配置获取（向后兼容）
   const declared = node.data?.config?._declaredOutputs;
   if (Array.isArray(declared) && declared.length > 0) {
     return declared.filter((d: any) => d?.key);
@@ -560,6 +649,7 @@ export function useVarSources(
 ) {
   const store = useWorkflowStore();
   const injected = useVarSelect();
+  const { pluginMetaCache } = usePluginMeta();
 
   const availableVars = computed<VarNode[]>(() => {
     const id = currentNodeIdRef?.value || injected?.currentNodeId.value || '';
@@ -591,6 +681,7 @@ export function useVarSources(
       labels: (wf as any)?.labels || [],
       envs: (wf as any)?.envs || [],
       globals: (wf as any)?.globals || [],
+      pluginMetaCache: pluginMetaCache.value,
     };
 
     return providers

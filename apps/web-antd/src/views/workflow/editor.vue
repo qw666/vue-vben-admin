@@ -49,6 +49,7 @@ const {
   loadPlugins,
   switchTab,
   loadPluginMeta,
+  preloadPluginMeta,
   pluginMetaCache,
 } = usePluginMeta();
 
@@ -392,18 +393,6 @@ function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
 async function handleSave() {
   isLoading.value = true;
   try {
-    // Debug: log that handleSave was called
-    if (typeof window !== 'undefined') {
-      (window as any).__debugLogs = (window as any).__debugLogs || [];
-      (window as any).__debugLogs.push({
-        fn: 'handleSave',
-        action: 'started',
-        hasWorkflow: !!store.currentWorkflow,
-        workflowName: workflowName.value,
-        timestamp: Date.now()
-      });
-    }
-    
     if (!store.currentWorkflow) {
       message.error('请先创建流程');
       return;
@@ -418,18 +407,6 @@ async function handleSave() {
       store.currentWorkflow.nodes,
       pluginMetaCache.value,
     );
-
-    // Debug: log config validation result
-    if (typeof window !== 'undefined') {
-      (window as any).__debugLogs.push({
-        fn: 'handleSave',
-        configValidation: {
-          valid: configValidation.isValid,
-          errors: configValidation.errors?.slice(0, 3) || []
-        },
-        timestamp: Date.now()
-      });
-    }
 
     if (!configValidation.isValid) {
       const errorMessages = configValidation.errors.map(
@@ -460,16 +437,6 @@ async function handleSave() {
       store.projectId,
       workflowName.value,
     );
-
-    // Debug: log the payload
-    if (typeof window !== 'undefined') {
-      (window as any).__debugLogs = (window as any).__debugLogs || [];
-      (window as any).__debugLogs.push({
-        fn: 'handleSave',
-        payloadFlowModel: JSON.parse(JSON.stringify(payload.flowModel)),
-        timestamp: Date.now()
-      });
-    }
 
     const backendValidationResult = await store.validateFlow(payload);
 
@@ -744,6 +711,17 @@ onMounted(async () => {
           []) as unknown as typeof connections.value;
         ensureStartAndEndNodes();
         workflowLoaded.value = true;
+
+        // 批量预加载所有节点的元数据（用于 VarPicker 获取 outputs）
+        const nodeTypes = (restoredWorkflow.nodes || [])
+          .map((n: any) => n.data?.type)
+          .filter((t: string) => t && !t.startsWith('idp_core_flow_'));
+        if (nodeTypes.length > 0) {
+          // 使用 await 确保元数据加载完成后再继续
+          // 这样用户打开节点配置时 pluginMetaCache 已包含 outputs 声明
+          await preloadPluginMeta([...new Set(nodeTypes)]);
+        }
+
         setTimeout(() => {
           const nodes = store.currentWorkflow?.nodes || [];
           if (nodes.length > 0) {

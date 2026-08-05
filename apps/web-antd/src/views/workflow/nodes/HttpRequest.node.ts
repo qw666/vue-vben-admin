@@ -18,10 +18,14 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
   },
 
   getOutputs(): NodeOutputDef[] {
+    // 根据 Kestra 官方文档：https://kestra.io/plugins/plugin-fs/tasks/http/io.kestra.plugin.core.http.request
     return [
-      { key: 'body', label: '响应体', type: 'string' },
+      { key: 'body', label: '响应体', type: 'object' },
       { key: 'code', label: '状态码', type: 'number' },
+      { key: 'encryptedBody', label: '加密响应体', type: 'string' },
+      { key: 'formData', label: '请求表单数据', type: 'object' },
       { key: 'headers', label: '响应头', type: 'object' },
+      { key: 'uri', label: '请求URL', type: 'string' },
     ];
   },
 

@@ -29,8 +29,10 @@ export function validateNodeConfig(node: any, pluginMetaCache: Record<string, an
     missingFields.push('节点名称');
   }
 
-  const strategy = flowControlNodeRegistry.get(node.data.type);
-  if (strategy) {
+  const nodeType = node.data.type;
+  const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
+  if (hasStrategy) {
+    const strategy = flowControlNodeRegistry.get(nodeType);
     const requiredFieldKeys = strategy.getRequiredFields();
     const config = node.data.config || {};
     requiredFieldKeys.forEach(field => {

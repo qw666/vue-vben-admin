@@ -185,4 +185,6 @@ export interface VarSourceContext {
   envs?: Array<{ key: string; label?: string }>;
   /** 全局配置（globals.*） */
   globals?: Array<{ key: string; label?: string }>;
+  /** 插件元数据缓存，用于获取动态节点的 outputs 声明 */
+  pluginMetaCache?: Record<string, any>;
 }

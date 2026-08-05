@@ -95,6 +95,15 @@ class FlowControlNodeRegistry {
   }
 
   /**
+   * 判断节点类型是否在 registry 中注册了策略（不含 default fallback）。
+   * 用于区分：有前端策略的节点 vs 纯动态插件节点。
+   * 避免使用 get() 导致 default strategy 干扰判断。
+   */
+  hasStrategy(nodeType: string): boolean {
+    return this.strategies.has(nodeType);
+  }
+
+  /**
    * @deprecated Use isFlowControlContainer() instead.
    * 保留为兼容层，避免影响现有调用。
    */

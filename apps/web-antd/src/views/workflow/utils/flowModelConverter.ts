@@ -465,20 +465,9 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
 
     const config = node.data.config;
     if (config) {
+      // 统一通过策略的 serializeConfig 序列化（OutputValues 等所有策略节点都走此路径）
       const serializedConfig = flowControlNodeRegistry.serializeConfig(node.data.type, config);
-      
-      // Debug: log OutputValues node serialization
-      if (node.data.type === 'idp_core_output_OutputValues' && typeof window !== 'undefined') {
-        (window as any).__debugLogs = (window as any).__debugLogs || [];
-        (window as any).__debugLogs.push({
-          fn: 'convertSingleNode',
-          nodeId: node.id,
-          rawConfig: JSON.parse(JSON.stringify(config)),
-          serializedConfig: JSON.parse(JSON.stringify(serializedConfig)),
-          timestamp: Date.now()
-        });
-      }
-      
+
       const childFlowConfig = getFlowControlConfig(node.data.type);
 
       Object.keys(serializedConfig).forEach((key) => {

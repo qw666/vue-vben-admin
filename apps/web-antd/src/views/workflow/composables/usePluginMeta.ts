@@ -11,8 +11,8 @@ const activeTab = ref<'task' | 'template'>('task');
 const pluginGroups = computed(() => pluginGroupsCache.value[activeTab.value] || []);
 
 function isTaskRef(itemsSchema: any): boolean {
-  return itemsSchema && itemsSchema.$ref && 
-    (itemsSchema.$ref === '#/$defs/idp_core_models_tasks_Task' || 
+  return itemsSchema && itemsSchema.$ref &&
+    (itemsSchema.$ref === '#/$defs/idp_core_models_tasks_Task' ||
      itemsSchema.$ref.includes('idp_core_models_tasks_Task'));
 }
 
@@ -72,48 +72,127 @@ async function loadPluginMeta(nodeType: string): Promise<PluginMetaDetailDTO | n
     const data = response as Record<string, PluginMetaDetailDTO>;
     if (data && data[nodeType]) {
       const meta = data[nodeType];
-      if (meta.formSchema) {
-        let schema: any = meta.formSchema;
-        try {
-          schema = JSON.parse(meta.formSchema);
-        } catch {
-        }
-        if (typeof schema === 'string') {
-          try {
-            schema = JSON.parse(schema);
-          } catch {
-          }
-        }
-        if (typeof schema === 'object' && schema.properties && schema.properties.properties) {
-          meta.parsedSchema = schema;
-          meta.formProperties = schema.properties.properties;
-          meta.formRequired = schema.properties.required || schema.required || [];
-          meta.formDefs = { ...schema.$defs, ...schema.definitions };
-        } else if (typeof schema === 'object' && schema.properties) {
-          meta.parsedSchema = schema;
-          meta.formProperties = schema.properties;
-          meta.formRequired = schema.required || [];
-          meta.formDefs = { ...schema.$defs, ...schema.definitions };
-        } else {
-          meta.parsedSchema = null;
-          meta.formProperties = {};
-          meta.formRequired = [];
-          meta.formDefs = {};
-        }
-      }
-      pluginMetaCache.value[nodeType] = meta;
+      parseMetaSchema(meta);
+      // 替换整个对象以强制触发响应式更新
+      pluginMetaCache.value = { ...pluginMetaCache.value, [nodeType]: meta };
       return meta;
     }
   } catch (error) {
-    console.error('Failed to load plugin meta:', error);
-    message.error('加载节点元数据失败');
+    console.error(`Failed to load plugin meta for '${nodeType}':`, error);
   } finally {
     isMetaLoading.value = false;
   }
   return null;
 }
 
+/**
+ * 将 outputs 规范化为数组。
+ * 处理后端可能返回的各种格式：JSON 字符串、双重编码、对象包裹数组。
+ * 最终保证返回数组（无有效数据时返回空数组）。
+ */
+function normalizeOutputs(raw: any): any[] {
+  if (raw === undefined || raw === null) return [];
+
+  let value = raw;
+
+  // 步骤1: JSON 字符串解析（可能双重编码）
+  while (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      value = parsed;
+    } catch {
+      return [];
+    }
+  }
+
+  // 步骤2: 对象包裹数组提取（{ outputs: [...] } 或 { output: [...] }）
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (Array.isArray((value as any).outputs)) {
+      value = (value as any).outputs;
+    } else if (Array.isArray((value as any).output)) {
+      value = (value as any).output;
+    } else {
+      return [];
+    }
+  }
+
+  return Array.isArray(value) ? value : [];
+}
+
+/** 解析元数据中的 formSchema 和 outputs 字段 */
+function parseMetaSchema(meta: PluginMetaDetailDTO): void {
+  if (meta.formSchema) {
+    let schema: any = meta.formSchema;
+    try {
+      schema = JSON.parse(meta.formSchema);
+    } catch {
+    }
+    if (typeof schema === 'string') {
+      try {
+        schema = JSON.parse(schema);
+      } catch {
+      }
+    }
+    if (typeof schema === 'object' && schema.properties && schema.properties.properties) {
+      meta.parsedSchema = schema;
+      meta.formProperties = schema.properties.properties;
+      meta.formRequired = schema.properties.required || schema.required || [];
+      meta.formDefs = { ...schema.$defs, ...schema.definitions };
+    } else if (typeof schema === 'object' && schema.properties) {
+      meta.parsedSchema = schema;
+      meta.formProperties = schema.properties;
+      meta.formRequired = schema.required || [];
+      meta.formDefs = { ...schema.$defs, ...schema.definitions };
+    } else {
+      meta.parsedSchema = null;
+      meta.formProperties = {};
+      meta.formRequired = [];
+      meta.formDefs = {};
+    }
+  }
+
+  // outputs 规范化：一次性完成所有格式处理，保证 meta.outputs 始终是数组
+  meta.outputs = normalizeOutputs(meta.outputs);
+}
+
+/**
+ * 批量预加载多个节点类型的元数据。
+ * 已缓存的会跳过，使用后端批量接口减少请求次数。
+ */
+async function preloadPluginMeta(nodeTypes: string[]): Promise<void> {
+  const uncached = nodeTypes.filter((t) => t && !pluginMetaCache.value[t]);
+  if (uncached.length === 0) {
+    return;
+  }
+
+  try {
+    const data = (await getPluginMetaBatch(uncached)) as Record<string, PluginMetaDetailDTO>;
+    if (data) {
+      const newCache = { ...pluginMetaCache.value };
+      for (const nodeType of uncached) {
+        const meta = data[nodeType];
+        if (!meta) continue;
+        parseMetaSchema(meta);
+        newCache[nodeType] = meta;
+      }
+      // 替换整个对象以强制触发响应式更新
+      pluginMetaCache.value = newCache;
+    }
+  } catch (error) {
+    console.error('preloadPluginMeta: 批量加载失败:', error);
+  }
+}
+
 export function usePluginMeta() {
+  /**
+   * 获取指定节点类型的输出变量声明。
+   * 如果节点元数据中没有声明 outputs，则返回空数组。
+   */
+  function getNodeOutputs(nodeType: string): PluginMetaDetailDTO['outputs'] {
+    const meta = pluginMetaCache.value[nodeType];
+    return meta?.outputs || [];
+  }
+
   return {
     pluginGroupsCache,
     pluginMetaCache,
@@ -127,5 +206,7 @@ export function usePluginMeta() {
     loadPlugins,
     switchTab,
     loadPluginMeta,
+    preloadPluginMeta,
+    getNodeOutputs,
   };
 }

@@ -1,7 +1,7 @@
 import { ref, computed, nextTick, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import type { WorkflowNode } from '#/types/workflow';
-import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
+import { flowControlNodeRegistry } from '../config/workflow-node-config';
 import { UI_CONFIG } from '../config/ui-config';
 import type { SchemaNode as ParserSchemaNode } from './useSchemaParser';
 import { internalResolveRef, initFormFieldValue, serializeFieldValue } from './useSchemaParser';
@@ -143,10 +143,9 @@ export function useNodeConfig(
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 
-    // OutputValues、Code 等自定义节点也需要使用策略初始化配置
     const strategy = flowControlNodeRegistry.get(node.data.type);
-    const hasStrategy = !!strategy;
-    
+    const hasStrategy = flowControlNodeRegistry.hasStrategy(node.data.type);
+
     if (flowControlNodeRegistry.isFlowControlContainer(node.data.type) || hasStrategy) {
       const savedConfig = node.data.config || {};
       const newConfig = strategy.initConfig(savedConfig);
@@ -224,10 +223,11 @@ export function useNodeConfig(
   const requiredFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
-    const hasStrategy = !!strategy;
+    const nodeType = selectedNode.value.data.type;
+    const strategy = flowControlNodeRegistry.get(nodeType);
+    const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
     
-    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type) || hasStrategy) {
+    if (flowControlNodeRegistry.isFlowControlContainer(nodeType) || hasStrategy) {
       return strategy.getRequiredFields();
     }
 
@@ -256,10 +256,11 @@ export function useNodeConfig(
   const optionalFields = computed(() => {
     if (!selectedNode.value) return [];
 
-    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
-    const hasStrategy = !!strategy;
+    const nodeType = selectedNode.value.data.type;
+    const strategy = flowControlNodeRegistry.get(nodeType);
+    const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
     
-    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type) || hasStrategy) {
+    if (flowControlNodeRegistry.isFlowControlContainer(nodeType) || hasStrategy) {
       return strategy.getOptionalFields();
     }
 
@@ -293,26 +294,15 @@ export function useNodeConfig(
       return;
     }
 
-    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
-    const hasStrategy = !!strategy;
+    const nodeType = selectedNode.value.data.type;
+    const strategy = flowControlNodeRegistry.get(nodeType);
+    const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
     
-    if (flowControlNodeRegistry.isFlowControlContainer(selectedNode.value.data.type) || hasStrategy) {
+    if (flowControlNodeRegistry.isFlowControlContainer(nodeType) || hasStrategy) {
       const config: Record<string, any> = {};
       Object.keys(nodeConfigForm).forEach(key => {
         config[key] = nodeConfigForm[key];
       });
-
-      // Debug: log the config before saving
-      if (typeof window !== 'undefined') {
-        (window as any).__debugLogs = (window as any).__debugLogs || [];
-        (window as any).__debugLogs.push({
-          fn: 'handleSaveConfig',
-          nodeType: selectedNode.value.data.type,
-          nodeConfigForm: JSON.parse(JSON.stringify(nodeConfigForm)),
-          configToSave: JSON.parse(JSON.stringify(config)),
-          timestamp: Date.now()
-        });
-      }
 
       if (selectedNode.value.data.type === 'idp_core_http_Request') {
         if (!config.uri || !config.uri.trim()) {
@@ -322,15 +312,6 @@ export function useNodeConfig(
       }
 
       selectedNode.value.data.config = config;
-      
-      // Debug: verify the config was saved
-      if (typeof window !== 'undefined') {
-        (window as any).__debugLogs.push({
-          fn: 'handleSaveConfig',
-          savedConfig: JSON.parse(JSON.stringify(selectedNode.value.data.config)),
-          timestamp: Date.now()
-        });
-      }
 
       // Use strategy saveConfig if available, otherwise just update the node
       if (strategy?.saveConfig) {

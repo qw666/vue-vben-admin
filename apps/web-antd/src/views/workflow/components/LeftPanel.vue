@@ -15,10 +15,6 @@ const emit = defineEmits<{
   (e: 'dragStart', event: DragEvent, nodeType: string): void;
 }>();
 
-function getCategoryColor(): string {
-  return 'bg-primary';
-}
-
 const flowControlNodes = computed(() => {
   return getFlowControlNodes().filter(
     (node) => node.type !== 'idp_core_flow_Start' && 
@@ -36,70 +32,61 @@ const codeNode = computed(() => {
   return getFlowControlNodes().find((node) => node.type === 'idp_scripts_python_Script');
 });
 
+// OutputValues：从前端策略注册表获取（OutputValues.node.ts 已注册策略）
+const outputValuesNode = computed(() => {
+  return getFlowControlNodes().find((node) => node.type === 'idp_core_output_OutputValues');
+});
+
+/** 将前端策略节点放入"工具"分组（不存在则创建） */
+function ensureNodeInToolsGroup(
+  groups: any[],
+  node: { type: string; nodeName: string; icon: string; description: string } | undefined,
+) {
+  if (!node) return;
+  const pluginItem = {
+    type: node.type,
+    nodeName: node.nodeName,
+    icon: node.icon,
+    description: node.description,
+  };
+  const toolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
+  if (toolsGroup) {
+    toolsGroup.pluginList = toolsGroup.pluginList || [];
+    const exists = toolsGroup.pluginList.find((p: any) => p.type === node.type);
+    if (!exists) {
+      toolsGroup.pluginList.push(pluginItem);
+    }
+  } else {
+    groups.push({
+      groupKey: 'tools',
+      groupName: '工具',
+      pluginList: [pluginItem],
+    });
+  }
+}
+
 const mergedPluginGroups = computed(() => {
   const groups = [...props.pluginGroups];
-  
-  const toolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
-  
-  if (!httpRequestNode.value && !codeNode.value) {
-    return groups;
-  }
-  
-  if (httpRequestNode.value) {
-    const httpNode = httpRequestNode.value;
-    if (toolsGroup) {
-      toolsGroup.pluginList = toolsGroup.pluginList || [];
-      const exists = toolsGroup.pluginList.find((p: any) => p.type === httpNode.type);
-      if (!exists) {
-        toolsGroup.pluginList.push({
-          type: httpNode.type,
-          nodeName: httpNode.nodeName,
-          icon: httpNode.icon,
-          description: httpNode.description,
-        });
-      }
-    } else {
-      groups.push({
-        groupKey: 'tools',
-        groupName: '工具',
-        pluginList: [{
-          type: httpNode.type,
-          nodeName: httpNode.nodeName,
-          icon: httpNode.icon,
-          description: httpNode.description,
-        }],
-      });
+
+  // 过滤掉 OutputValues（后面单独放到工具分组）
+  for (const group of groups) {
+    if (group.pluginList) {
+      group.pluginList = group.pluginList.filter((p: any) => p.type !== 'idp_core_output_OutputValues');
     }
   }
-  
-  if (codeNode.value) {
-    const codeNodeData = codeNode.value;
-    const currentToolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
-    if (currentToolsGroup) {
-      currentToolsGroup.pluginList = currentToolsGroup.pluginList || [];
-      const exists = currentToolsGroup.pluginList.find((p: any) => p.type === codeNodeData.type);
-      if (!exists) {
-        currentToolsGroup.pluginList.push({
-          type: codeNodeData.type,
-          nodeName: codeNodeData.nodeName,
-          icon: codeNodeData.icon,
-          description: codeNodeData.description,
-        });
-      }
-    } else {
-      groups.push({
-        groupKey: 'tools',
-        groupName: '工具',
-        pluginList: [{
-          type: codeNodeData.type,
-          nodeName: codeNodeData.nodeName,
-          icon: codeNodeData.icon,
-          description: codeNodeData.description,
-        }],
-      });
-    }
+
+  // 将前端策略节点放入工具分组
+  ensureNodeInToolsGroup(groups, httpRequestNode.value);
+  ensureNodeInToolsGroup(groups, codeNode.value);
+  ensureNodeInToolsGroup(groups, outputValuesNode.value);
+
+  // 调整分组顺序：工具分组移到流程控制分组后面
+  const toolsIdx = groups.findIndex((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
+  if (toolsIdx > 0) {
+    const [toolsGroup] = groups.splice(toolsIdx, 1);
+    groups.unshift(toolsGroup);
   }
-  
+
   return groups;
 });
 </script>

@@ -153,6 +153,25 @@ export interface PluginMetaDetailDTO {
   formProperties?: Record<string, any>;
   formRequired?: string[];
   formDefs?: Record<string, any>;
+  /**
+   * 节点的输出变量声明。
+   * 格式: [{ key: 'rows', label: '查询结果行', type: 'array', condition?: 'fetchType == "FETCH"' }]
+   * - key: 输出变量的键名，用于表达式 {{ outputs.nodeId.key }}
+   * - label: 显示名称
+   * - type: 数据类型 (string/number/object/array/any)
+   * - condition: 可选，条件表达式，用于声明条件性输出
+   */
+  outputs?: PluginOutputDef[];
+}
+
+/**
+ * 节点输出变量定义
+ */
+export interface PluginOutputDef {
+  key: string;
+  label: string;
+  type?: string;
+  condition?: string;
 }
 
 function getHeaders() {

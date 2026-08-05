@@ -2,17 +2,18 @@ import type { FlowControlNodeStrategy, NodeOutputDef } from './types';
 import { flowControlNodeRegistry } from './types';
 
 /**
- * OutputValues 节点策略
- * 
- * Kestra 规范：
- * - 配置：values 对象（键值对），每个键是输出变量名
- * - 输出访问：{{ outputs.nodeId.values.key }}
- * 
- * 示例：
- *   配置：{ values: { data: "hello", count: 42 } }
- *   输出：
- *     - {{ outputs.nodeId.values.data }}
- *     - {{ outputs.nodeId.values.count }}
+ * OutputValues（输出变量）节点策略
+ *
+ * 完全由前端维护，不依赖后端元数据：
+ * - 基本信息（nodeName/icon/description/ports）由前端策略维护
+ * - 配置面板由前端 ObjectInputField 字段渲染（键值对编辑）
+ * - 输出变量动态生成，根据 config.values 键值对
+ *
+ * 数据格式说明：
+ * - 前端编辑格式（nodeConfigForm.values）: [{ key: 'var1', value: '{{ expr }}' }]
+ * - 后端存储格式（Kestra values）: { values: { var1: '{{ expr }}' } }
+ * - deserializeConfig 负责后端 → 前端转换
+ * - serializeConfig 负责前端 → 后端转换
  */
 export const OutputValuesNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_output_OutputValues',
@@ -31,130 +32,92 @@ export const OutputValuesNodeStrategy: FlowControlNodeStrategy = {
   },
 
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    // 先反序列化（将 values 对象转换为 outputs 数组）
-    const deserialized = this.deserializeConfig?.(savedConfig) || savedConfig;
+    // savedConfig 来自 deserializeConfig，values 已是数组格式
     return {
-      outputs: deserialized.outputs || [],
+      values: Array.isArray(savedConfig.values) ? savedConfig.values : [],
     };
   },
 
   serializeConfig(config: Record<string, any>): Record<string, any> {
     const result: Record<string, any> = {};
-
-    // 将 outputs 数组转换为 values 对象（Kestra 格式）
-    if (config.outputs && Array.isArray(config.outputs) && config.outputs.length > 0) {
+    if (Array.isArray(config.values)) {
+      // 前端数组格式 → 后端对象格式
       const values: Record<string, any> = {};
-      for (const item of config.outputs) {
-        if (item?.name) {
-          values[item.name] = item.value || '';
+      for (const item of config.values) {
+        if (item && item.key && item.value !== undefined && item.value !== null && item.value !== '') {
+          values[item.key] = item.value;
+        }
+      }
+      if (Object.keys(values).length > 0) {
+        result.values = values;
+      }
+    } else if (config.values && typeof config.values === 'object' && !Array.isArray(config.values)) {
+      // 兼容：如果 values 已经是对象格式，直接使用
+      const values: Record<string, any> = {};
+      for (const [k, v] of Object.entries(config.values)) {
+        if (k && v !== undefined && v !== null && v !== '') {
+          values[k] = v;
         }
       }
       if (Object.keys(values).length > 0) {
         result.values = values;
       }
     }
-
     return result;
   },
 
   deserializeConfig(config: Record<string, any>): Record<string, any> {
-    // 支持两种格式：
-    // 1. 前端格式：{ outputs: [{ name: 'xxx', value: 'yyy' }] }
-    // 2. Kestra 格式：{ values: { xxx: 'yyy' } }
-    
-    // 如果已经有 outputs 数组，直接使用
-    if (Array.isArray(config.outputs) && config.outputs.length > 0) {
-      return {
-        outputs: config.outputs.map((item: any) => ({
-          name: item.name || '',
-          value: item.value || '',
-        })),
-      };
-    }
-    
-    // 否则从 values 对象转换
-    const values = config.values || {};
-    const outputs: Array<{ name: string; value: string }> = [];
-    
-    if (values && typeof values === 'object') {
-      for (const [name, value] of Object.entries(values)) {
-        outputs.push({
-          name,
-          value: typeof value === 'string' ? value : JSON.stringify(value),
-        });
-      }
+    // 后端对象格式 → 前端数组格式
+    const rawValues = config.values;
+    let values: Array<{ key: string; value: string }> = [];
+
+    if (Array.isArray(rawValues)) {
+      // 已经是数组格式（向前兼容）
+      values = rawValues
+        .filter((item: any) => item && item.key)
+        .map((item: any) => ({ key: String(item.key), value: String(item.value ?? '') }));
+    } else if (rawValues && typeof rawValues === 'object') {
+      // 后端 Kestra 对象格式
+      values = Object.entries(rawValues).map(([key, value]) => ({
+        key,
+        value: String(value ?? ''),
+      }));
     }
 
-    return {
-      outputs,
-    };
+    return { values };
   },
 
   handleConnection(): void {
   },
 
   /**
-   * 获取节点的输出变量声明
-   * 
-   * 根据 Kestra 规范，OutputValues 节点的输出以 "values" 为固定前缀：
-   * {{ outputs.nodeId.values.key }}
-   * 
-   * 支持两种配置格式：
-   * - 前端格式：{ outputs: [{ name: 'xxx', value: 'yyy' }] }
-   * - Kestra 格式：{ values: { xxx: 'yyy' } }
+   * 根据 config.values 键值对动态生成输出变量声明。
+   * 访问格式: {{ outputs.nodeId.values.keyName }}
    */
   getOutputs(config: Record<string, any>): NodeOutputDef[] {
-    const result: NodeOutputDef[] = [];
-
-    console.log('[OutputValues.getOutputs] config:', JSON.stringify(config));
-
-    // 优先处理前端格式：outputs 数组
-    const outputs = config?.outputs;
-    if (Array.isArray(outputs)) {
-      for (const item of outputs) {
-        if (item?.name) {
-          result.push({
-            key: `values.${item.name}`,
-            label: item.name,
-            type: 'any',
-          });
-        }
-      }
-    }
-
-    // 处理 Kestra 格式：values 对象
     const values = config?.values;
-    if (values && typeof values === 'object' && !Array.isArray(values)) {
-      for (const name of Object.keys(values)) {
-        if (!result.some(r => r.key === `values.${name}`)) {
-          result.push({
-            key: `values.${name}`,
-            label: name,
-            type: 'any',
-          });
-        }
-      }
+    if (!Array.isArray(values)) return [];
+    const result: NodeOutputDef[] = [];
+    for (const item of values) {
+      const key = typeof item === 'string' ? item : (item?.key || '');
+      if (!key) continue;
+      result.push({ key: `values.${key}`, label: key, type: 'any' });
     }
-
-    console.log('[OutputValues.getOutputs] result:', JSON.stringify(result));
     return result;
   },
 
   getRequiredFields(): { type: string; props: Record<string, any> }[] {
     return [
       {
-        type: 'ArrayTable',
+        type: 'ObjectInput',
         props: {
-          key: 'outputs',
+          key: 'values',
           label: '输出变量',
-          description: '配置输出的变量列表，每个变量包含名称和值',
-          itemsSchema: {
-            type: 'object',
-            properties: {
-              name: { type: 'string', title: '变量名', $required: true },
-              value: { type: 'string', title: '变量值', $dynamic: true, $required: true },
-            },
-          },
+          required: false,
+          description: '定义该节点输出的变量，可在下游节点通过 {{ outputs.节点ID.values.变量名 }} 引用',
+          tooltip: '点击添加按钮创建输出变量，变量值支持手写表达式或通过 / 选择上游变量',
+          placeholder: '暂无输出变量，点击"添加"按钮创建',
+          dynamic: true,
         },
       },
     ];

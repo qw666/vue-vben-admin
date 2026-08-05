@@ -4,7 +4,7 @@ import { message } from 'ant-design-vue';
 
 import { useWorkflowStore } from '#/store/workflow';
 
-import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
+import { getFlowControlConfig, getFlowControlNodes, flowControlNodeRegistry } from '../config/workflow-node-config';
 import { resolveNodeIcon } from '../utils/nodeIcon';
 import { useEventCleanup } from './useEventCleanup';
 
@@ -65,16 +65,30 @@ export function useCanvasDragging(
             description: flowControlConfig.description,
           };
         } else {
-          for (const tabKey of Object.keys(pluginGroupsCache.value)) {
-            const groups = pluginGroupsCache.value[tabKey];
-            for (const group of groups) {
-              template = group.pluginList.find((p: any) => p.type === nodeType);
-              if (template) {
-                template.category = group.groupName;
-                break;
+          // 先从前端注册的节点中查找（HTTP、Code 等有策略的节点）
+          const fcNode = getFlowControlNodes().find((n: any) => n.type === nodeType);
+          if (fcNode) {
+            template = {
+              nodeName: fcNode.nodeName,
+              type: nodeType,
+              icon: fcNode.icon,
+              category: '工具',
+              description: fcNode.description,
+            };
+          }
+          // 再从后端动态节点中查找
+          if (!template) {
+            for (const tabKey of Object.keys(pluginGroupsCache.value)) {
+              const groups = pluginGroupsCache.value[tabKey];
+              for (const group of groups) {
+                template = group.pluginList.find((p: any) => p.type === nodeType);
+                if (template) {
+                  template.category = group.groupName;
+                  break;
+                }
               }
+              if (template) break;
             }
-            if (template) break;
           }
         }
 
@@ -96,6 +110,12 @@ export function useCanvasDragging(
         };
         store.addNode(newNode);
         message.success(`已添加 ${template?.nodeName || nodeType} 节点`);
+
+        // 异步预加载节点元数据（用于VarPicker获取outputs声明）
+        // 不await，避免阻塞拖拽交互；加载完成后pluginMetaCache更新会触发VarPicker重新计算
+        if (!pluginMetaCache.value[nodeType]) {
+          loadPluginMeta(nodeType);
+        }
       } else {
         message.error('拖拽数据为空');
       }
