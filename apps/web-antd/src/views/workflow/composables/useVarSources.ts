@@ -31,7 +31,7 @@ interface ContainerBranch {
 
 /**
  * 从容器配置中提取所有分支及其子节点 ID。
- * 统一处理 cases/parallel（对象字段）和 then/else/tasks/foreach（数组字段）。
+ * 统一处理对象字段（cases/parallel）和数组字段（then/else/tasks/foreach/defaults/errors/finally）。
  */
 function getContainerBranches(config: any): ContainerBranch[] {
   if (!config || typeof config !== 'object') return [];
@@ -52,8 +52,8 @@ function getContainerBranches(config: any): ContainerBranch[] {
     }
   }
 
-  // 数组类型字段: then, else, tasks, foreach
-  for (const field of ['then', 'else', 'tasks', 'foreach'] as const) {
+  // 数组类型字段: then, else, tasks, foreach, defaults, errors, finally
+  for (const field of ['then', 'else', 'tasks', 'foreach', 'defaults', 'errors', 'finally'] as const) {
     const value = config[field];
     if (Array.isArray(value)) {
       const nodeIds = value.filter((t: any) => t?.nodeId).map((t: any) => t.nodeId);
@@ -106,7 +106,7 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
     if (currentNode && currentNode.data?.config) {
       const config = currentNode.data.config;
       
-      // Case 1: 当前节点是容器节点 - 只提取已访问分支的兄弟节点
+      // Case 1: 当前节点是容器节点
       const allChildren = getAllBranchChildIds(config);
       if (allChildren.length > 0) {
         // 找出哪些子节点已在visited中
@@ -117,10 +117,20 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
           }
         }
 
-        // 如果有已访问的分支，只添加这些分支的兄弟节点
         if (visitedChildBranchKeys.size > 0) {
+          // 1a. 当前节点在容器内部：只提取已访问分支的兄弟节点（分支隔离）
           for (const child of allChildren) {
             if (visitedChildBranchKeys.has(child.branchKey) && !visited.has(child.nodeId)) {
+              visited.add(child.nodeId);
+              queue.push(child.nodeId);
+              const childNode = nodes.find((n) => n.id === child.nodeId);
+              if (childNode) result.push(childNode);
+            }
+          }
+        } else {
+          // 1b. 当前节点在容器外部：提取所有分支的子节点（下游可见所有分支输出）
+          for (const child of allChildren) {
+            if (!visited.has(child.nodeId)) {
               visited.add(child.nodeId);
               queue.push(child.nodeId);
               const childNode = nodes.find((n) => n.id === child.nodeId);
