@@ -305,7 +305,33 @@ onMounted(() => {
       syncDomFromStored();
     }
   });
+
+  // 添加全局点击监听，点击外部关闭面板
+  document.addEventListener('click', handleDocumentClick);
 });
+
+onBeforeUnmount(() => {
+  isUnmounting.value = true;
+  document.removeEventListener('click', handleDocumentClick);
+});
+
+/** 关闭面板 */
+function closePanel() {
+  popoverOpen.value = false;
+  slashQuery.value = '';
+}
+
+/** 处理文档点击事件，点击外部关闭面板 */
+function handleDocumentClick(e: MouseEvent) {
+  if (!popoverOpen.value) return;
+  const target = e.target as HTMLElement;
+  // 检查点击是否在 VarPicker 内部
+  if (editorRef.value && editorRef.value.contains(target)) return;
+  // 检查点击是否在面板内部
+  const popoverEl = document.querySelector('.var-picker-popover');
+  if (popoverEl && popoverEl.contains(target)) return;
+  closePanel();
+}
 
 watch(storedValue, () => {
   // 仅在非用户输入触发时重新渲染 DOM
@@ -321,8 +347,7 @@ function handleInput() {
   // 检测 / 触发变量面板
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) {
-    popoverOpen.value = false;
-    slashQuery.value = '';
+    closePanel();
     return;
   }
   const range = sel.getRangeAt(0);
@@ -330,8 +355,7 @@ function handleInput() {
   const lastSlashIdx = textBefore.lastIndexOf('/');
 
   if (lastSlashIdx === -1) {
-    popoverOpen.value = false;
-    slashQuery.value = '';
+    closePanel();
     return;
   }
 
@@ -342,8 +366,7 @@ function handleInput() {
     return;
   }
 
-  popoverOpen.value = false;
-  slashQuery.value = '';
+  closePanel();
 }
 
 /** 获取光标位置之前的纯文本（用于检测 / 命令） */
@@ -364,8 +387,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (popoverOpen.value) {
     if (e.key === 'Escape') {
       e.preventDefault();
-      popoverOpen.value = false;
-      slashQuery.value = '';
+      closePanel();
       return;
     }
     if (e.key === 'Enter') {
@@ -401,6 +423,7 @@ function handleBlur() {
   }
   blurTimer = setTimeout(() => {
     popoverOpen.value = false;
+    // 注意：失焦时不清空 slashQuery，避免用户返回后需要重新输入搜索词
   }, 150);
 }
 
@@ -484,32 +507,27 @@ function pickVar(item: FlatVarItem) {
   // 同步存储值
   writeStoredFromDom();
 
-  popoverOpen.value = false;
-  slashQuery.value = '';
+  closePanel();
 }
 
 /** 删除光标前的 / 搜索命令文本 */
 function deleteSlashQuery() {
-  if (!editorRef.value || !slashQuery.value) return;
+  if (!editorRef.value) return;
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return;
 
-  // 构建完整 DOM 子节点列表（除 token 外的文本节点内容 + token）
-  // 找到 / 所在的位置，删除从 / 到光标处的所有内容
-  const range = sel.getRangeAt(0);
   const textBefore = getTextBeforeCursor();
   const slashIdx = textBefore.lastIndexOf('/');
   if (slashIdx < 0) return;
 
-  // 简化方案：直接操作 textContent 层级
-  // 但 DOM 中可能有 token span，所以我们先重建存储值
   const currentStored = domToStoredValue(editorRef.value);
   const storedSlashIdx = currentStored.lastIndexOf('/');
   if (storedSlashIdx < 0) return;
 
   // 从存储值中删除 / 到对应位置的内容
-  // 注意：slashQuery 是用户输入的搜索词，包含 /
-  const newStored = currentStored.slice(0, storedSlashIdx) + currentStored.slice(storedSlashIdx + 1 + slashQuery.value.length);
+  // slashQuery 是用户输入的搜索词（不包含 /），所以删除长度 = 1（/）+ 搜索词长度
+  const deleteLength = 1 + slashQuery.value.length;
+  const newStored = currentStored.slice(0, storedSlashIdx) + currentStored.slice(storedSlashIdx + deleteLength);
   storedValue.value = newStored;
   syncDomFromStored();
 
@@ -547,8 +565,7 @@ function setCaretByOffset(root: HTMLElement, offset: number) {
 function togglePanel() {
   if (!editorRef.value) return;
   if (popoverOpen.value) {
-    popoverOpen.value = false;
-    slashQuery.value = '';
+    closePanel();
   } else {
     popoverOpen.value = true;
     slashQuery.value = '';
@@ -662,6 +679,12 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
   >
     <template #content>
       <div class="var-dropdown" @click.stop>
+        <div class="var-dropdown-header">
+          <span class="var-dropdown-title">选择变量</span>
+          <span class="var-dropdown-close" @click="closePanel">
+            <IconifyIcon icon="mdi:close" :size="14" />
+          </span>
+        </div>
         <template v-if="inputModeSearchResults.length > 0">
           <div class="var-list-wrap">
             <div v-for="section in inputModeSearchResults" :key="section.key" class="var-section">
@@ -816,6 +839,39 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
   width: 320px;
   max-height: 420px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.var-picker-popover .var-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.var-picker-popover .var-dropdown-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.var-picker-popover .var-dropdown-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #999;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.var-picker-popover .var-dropdown-close:hover {
+  color: #666;
+  background: #f5f5f5;
 }
 
 .var-picker-popover .var-list-wrap {
