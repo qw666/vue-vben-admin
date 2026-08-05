@@ -257,18 +257,20 @@ function resolveAnyOfField(
     if (opt.$ref) {
       const refSchema = internalResolveRef(opt.$ref, defs);
       const refTitle = refSchema?.title || opt.title || '未命名';
+      const subFields = refSchema ? extractSubFields(refSchema, { ...defs, ...(refSchema.$defs || {}) }) : [];
       return {
         value: index,
         label: refTitle,
         schema: refSchema,
-        subFields: refSchema ? extractSubFields(refSchema, { ...defs, ...(refSchema.$defs || {}) }) : [],
+        subFields,
       };
     }
+    const subFields = extractSubFields(opt, defs);
     return {
       value: index,
       label: opt.title || (opt.const !== undefined ? opt.const.toString() : opt.type || `选项 ${index + 1}`),
       schema: opt,
-      subFields: extractSubFields(opt, defs),
+      subFields,
     };
   });
 

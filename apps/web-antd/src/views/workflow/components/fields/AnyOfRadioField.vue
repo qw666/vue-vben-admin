@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { Tooltip, Button } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import FieldRenderer from '../FieldRenderer.vue';
+import { renderFormField } from '../../composables/useFormFieldResolver';
 
 const props = defineProps<{
   field: any;
@@ -31,9 +32,49 @@ const selectedAnyOfOption = computed(() => {
   return props.field.props.options.find((opt: any) => opt.value === props.nodeConfigForm[fieldKey.value]);
 });
 
+/** 值存储 key（与选项索引分开存储） */
+const valueKey = computed(() => fieldKey.value + '_value');
+
+/** 动态创建的 renderedField（当选项没有 subFields 时） */
+const renderedField = computed(() => {
+  const option = selectedAnyOfOption.value;
+  if (!option || option.subFields?.length) return null;
+  const schema = option.schema;
+  if (!schema?.type) return null;
+
+  const vKey = valueKey.value;
+  const isRequired = props.field.props.required;
+
+  // 从正确位置读取值
+  const value = props.nodeConfigForm[vKey];
+
+  // onUpdate 写入到正确位置
+  const onUpdate = (val: any) => {
+    props.nodeConfigForm[vKey] = val;
+  };
+
+  // 创建字段，key 使用 vKey，这样 VarPicker 会从正确位置读写
+  const field = renderFormField({ [vKey]: schema }, vKey, isRequired, {}, value, onUpdate, '');
+
+  // 保持 label 为原始字段名
+  field.props.label = props.field.props.label;
+
+  return field;
+});
+
 function clearSelection() {
   props.nodeConfigForm[fieldKey.value] = null;
+  // 清除对应的值
+  delete props.nodeConfigForm[valueKey.value];
 }
+
+// 监听选项切换，清除旧数据
+watch(selectedAnyOfOption, (newOption, oldOption) => {
+  if (!newOption || !oldOption) return;
+  // 选项切换时，清除旧的值数据
+  delete props.nodeConfigForm[valueKey.value];
+  delete props.nodeConfigForm[fieldKey.value + '_values'];
+});
 
 function getNestedValue(parentKey: string): Record<string, any> {
   if (!props.nodeConfigForm[parentKey]) {
@@ -172,6 +213,24 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
             />
           </div>
         </div>
+      </div>
+      <div v-else-if="renderedField" style="margin-top: 8px;">
+        <FieldRenderer
+          :field="renderedField"
+          :node-config-form="nodeConfigForm"
+          :plugin-groups="pluginGroups"
+          @add-object-item="(fk: string) => addObjectItemTo(fieldKey + '_value', fk)"
+          @update-object-key="(fk: string, idx: number, val: string) => updateObjectKeyAt(fieldKey + '_value', fk, idx, val)"
+          @update-object-value="(fk: string, idx: number, val: string) => updateObjectValueAt(fieldKey + '_value', fk, idx, val)"
+          @remove-object-item="(fk: string, idx: number) => removeObjectItemAt(fieldKey + '_value', fk, idx)"
+          @add-string-array-item="(fk: string) => addStringArrayItemTo(fieldKey + '_value', fk)"
+          @add-number-array-item="(fk: string) => addNumberArrayItemTo(fieldKey + '_value', fk)"
+          @add-array-item="(fk: string, schema: any) => addArrayItemTo(fieldKey + '_value', fk, schema)"
+          @remove-array-item="(fk: string, idx: number) => removeArrayItemAt(fieldKey + '_value', fk, idx)"
+          @update-array-item-value="(fk: string, idx: number, pk: string, val: any) => updateArrayItemValueAt(fieldKey + '_value', fk, idx, pk, val)"
+          @open-node-select-modal="(fk: string) => emit('openNodeSelectModal', fieldKey + '_value.' + fk)"
+          @edit-child-node="(fk: string, idx: number) => emit('editChildNode', fieldKey + '_value.' + fk, idx)"
+        />
       </div>
     </div>
   </div>

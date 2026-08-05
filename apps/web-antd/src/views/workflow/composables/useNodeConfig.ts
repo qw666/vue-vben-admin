@@ -193,8 +193,15 @@ export function useNodeConfig(
                   }
                 }
                 nodeConfigForm[key] = selectedIndex;
-                if (typeof savedValue === 'object' && savedValue !== null) {
+                // 根据选项类型选择存储位置
+                const selectedOption = prop.anyOf[selectedIndex];
+                const hasSubFields = selectedOption?.properties && Object.keys(selectedOption.properties).length > 0;
+                if (hasSubFields && typeof savedValue === 'object' && savedValue !== null) {
+                  // 有 subFields 的选项：值存到 _values
                   nodeConfigForm[key + '_values'] = savedValue;
+                } else {
+                  // 无 subFields 的选项（直接渲染字段）：值存到 _value
+                  nodeConfigForm[key + '_value'] = savedValue;
                 }
               } else if (prop.type === 'object') {
                 const savedValue = savedConfig[key];
@@ -352,8 +359,13 @@ export function useNodeConfig(
             if (selectedIndex !== undefined && selectedIndex !== null) {
               const selectedOption = schema.anyOf[selectedIndex];
               if (selectedOption) {
-                const values = nodeConfigForm[key + '_values'] || {};
-                config[key] = serializeFieldValue(selectedOption, values, meta.formDefs || {});
+                // 优先检查 _values（有 subFields 的情况），其次检查 _value（无 subFields 的情况）
+                const subValues = nodeConfigForm[key + '_values'];
+                const directValue = nodeConfigForm[key + '_value'];
+                const values = subValues || directValue;
+                if (values !== undefined) {
+                  config[key] = serializeFieldValue(selectedOption, values, meta.formDefs || {});
+                }
               }
             }
           } else {
