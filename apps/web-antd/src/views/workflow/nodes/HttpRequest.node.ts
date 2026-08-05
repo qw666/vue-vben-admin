@@ -30,15 +30,16 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
   },
 
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    const contentType = savedConfig.contentType || 'application/json';
-    const bodyType = contentType === 'multipart/form-data' ? 'form-data'
+    const contentType = savedConfig.contentType;
+    const bodyType = !contentType ? 'none'
+      : contentType === 'multipart/form-data' ? 'form-data'
       : contentType === 'application/x-www-form-urlencoded' ? 'url-encoded'
-      : 'json';
+      : savedConfig.bodyType || 'json';
 
     return {
       method: savedConfig.method || 'POST',
       uri: savedConfig.uri || '',
-      contentType,
+      contentType: contentType || 'application/json',
       body: savedConfig.body || '',
       bodyType,
       headers: savedConfig.headers || {},
@@ -56,7 +57,7 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
             }
           : { insecureTrustAllCertificates: true },
         logs: savedConfig.options?.logs || [],
-        defaultCharset: savedConfig.options?.defaultCharset || 'utf8',
+        defaultCharset: savedConfig.options?.defaultCharset || 'UTF-8',
       },
     };
   },
@@ -65,8 +66,12 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
     const kestraConfig: Record<string, any> = {
       uri: config.uri,
       method: config.method,
-      contentType: config.contentType,
     };
+
+    // bodyType=none 时不保存 contentType 和 body
+    if (config.bodyType !== 'none') {
+      kestraConfig.contentType = config.contentType;
+    }
 
     if (config.body && config.body.trim()) {
       kestraConfig.body = config.body;
@@ -78,6 +83,11 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
 
     if (config.headers && Object.keys(config.headers).length > 0) {
       kestraConfig.headers = config.headers;
+    }
+
+    // params: Kestra 文档中是顶层属性
+    if (config.params && Object.keys(config.params).length > 0) {
+      kestraConfig.params = config.params;
     }
 
     if (config.timeout && config.timeout !== 'PT10M') {
@@ -113,7 +123,7 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
         options.logs = config.options.logs;
       }
 
-      if (config.options.defaultCharset && config.options.defaultCharset !== 'utf8') {
+      if (config.options.defaultCharset && config.options.defaultCharset !== 'UTF-8') {
         options.defaultCharset = config.options.defaultCharset;
       }
 
@@ -125,19 +135,29 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
     return kestraConfig;
   },
 
+  validateConfig(config: Record<string, any>): string | null {
+    if (!config.uri || !config.uri.trim()) {
+      return '请填写请求URL';
+    }
+    return null;
+  },
+
   deserializeConfig(config: Record<string, any>): Record<string, any> {
-    const bodyType = config.contentType === 'multipart/form-data' ? 'form-data'
-      : config.contentType === 'application/x-www-form-urlencoded' ? 'url-encoded'
+    // 如果没有 contentType，说明之前 bodyType=none
+    const contentType = config.contentType;
+    const bodyType = !contentType ? 'none'
+      : contentType === 'multipart/form-data' ? 'form-data'
+      : contentType === 'application/x-www-form-urlencoded' ? 'url-encoded'
       : 'json';
 
     return {
       method: config.method || 'POST',
       uri: config.uri || '',
-      contentType: config.contentType || 'application/json',
+      contentType: contentType || 'application/json',
       body: config.body || '',
       bodyType,
       headers: config.headers || {},
-      params: {},
+      params: config.params || {},
       formData: config.formData || {},
       timeout: config.timeout || 'PT10M',
       options: {
@@ -151,7 +171,7 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
             }
           : { insecureTrustAllCertificates: true },
         logs: config.options?.logs || [],
-        defaultCharset: config.options?.defaultCharset || 'utf8',
+        defaultCharset: config.options?.defaultCharset || 'UTF-8',
       },
     };
   },

@@ -405,7 +405,6 @@ async function handleSave() {
 
     const configValidation = validateAllNodes(
       store.currentWorkflow.nodes,
-      pluginMetaCache.value,
     );
 
     if (!configValidation.isValid) {

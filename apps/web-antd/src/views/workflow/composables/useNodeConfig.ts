@@ -4,8 +4,6 @@ import type { WorkflowNode } from '#/types/workflow';
 import { flowControlNodeRegistry } from '../config/workflow-node-config';
 import { UI_CONFIG } from '../config/ui-config';
 import type { SchemaNode as ParserSchemaNode } from './useSchemaParser';
-import { internalResolveRef, initFormFieldValue, serializeFieldValue } from './useSchemaParser';
-import { renderFormField } from './useFormFieldResolver';
 import { validateAllNodes, validateNodeConfig } from './useFieldValidation';
 import { useChildNodeSelection } from './useChildNodeSelection';
 import { useFormState } from './useFormState';
@@ -138,159 +136,48 @@ export function useNodeConfig(
     store.setSelectedNodeId(null);
     await nextTick();
 
+    // 在设置 selectedNode 之前快照 savedConfig，避免组件挂载后 watcher 污染 node.data.config
+    const savedConfig = { ...(node.data.config || {}) };
+
     selectedNode.value = node;
     store.setSelectedNodeId(node.id);
     isConfigPanelOpen.value = true;
     configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 
-    const strategy = flowControlNodeRegistry.get(node.data.type);
-    const hasStrategy = flowControlNodeRegistry.hasStrategy(node.data.type);
+    // 确保节点类型有对应的策略（自动加载 Schema 元数据）
+    const nodeType = node.data.type;
+    await flowControlNodeRegistry.ensureStrategy(nodeType, loadPluginMeta);
 
-    if (flowControlNodeRegistry.isFlowControlContainer(node.data.type) || hasStrategy) {
-      const savedConfig = node.data.config || {};
-      const newConfig = strategy.initConfig(savedConfig);
+    // 统一走策略路径
+    const strategy = flowControlNodeRegistry.get(nodeType);
+    const newConfig = strategy.initConfig(savedConfig);
 
-      clearForm();
-      Object.assign(nodeConfigForm, newConfig);
-    } else {
-      const meta = await loadPluginMeta(node.data.type);
-      if (meta && meta.formProperties) {
-        const savedConfig = node.data.config || {};
-        const properties = meta.formProperties || {};
-        const formDefs = meta.formDefs || {};
-
-        clearForm();
-
-        Object.keys(properties).forEach(key => {
-          if (key !== '$schema') {
-            const prop = properties[key];
-            if (!prop) return;
-            if (savedConfig[key] !== undefined) {
-              if (prop.anyOf) {
-                const savedValue = savedConfig[key];
-                let selectedIndex = 0;
-                for (let i = 0; i < prop.anyOf.length; i++) {
-                  const option = prop.anyOf[i];
-                  if (!option) continue;
-                  if (option.const !== undefined && option.const === savedValue) {
-                    selectedIndex = i;
-                    break;
-                  }
-                  if (option.default !== undefined && option.default === savedValue) {
-                    selectedIndex = i;
-                    break;
-                  }
-                  if (option.type && option.type === typeof savedValue) {
-                    selectedIndex = i;
-                    break;
-                  }
-                  if (option.$ref) {
-                    const refSchema = internalResolveRef(option.$ref, formDefs);
-                    if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object') {
-                      selectedIndex = i;
-                      break;
-                    }
-                  }
-                }
-                nodeConfigForm[key] = selectedIndex;
-                // 根据选项类型选择存储位置
-                const selectedOption = prop.anyOf[selectedIndex];
-                const hasSubFields = selectedOption?.properties && Object.keys(selectedOption.properties).length > 0;
-                if (hasSubFields && typeof savedValue === 'object' && savedValue !== null) {
-                  // 有 subFields 的选项：值存到 _values
-                  nodeConfigForm[key + '_values'] = savedValue;
-                } else {
-                  // 无 subFields 的选项（直接渲染字段）：值存到 _value
-                  nodeConfigForm[key + '_value'] = savedValue;
-                }
-              } else if (prop.type === 'object') {
-                const savedValue = savedConfig[key];
-                if (prop.additionalProperties && prop.additionalProperties.type === 'array') {
-                  nodeConfigForm[key] = savedValue || {};
-                } else {
-                  nodeConfigForm[key] = Array.isArray(savedValue) ? savedValue : Object.entries(savedValue || {}).map(([k, v]: [string, any]) => ({ key: k, value: v }));
-                }
-              } else {
-                nodeConfigForm[key] = savedConfig[key];
-              }
-            } else {
-              nodeConfigForm[key] = initFormFieldValue(prop, formDefs);
-            }
-          }
-        });
-      }
-    }
+    clearForm();
+    Object.assign(nodeConfigForm, newConfig);
   }
 
   const currentNodeMeta = computed(() => {
     if (!selectedNode.value) return null;
-    return pluginMetaCache.value[selectedNode.value.data.type] || null;
+    const nodeType = selectedNode.value.data.type;
+    return flowControlNodeRegistry.getNodeDescription(nodeType);
   });
 
   const requiredFields = computed(() => {
     if (!selectedNode.value) return [];
-
-    const nodeType = selectedNode.value.data.type;
-    const strategy = flowControlNodeRegistry.get(nodeType);
-    const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
-    
-    if (flowControlNodeRegistry.isFlowControlContainer(nodeType) || hasStrategy) {
-      return strategy.getRequiredFields();
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    if (strategy.getRequiredFields) {
+      return strategy.getRequiredFields(nodeConfigForm) || [];
     }
-
-    if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
-    const properties = currentNodeMeta.value.formProperties;
-    const formRequired = currentNodeMeta.value.formRequired || [];
-    const formDefs = currentNodeMeta.value.formDefs || {};
-
-    return Object.keys(properties)
-      .filter(key => key !== '$schema')
-      .filter(key => {
-        const prop = properties[key];
-        return prop && (prop.type || prop.$ref || prop.anyOf) && (prop.$required === true || formRequired.includes(key));
-      })
-      .map(key => {
-        const prop = properties[key];
-        if (!prop) return null;
-        const isRequired = prop.$required === true || formRequired.includes(key);
-        const value = nodeConfigForm[key];
-        const onUpdate = (val: any) => { nodeConfigForm[key] = val; };
-        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value!.data.type);
-      })
-      .filter(Boolean);
+    return [];
   });
 
   const optionalFields = computed(() => {
     if (!selectedNode.value) return [];
-
-    const nodeType = selectedNode.value.data.type;
-    const strategy = flowControlNodeRegistry.get(nodeType);
-    const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
-    
-    if (flowControlNodeRegistry.isFlowControlContainer(nodeType) || hasStrategy) {
-      return strategy.getOptionalFields();
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    if (strategy.getOptionalFields) {
+      return strategy.getOptionalFields(nodeConfigForm) || [];
     }
-
-    if (!currentNodeMeta.value || !currentNodeMeta.value.formProperties) return [];
-    const properties = currentNodeMeta.value.formProperties;
-    const formRequired = currentNodeMeta.value.formRequired || [];
-    const formDefs = currentNodeMeta.value.formDefs || {};
-
-    return Object.keys(properties)
-      .filter(key => key !== '$schema')
-      .filter(key => {
-        const prop = properties[key];
-        return prop && (prop.type || prop.$ref || prop.anyOf) && prop.$required !== true && !formRequired.includes(key);
-      })
-      .map(key => {
-        const prop = properties[key];
-        if (!prop) return null;
-        const isRequired = prop.$required === true || formRequired.includes(key);
-        const value = nodeConfigForm[key];
-        const onUpdate = (val: any) => { nodeConfigForm[key] = val; };
-        return renderFormField(properties, key, isRequired, formDefs, value, onUpdate, selectedNode.value!.data.type);
-      })
-      .filter(Boolean);
+    return [];
   });
 
   function handleSaveConfig() {
@@ -301,81 +188,35 @@ export function useNodeConfig(
       return;
     }
 
-    const nodeType = selectedNode.value.data.type;
-    const strategy = flowControlNodeRegistry.get(nodeType);
-    const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
-    
-    if (flowControlNodeRegistry.isFlowControlContainer(nodeType) || hasStrategy) {
-      const config: Record<string, any> = {};
-      Object.keys(nodeConfigForm).forEach(key => {
-        config[key] = nodeConfigForm[key];
-      });
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
 
-      if (selectedNode.value.data.type === 'idp_core_http_Request') {
-        if (!config.uri || !config.uri.trim()) {
-          message.error('请填写请求URL');
-          return;
-        }
-      }
-
-      selectedNode.value.data.config = config;
-
-      // Use strategy saveConfig if available, otherwise just update the node
-      if (strategy?.saveConfig) {
-        strategy.saveConfig(config, store);
-      }
-
-      message.success('节点配置已保存');
-      closeConfigPanel();
-      return;
-    }
-
-    const missingFields: string[] = [];
-
-    requiredFields.value.forEach(field => {
-      if (!field) return;
-      const value = nodeConfigForm[field.props.key];
-      if (value === undefined || value === null || value === '') {
-        missingFields.push(field.props.label);
-      }
+    // 1. 收集表单数据
+    let config: Record<string, any> = {};
+    Object.keys(nodeConfigForm).forEach(key => {
+      config[key] = nodeConfigForm[key];
     });
 
-    if (missingFields.length > 0) {
-      message.error(`请填写必填项：${missingFields.join('、')}`);
-      return;
+    // 2. 序列化（前端表单 → Kestra 配置）
+    if (strategy.serializeConfig) {
+      config = strategy.serializeConfig(config);
     }
 
-    const config: Record<string, any> = {};
-    const meta = currentNodeMeta.value;
-
-    if (meta && meta.formProperties) {
-      const formProperties = meta.formProperties;
-      Object.keys(formProperties).forEach(key => {
-        if (key !== '$schema') {
-          const schema = formProperties[key];
-          if (!schema) return;
-          if (schema.anyOf) {
-            const selectedIndex = nodeConfigForm[key];
-            if (selectedIndex !== undefined && selectedIndex !== null) {
-              const selectedOption = schema.anyOf[selectedIndex];
-              if (selectedOption) {
-                // 优先检查 _values（有 subFields 的情况），其次检查 _value（无 subFields 的情况）
-                const subValues = nodeConfigForm[key + '_values'];
-                const directValue = nodeConfigForm[key + '_value'];
-                const values = subValues || directValue;
-                if (values !== undefined) {
-                  config[key] = serializeFieldValue(selectedOption, values, meta.formDefs || {});
-                }
-              }
-            }
-          } else {
-            config[key] = serializeFieldValue(schema, nodeConfigForm[key], meta.formDefs || {});
-          }
-        }
-      });
+    // 3. 校验
+    if (strategy.validateConfig) {
+      const error = strategy.validateConfig(config);
+      if (error) {
+        message.error(error);
+        return;
+      }
     }
 
+    // 4. 保存
     selectedNode.value.data.config = config;
+
+    if (strategy.saveConfig) {
+      strategy.saveConfig(config, store);
+    }
+
     message.success('节点配置已保存');
     closeConfigPanel();
   }

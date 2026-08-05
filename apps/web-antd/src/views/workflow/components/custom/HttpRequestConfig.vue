@@ -89,7 +89,7 @@ if (!props.nodeConfigForm.options) {
     readTimeout: 'PT10S',
     ssl: { insecureTrustAllCertificates: true },
     logs: [],
-    defaultCharset: 'utf8',
+    defaultCharset: 'UTF-8',
   };
 } else {
   if (!props.nodeConfigForm.options.auth)
@@ -309,13 +309,13 @@ watch(
   () => props.nodeConfigForm.bodyType,
   (val) => {
     const contentTypeMap: Record<string, string> = {
-      none: 'application/json',
       'form-data': 'multipart/form-data',
       'url-encoded': 'application/x-www-form-urlencoded',
       json: 'application/json',
     };
+    // bodyType=none 时不设置 contentType
     props.nodeConfigForm.contentType =
-      contentTypeMap[val] || 'application/json';
+      contentTypeMap[val] || '';
   },
   { immediate: true },
 );

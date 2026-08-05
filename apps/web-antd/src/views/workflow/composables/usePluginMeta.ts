@@ -2,6 +2,20 @@ import { ref, computed } from 'vue';
 import { message } from 'ant-design-vue';
 import { getPluginTree, getPluginMetaBatch, type PluginGroupTreeDTO, type PluginMetaDetailDTO } from '#/api';
 
+/**
+ * 延迟获取 flowControlNodeRegistry，避免循环依赖。
+ * nodes 模块通过 index.ts 统一导入，而 usePluginMeta 在早期加载，
+ * 直接导入 nodes/types 会导致模块初始化顺序问题。
+ */
+let _registry: any = null;
+async function getRegistryAsync() {
+  if (!_registry) {
+    const mod = await import('../nodes/types');
+    _registry = mod.flowControlNodeRegistry;
+  }
+  return _registry;
+}
+
 const pluginGroupsCache = ref<Record<string, PluginGroupTreeDTO[]>>({});
 const pluginMetaCache = ref<Record<string, PluginMetaDetailDTO>>({});
 const isPluginLoading = ref(false);
@@ -63,6 +77,23 @@ function switchTab(tab: 'task' | 'template') {
 async function loadPluginMeta(nodeType: string): Promise<PluginMetaDetailDTO | null> {
   const cached = pluginMetaCache.value[nodeType];
   if (cached) {
+    // 如果已缓存但未注册到 registry，异步补充注册
+    if (cached.formProperties) {
+      getRegistryAsync().then(registry => {
+        if (!registry.hasStrategy(nodeType)) {
+          registry.registerSchemaMeta({
+            nodeType,
+            nodeName: cached.nodeName || nodeType,
+            icon: cached.icon || 'mdi:cube-outline',
+            description: cached.description || '',
+            formProperties: cached.formProperties as any,
+            formRequired: cached.formRequired || [],
+            formDefs: cached.formDefs || {},
+            outputKeys: cached.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+          });
+        }
+      });
+    }
     return cached;
   }
 
@@ -75,6 +106,25 @@ async function loadPluginMeta(nodeType: string): Promise<PluginMetaDetailDTO | n
       parseMetaSchema(meta);
       // 替换整个对象以强制触发响应式更新
       pluginMetaCache.value = { ...pluginMetaCache.value, [nodeType]: meta };
+
+      // 异步注册到 flowControlNodeRegistry
+      if (meta.formProperties) {
+        getRegistryAsync().then(registry => {
+          if (!registry.hasStrategy(nodeType)) {
+            registry.registerSchemaMeta({
+              nodeType,
+              nodeName: meta.nodeName || nodeType,
+              icon: meta.icon || 'mdi:cube-outline',
+              description: meta.description || '',
+              formProperties: meta.formProperties as any,
+              formRequired: meta.formRequired || [],
+              formDefs: meta.formDefs || {},
+              outputKeys: meta.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+            });
+          }
+        });
+      }
+
       return meta;
     }
   } catch (error) {
@@ -158,10 +208,28 @@ function parseMetaSchema(meta: PluginMetaDetailDTO): void {
 /**
  * 批量预加载多个节点类型的元数据。
  * 已缓存的会跳过，使用后端批量接口减少请求次数。
+ * 加载完成后异步注册到 flowControlNodeRegistry，确保策略统一。
  */
 async function preloadPluginMeta(nodeTypes: string[]): Promise<void> {
   const uncached = nodeTypes.filter((t) => t && !pluginMetaCache.value[t]);
   if (uncached.length === 0) {
+    // 所有节点都已缓存，确保它们都注册到 registry
+    const registry = await getRegistryAsync();
+    for (const nodeType of nodeTypes) {
+      const cached = pluginMetaCache.value[nodeType];
+      if (cached?.formProperties && !registry.hasStrategy(nodeType)) {
+        registry.registerSchemaMeta({
+          nodeType,
+          nodeName: cached.nodeName || nodeType,
+          icon: cached.icon || 'mdi:cube-outline',
+          description: cached.description || '',
+          formProperties: cached.formProperties as any,
+          formRequired: cached.formRequired || [],
+          formDefs: cached.formDefs || {},
+          outputKeys: cached.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+        });
+      }
+    }
     return;
   }
 
@@ -169,11 +237,26 @@ async function preloadPluginMeta(nodeTypes: string[]): Promise<void> {
     const data = (await getPluginMetaBatch(uncached)) as Record<string, PluginMetaDetailDTO>;
     if (data) {
       const newCache = { ...pluginMetaCache.value };
+      const registry = await getRegistryAsync();
       for (const nodeType of uncached) {
         const meta = data[nodeType];
         if (!meta) continue;
         parseMetaSchema(meta);
         newCache[nodeType] = meta;
+
+        // 同步注册到 flowControlNodeRegistry
+        if (meta.formProperties && !registry.hasStrategy(nodeType)) {
+          registry.registerSchemaMeta({
+            nodeType,
+            nodeName: meta.nodeName || nodeType,
+            icon: meta.icon || 'mdi:cube-outline',
+            description: meta.description || '',
+            formProperties: meta.formProperties as any,
+            formRequired: meta.formRequired || [],
+            formDefs: meta.formDefs || {},
+            outputKeys: meta.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+          });
+        }
       }
       // 替换整个对象以强制触发响应式更新
       pluginMetaCache.value = newCache;

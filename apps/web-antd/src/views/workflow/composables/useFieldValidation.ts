@@ -22,7 +22,11 @@ function isEmptyValue(value: any): boolean {
   return false;
 }
 
-export function validateNodeConfig(node: any, pluginMetaCache: Record<string, any>): { isValid: boolean; missingFields: string[] } {
+/**
+ * 统一校验节点配置。
+ * 所有节点都通过策略的 getRequiredFields 获取必填项，不再需要 pluginMetaCache。
+ */
+export function validateNodeConfig(node: any): { isValid: boolean; missingFields: string[] } {
   const missingFields: string[] = [];
 
   if (!node.data.label || !node.data.label.trim()) {
@@ -30,59 +34,45 @@ export function validateNodeConfig(node: any, pluginMetaCache: Record<string, an
   }
 
   const nodeType = node.data.type;
-  const hasStrategy = flowControlNodeRegistry.hasStrategy(nodeType);
-  if (hasStrategy) {
-    const strategy = flowControlNodeRegistry.get(nodeType);
-    const requiredFieldKeys = strategy.getRequiredFields();
-    const config = node.data.config || {};
-    requiredFieldKeys.forEach(field => {
-      if (field.props) {
-        const fieldValue = config[field.props.key];
-        // ArrayTable fields allow empty arrays (user can choose not to configure any items)
-        const isArrayTableField = field.type === 'ArrayTable';
-        if (isArrayTableField) {
-          // For ArrayTable, if the value is undefined, null, or empty array, it's valid
-          // (user simply didn't add any items)
-          if (fieldValue === undefined || fieldValue === null || 
-              (Array.isArray(fieldValue) && fieldValue.length === 0)) {
-            return; // Skip validation for empty ArrayTable
-          }
-        }
-        if (isEmptyValue(fieldValue)) {
-          missingFields.push(field.props.label);
-        }
-      }
-    });
-    return { isValid: missingFields.length === 0, missingFields };
-  }
-
-  const meta = pluginMetaCache[node.data.type];
-  if (!meta || !meta.formProperties) {
-    return { isValid: true, missingFields };
-  }
-
-  const properties = meta.formProperties;
-  const formRequired = meta.formRequired || [];
+  const strategy = flowControlNodeRegistry.get(nodeType);
   const config = node.data.config || {};
 
-  Object.keys(properties).forEach(key => {
-    if (key === '$schema') return;
-    const prop = properties[key];
-    const isRequired = prop.$required === true || formRequired.includes(key);
-    if (isRequired && isEmptyValue(config[key])) {
-      const label = prop.title || key;
-      missingFields.push(label);
+  // 1. 检查必填字段是否为空
+  const requiredFields = strategy.getRequiredFields?.() || [];
+  requiredFields.forEach(field => {
+    if (field.props) {
+      const fieldValue = config[field.props.key];
+      // ArrayTable 字段允许空数组（用户可以选择不配置任何项）
+      const isArrayTableField = field.type === 'ArrayTable';
+      if (isArrayTableField) {
+        if (fieldValue === undefined || fieldValue === null || 
+            (Array.isArray(fieldValue) && fieldValue.length === 0)) {
+          return;
+        }
+      }
+      if (isEmptyValue(fieldValue)) {
+        missingFields.push(field.props.label);
+      }
     }
   });
+
+  // 2. 如果策略有 validateConfig，也调用它
+  if (strategy.validateConfig) {
+    const error = strategy.validateConfig(config);
+    if (error) {
+      // 尝试从错误消息中提取字段名
+      missingFields.push(error);
+    }
+  }
 
   return { isValid: missingFields.length === 0, missingFields };
 }
 
-export function validateAllNodes(nodes: any[], pluginMetaCache: Record<string, any>): ValidationResult {
+export function validateAllNodes(nodes: any[]): ValidationResult {
   const errors: ValidationResult['errors'] = [];
 
   nodes.forEach(node => {
-    const result = validateNodeConfig(node, pluginMetaCache);
+    const result = validateNodeConfig(node);
     if (!result.isValid) {
       errors.push({
         nodeId: node.id,

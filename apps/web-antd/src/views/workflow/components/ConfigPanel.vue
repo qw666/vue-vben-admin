@@ -136,9 +136,9 @@ function handleSaveConfig() {
                 :disabled="true"
               />
             </div>
-            <div v-if="currentNodeMeta?.parsedSchema?.description" class="p-4 bg-blue-50 rounded-lg">
+            <div v-if="currentNodeMeta?.description" class="p-4 bg-blue-50 rounded-lg">
               <div class="text-sm text-blue-600 font-medium mb-1">配置说明</div>
-              <div class="text-sm text-blue-800">{{ currentNodeMeta.parsedSchema.description }}</div>
+              <div class="text-sm text-blue-800">{{ currentNodeMeta.description }}</div>
             </div>
           </template>
           <template v-if="isHttpRequestNode(selectedNode.data.type)">
