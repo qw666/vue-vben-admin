@@ -1,17 +1,24 @@
 <script lang="ts" setup>
-import type { VarNode } from '#/types/workflow';
 
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Empty, Input, Popover } from 'ant-design-vue';
+import { Empty, Popover } from 'ant-design-vue';
 
-import { isSingleVarRef, useVarSources } from '../../composables/useVarSources';
+import { useVarSources } from '../../composables/useVarSources';
+
+function getPopupContainer(trigger: any) {
+  return trigger?.parentNode || document.body;
+}
 
 /**
  * VarPicker - 变量选择器
- * 始终表现为输入框，通过 / 快捷键触发变量选择面板。
+ * 使用 contenteditable 实现，变量 token 渲染为 <span contenteditable="false">
+ * 浏览器自动将 token 作为原子单元处理：光标不能进入、删除时整体删除。
+ *
+ * 显示层：变量显示为别名 token（如 节点名.变量名）
+ * 存储层：始终存储真实 Kestra 表达式 {{ outputs.nodeId.field }}
  */
 const props = withDefaults(
   defineProps<{
@@ -50,52 +57,6 @@ const currentValue = computed<string>(() => {
   return props.value || '';
 });
 
-/**
- * 本地输入值 ref —— 解决受控 Input 的时序问题。
- * 用户输入时立即更新本地 ref，Input 不会因为 currentValue 尚未同步而擦除字符。
- */
-const inputValue = ref(currentValue.value);
-
-watch(currentValue, (val) => {
-  if (val !== inputValue.value) {
-    inputValue.value = val;
-  }
-}, { immediate: true });
-
-const isUnmounting = ref(false);
-
-onBeforeUnmount(() => {
-  isUnmounting.value = true;
-});
-
-function writeValue(val: string) {
-  if (isUnmounting.value) return;
-  inputValue.value = val;
-  if (props.field && props.nodeConfigForm) {
-    props.nodeConfigForm[fieldKey.value] = val;
-  }
-  emit('update:value', val);
-  emit('change', val);
-}
-
-// ===== 状态 =====
-
-const popoverOpen = ref(false);
-const searchValue = ref('');
-
-// ===== 变量查找 =====
-
-function findVarInTree(nodes: VarNode[], expression: string): VarNode | undefined {
-  for (const node of nodes) {
-    if (node.expression === expression) return node;
-    if (node.children && node.children.length > 0) {
-      const found = findVarInTree(node.children, expression);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
-
 // ===== 扁平化数据 =====
 
 interface FlatVarItem {
@@ -111,7 +72,7 @@ interface FlatSection {
   key: string;
   title: string;
   icon: string;
-  order: number;
+  order?: number;
   items: FlatVarItem[];
   children?: FlatSection[];
 }
@@ -121,7 +82,6 @@ const flatSections = computed<FlatSection[]>(() => {
 
   for (const group of availableVars.value) {
     if (group.group === 'upstream') {
-      // 直接将每个有输出的上游节点作为一级 section，移除"上游节点输出"这一层
       for (const child of group.children || []) {
         if (child.children && child.children.length > 0) {
           sections.push({
@@ -168,46 +128,436 @@ const flatSections = computed<FlatSection[]>(() => {
         key: group.key,
         title: group.label,
         icon: group.icon || 'mdi:information-outline',
-        order: group.order ?? 100,
+        order: (group as any).order ?? 100,
         items,
       });
     }
   }
 
-  return sections.sort((a, b) => a.order - b.order);
+  return sections.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 });
 
-// ===== 展开/折叠 =====
+// ===== expression ↔ alias 双向映射 =====
 
-const expandedSections = ref<Set<string>>(new Set());
+function normalizeExpr(expr: string): string {
+  return expr.replace(/\s+/g, ' ').trim();
+}
 
-watch(
-  flatSections,
-  (sections) => {
-    const keys = new Set<string>();
-    for (const s of sections) {
-      keys.add(s.key);
-      if (s.children) {
-        for (const c of s.children) keys.add(c.key);
+const expressionToAlias = computed<Map<string, string>>(() => {
+  const map = new Map<string, string>();
+  for (const section of flatSections.value) {
+    for (const item of section.items) {
+      if (item.expression) {
+        const normalized = normalizeExpr(item.expression);
+        const alias = section.title && section.title !== item.label
+          ? `${section.title}.${item.label}`
+          : item.label;
+        map.set(normalized, alias);
       }
     }
-    expandedSections.value = keys;
-  },
-  { immediate: true },
-);
+  }
+  return map;
+});
 
-function toggleSection(key: string) {
-  const next = new Set(expandedSections.value);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  expandedSections.value = next;
+const aliasToExpression = computed<Map<string, string>>(() => {
+  const map = new Map<string, string>();
+  for (const section of flatSections.value) {
+    for (const item of section.items) {
+      if (item.expression) {
+        const normalized = normalizeExpr(item.expression);
+        const alias = section.title && section.title !== item.label
+          ? `${section.title}.${item.label}`
+          : item.label;
+        map.set(alias, normalized);
+      }
+    }
+  }
+  return map;
+});
+
+const EXPR_REGEX = /\{\{[^{}]+\}\}/g;
+
+/** 存储值 → DOM 子节点数组（文本节点 + token span 节点） */
+function storedToDomNodes(stored: string): Node[] {
+  const nodes: Node[] = [];
+  if (!stored) return nodes;
+
+  const map = expressionToAlias.value;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  EXPR_REGEX.lastIndex = 0;
+
+  while ((match = EXPR_REGEX.exec(stored)) !== null) {
+    const start = match.index;
+    // 表达式前的文本
+    if (start > lastIndex) {
+      nodes.push(document.createTextNode(stored.slice(lastIndex, start)));
+    }
+    const normalized = normalizeExpr(match[0]);
+    const alias = map.get(normalized);
+    if (alias) {
+      // 已知变量 → token span
+      const span = document.createElement('span');
+      span.className = 'var-token';
+      span.contentEditable = 'false';
+      span.dataset.expr = normalized;
+      span.textContent = alias;
+      nodes.push(span);
+    } else {
+      // 未知表达式 → 原样文本
+      nodes.push(document.createTextNode(match[0]));
+    }
+    lastIndex = start + match[0].length;
+  }
+  // 尾部文本
+  if (lastIndex < stored.length) {
+    nodes.push(document.createTextNode(stored.slice(lastIndex)));
+  }
+  return nodes;
 }
 
-function isExpanded(key: string): boolean {
-  return expandedSections.value.has(key);
+/** DOM → 存储值（从 contenteditable div 提取） */
+function domToStoredValue(root: HTMLElement): string {
+  let result = '';
+  for (const child of root.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      result += child.textContent || '';
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const el = child as HTMLElement;
+      if (el.classList?.contains('var-token')) {
+        result += el.dataset.expr || '';
+      } else if (el.tagName === 'BR') {
+        // 忽略空行
+      } else {
+        // 其他元素递归
+        result += domToStoredValue(el);
+      }
+    }
+  }
+  return result;
 }
 
-// ===== 搜索（select 模式面板用）=====
+/** 将节点数组渲染到 contenteditable div */
+function renderDomNodes(root: HTMLElement, nodes: Node[]) {
+  root.innerHTML = '';
+  for (const node of nodes) {
+    root.appendChild(node);
+  }
+}
+
+// ===== 本地状态 =====
+
+const popoverOpen = ref(false);
+const searchValue = ref('');
+const slashQuery = ref('');
+const editorRef = ref<HTMLElement | null>(null);
+
+/** 存储值 ref — 数据模型层始终存储真实表达式 */
+const storedValue = ref(currentValue.value);
+
+/** 标记是否由外部 watch 触发渲染，避免 input 事件循环 */
+let isInternalRender = false;
+
+const isUnmounting = ref(false);
+
+onBeforeUnmount(() => {
+  isUnmounting.value = true;
+});
+
+/** 将存储值渲染到 DOM */
+function syncDomFromStored() {
+  if (!editorRef.value) return;
+  const nodes = storedToDomNodes(storedValue.value);
+  isInternalRender = true;
+  renderDomNodes(editorRef.value, nodes);
+  // 清除可能遗留的 <br>
+  if (editorRef.value.childNodes.length === 0) {
+    editorRef.value.innerHTML = '';
+  }
+  nextTick(() => {
+    isInternalRender = false;
+  });
+}
+
+/** 将 DOM 内容写回存储值 */
+function writeStoredFromDom() {
+  if (!editorRef.value || isInternalRender) return;
+  const stored = domToStoredValue(editorRef.value);
+  storedValue.value = stored;
+  if (props.field && props.nodeConfigForm) {
+    props.nodeConfigForm[fieldKey.value] = stored;
+  }
+  emit('update:value', stored);
+  emit('change', stored);
+}
+
+watch(currentValue, (val) => {
+  if (val !== storedValue.value) {
+    storedValue.value = val;
+    syncDomFromStored();
+  }
+});
+
+onMounted(() => {
+  // 组件挂载后首次同步 DOM（确保 editorRef 已就绪）
+  nextTick(() => {
+    if (storedValue.value) {
+      syncDomFromStored();
+    }
+  });
+});
+
+watch(storedValue, () => {
+  // 仅在非用户输入触发时重新渲染 DOM
+  // 用户输入时 writeStoredFromDom 已经更新了 storedValue，不需要再渲染
+});
+
+// ===== 事件处理 =====
+
+function handleInput() {
+  if (isInternalRender) return;
+  writeStoredFromDom();
+
+  // 检测 / 触发变量面板
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) {
+    popoverOpen.value = false;
+    slashQuery.value = '';
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  const textBefore = getTextBeforeCursor();
+  const lastSlashIdx = textBefore.lastIndexOf('/');
+
+  if (lastSlashIdx === -1) {
+    popoverOpen.value = false;
+    slashQuery.value = '';
+    return;
+  }
+
+  const query = textBefore.slice(lastSlashIdx + 1);
+  if (!query.includes(' ')) {
+    slashQuery.value = query;
+    popoverOpen.value = true;
+    return;
+  }
+
+  popoverOpen.value = false;
+  slashQuery.value = '';
+}
+
+/** 获取光标位置之前的纯文本（用于检测 / 命令） */
+function getTextBeforeCursor(): string {
+  if (!editorRef.value) return '';
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return '';
+
+  const range = sel.getRangeAt(0);
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(editorRef.value);
+  preRange.setEnd(range.endContainer, range.endOffset);
+  return preRange.toString();
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  // 变量面板打开时的快捷键
+  if (popoverOpen.value) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      popoverOpen.value = false;
+      slashQuery.value = '';
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const first = inputModeSearchResults.value
+        .flatMap((s) => [...s.items, ...(s.children?.flatMap((c) => c.items) || [])])
+        .find((i) => i.expression);
+      if (first) pickVar(first);
+      return;
+    }
+  }
+
+  // contenteditable 已自动处理 Backspace/Delete 对 token 的整体删除
+  // 只需要阻止 / 的默认行为（打开面板但不写入字符）
+  if (e.key === '/' && !popoverOpen.value) {
+    // 允许 / 字符输入，handleInput 会检测并打开面板
+  }
+}
+
+function handleFocus() {
+  if (blurTimer) {
+    clearTimeout(blurTimer);
+    blurTimer = null;
+  }
+}
+
+let blurTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleBlur() {
+  // 失焦时确保存储值同步
+  if (!isInternalRender) {
+    writeStoredFromDom();
+  }
+  blurTimer = setTimeout(() => {
+    popoverOpen.value = false;
+  }, 150);
+}
+
+function handlePaste(e: ClipboardEvent) {
+  // 粘贴纯文本，避免带入 HTML 格式
+  e.preventDefault();
+  const text = e.clipboardData?.getData('text/plain') || '';
+  document.execCommand('insertText', false, text);
+  // 粘贴后同步存储值
+  nextTick(() => {
+    writeStoredFromDom();
+  });
+}
+
+// ===== 变量插入 =====
+
+function placeCaretAtEnd(el: HTMLElement) {
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+function placeCaretAfterNode(node: Node) {
+  const range = document.createRange();
+  range.setStartAfter(node);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+function insertNodeAtCursor(node: Node) {
+  if (!editorRef.value) return;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !editorRef.value.contains(sel.anchorNode)) {
+    // 光标不在编辑器内，追加到末尾
+    editorRef.value.appendChild(node);
+    placeCaretAfterNode(node);
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(node);
+  placeCaretAfterNode(node);
+}
+
+function pickVar(item: FlatVarItem) {
+  if (!item.expression || item.disabled) return;
+  if (blurTimer) {
+    clearTimeout(blurTimer);
+    blurTimer = null;
+  }
+
+  const normalized = normalizeExpr(item.expression);
+  const alias = expressionToAlias.value.get(normalized);
+
+  if (alias) {
+    // 已知变量 → 插入 token span
+    const span = document.createElement('span');
+    span.className = 'var-token';
+    span.contentEditable = 'false';
+    span.dataset.expr = normalized;
+    span.textContent = alias;
+
+    // 先删除光标前的 / 命令文本
+    deleteSlashQuery();
+
+    insertNodeAtCursor(span);
+  } else {
+    // 未知变量 → 插入原始表达式文本
+    const text = document.createTextNode(normalized);
+    deleteSlashQuery();
+    insertNodeAtCursor(text);
+  }
+
+  // 同步存储值
+  writeStoredFromDom();
+
+  popoverOpen.value = false;
+  slashQuery.value = '';
+}
+
+/** 删除光标前的 / 搜索命令文本 */
+function deleteSlashQuery() {
+  if (!editorRef.value || !slashQuery.value) return;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+
+  // 构建完整 DOM 子节点列表（除 token 外的文本节点内容 + token）
+  // 找到 / 所在的位置，删除从 / 到光标处的所有内容
+  const range = sel.getRangeAt(0);
+  const textBefore = getTextBeforeCursor();
+  const slashIdx = textBefore.lastIndexOf('/');
+  if (slashIdx < 0) return;
+
+  // 简化方案：直接操作 textContent 层级
+  // 但 DOM 中可能有 token span，所以我们先重建存储值
+  const currentStored = domToStoredValue(editorRef.value);
+  const storedSlashIdx = currentStored.lastIndexOf('/');
+  if (storedSlashIdx < 0) return;
+
+  // 从存储值中删除 / 到对应位置的内容
+  // 注意：slashQuery 是用户输入的搜索词，包含 /
+  const newStored = currentStored.slice(0, storedSlashIdx) + currentStored.slice(storedSlashIdx + 1 + slashQuery.value.length);
+  storedValue.value = newStored;
+  syncDomFromStored();
+
+  // 光标定位到删除位置
+  nextTick(() => {
+    if (editorRef.value) {
+      const pos = storedSlashIdx;
+      setCaretByOffset(editorRef.value, pos);
+    }
+  });
+}
+
+/** 根据文本偏移量设置光标位置 */
+function setCaretByOffset(root: HTMLElement, offset: number) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let remaining = offset;
+  let node: Text | null;
+  while ((node = walker.nextNode() as Text | null)) {
+    const len = node.nodeValue?.length || 0;
+    if (remaining <= len) {
+      const range = document.createRange();
+      range.setStart(node, remaining);
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      return;
+    }
+    remaining -= len;
+  }
+  // 超出范围，放到末尾
+  placeCaretAtEnd(root);
+}
+
+function togglePanel() {
+  if (!editorRef.value) return;
+  if (popoverOpen.value) {
+    popoverOpen.value = false;
+    slashQuery.value = '';
+  } else {
+    popoverOpen.value = true;
+    slashQuery.value = '';
+    editorRef.value.focus();
+    placeCaretAtEnd(editorRef.value);
+  }
+}
+
+// ===== 搜索 =====
 
 const filteredSections = computed<FlatSection[]>(() => {
   if (!searchValue.value.trim()) return flatSections.value;
@@ -252,140 +602,8 @@ const filteredSections = computed<FlatSection[]>(() => {
       }
       return null;
     })
-    .filter((s): s is FlatSection => s !== null);
+    .filter((s) => s !== null) as FlatSection[];
 });
-
-// ===== Input / 触发 =====
-
-const inputRef = ref<any>(null);
-const slashQuery = ref('');
-let blurTimer: ReturnType<typeof setTimeout> | null = null;
-
-function getNativeInput(): HTMLInputElement | null {
-  if (!inputRef.value) return null;
-  const el = inputRef.value.$el || inputRef.value;
-  return (el.querySelector?.('input') as HTMLInputElement) || (el as HTMLInputElement);
-}
-
-function handleInput(e: Event) {
-  const target = e.target as HTMLInputElement;
-  // inputValue 已通过 v-model 自动更新，这里只需同步到父组件并检测 / 触发
-  writeValue(target.value);
-
-  const cursor = target.selectionStart ?? target.value.length;
-  const textBefore = target.value.slice(0, cursor);
-  const lastSlashIdx = textBefore.lastIndexOf('/');
-
-  if (lastSlashIdx === -1) {
-    popoverOpen.value = false;
-    slashQuery.value = '';
-    return;
-  }
-
-  // 输入 / 即触发变量选择（与 Dify 行为一致）
-  // 搜索词（/ 后到光标之间的文本）不含空格时保持面板打开
-  const query = textBefore.slice(lastSlashIdx + 1);
-  if (!query.includes(' ')) {
-    slashQuery.value = query;
-    popoverOpen.value = true;
-    return;
-  }
-
-  popoverOpen.value = false;
-  slashQuery.value = '';
-}
-
-function handleKeydown(e: KeyboardEvent) {
-  if (!popoverOpen.value) {
-    if (e.key === '/') {
-      popoverOpen.value = false;
-    }
-    return;
-  }
-
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    popoverOpen.value = false;
-    slashQuery.value = '';
-    return;
-  }
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const first = inputModeSearchResults.value
-      .flatMap((s) => [...s.items, ...(s.children?.flatMap((c) => c.items) || [])])
-      .find((i) => i.expression);
-    if (first) pickVar(first);
-    return;
-  }
-}
-
-function handleFocus() {
-  if (blurTimer) {
-    clearTimeout(blurTimer);
-    blurTimer = null;
-  }
-}
-
-function handleBlur() {
-  blurTimer = setTimeout(() => {
-    popoverOpen.value = false;
-  }, 150);
-}
-
-function togglePanel() {
-  if (popoverOpen.value) {
-    popoverOpen.value = false;
-    slashQuery.value = '';
-  } else {
-    popoverOpen.value = true;
-    slashQuery.value = '';
-  }
-}
-
-function pickVar(item: FlatVarItem) {
-  if (!item.expression || item.disabled) return;
-  if (blurTimer) {
-    clearTimeout(blurTimer);
-    blurTimer = null;
-  }
-  insertAtCursor(item.expression);
-}
-
-function insertAtCursor(expression: string) {
-  if (blurTimer) {
-    clearTimeout(blurTimer);
-    blurTimer = null;
-  }
-
-  const input = getNativeInput();
-  const value = inputValue.value;
-  const cursor = input ? (input.selectionStart ?? value.length) : value.length;
-
-  const textBefore = value.slice(0, cursor);
-  const lastSlashIdx = textBefore.lastIndexOf('/');
-
-  // 找到触发变量选择的 / 位置，选中的变量将替换 / 及其后的搜索词
-  let insertStart = cursor;
-  if (lastSlashIdx >= 0) {
-    insertStart = lastSlashIdx;
-  }
-
-  const rawExpr = expression.includes('{{') ? expression : '{{ ' + expression + ' }}';
-  const before = value.slice(0, insertStart);
-  const after = value.slice(cursor);
-  const newValue = before + rawExpr + after;
-  writeValue(newValue);
-  popoverOpen.value = false;
-  slashQuery.value = '';
-
-  setTimeout(() => {
-    if (input) {
-      input.focus();
-      const pos = before.length + rawExpr.length;
-      input.setSelectionRange(pos, pos);
-    }
-  }, 0);
-}
 
 const inputModeSearchResults = computed<FlatSection[]>(() => {
   if (!slashQuery.value.trim()) return filteredSections.value;
@@ -430,17 +648,17 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
       }
       return null;
     })
-    .filter((s): s is FlatSection => s !== null);
+    .filter((s) => s !== null) as FlatSection[];
 });
 </script>
 
 <template>
   <Popover
     v-model:open="popoverOpen"
-    trigger=""
+    :trigger="[]"
     placement="bottomLeft"
     overlay-class-name="var-picker-popover"
-    :get-popup-container="(trigger: any) => (trigger?.parentNode || document.body)"
+    :get-popup-container="(trigger: any) => getPopupContainer(trigger)"
   >
     <template #content>
       <div class="var-dropdown" @click.stop>
@@ -489,34 +707,73 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
         <Empty v-else :image-style="{ height: '48px' }" description="没有匹配的变量" class="var-empty" />
       </div>
     </template>
-    <Input
-      ref="inputRef"
-      :value="inputValue"
-      :placeholder="placeholder"
-      :size="size"
-      :disabled="disabled"
-      @input="handleInput"
-      @keydown="handleKeydown"
-      @focus="handleFocus"
-      @blur="handleBlur"
-      :class="['var-picker', { 'var-picker-sm': size === 'small', 'var-picker-disabled': disabled }]"
-    >
-      <template #suffix>
-        <span
-          class="trigger-icon"
-          @mousedown.prevent
-          @click.stop="togglePanel"
-        >
-          <IconifyIcon icon="mdi:variable" :size="14" />
-        </span>
-      </template>
-    </Input>
+    <div class="var-picker-wrapper" :class="{ 'is-disabled': disabled, 'var-picker-sm': size === 'small' }">
+      <div
+        ref="editorRef"
+        class="var-picker-editor"
+        :contenteditable="!disabled"
+        :data-placeholder="placeholder"
+        @input="handleInput"
+        @keydown="handleKeydown"
+        @focus="handleFocus"
+        @blur="handleBlur"
+        @paste="handlePaste"
+      ></div>
+      <span
+        class="trigger-icon"
+        @mousedown.prevent
+        @click.stop="togglePanel"
+      >
+        <IconifyIcon icon="mdi:variable" :size="14" />
+      </span>
+    </div>
   </Popover>
 </template>
 
 <style scoped>
-.var-picker {
+.var-picker-wrapper {
+  display: flex;
+  align-items: center;
   width: 100%;
+  min-height: 32px;
+  padding: 2px 24px 2px 8px;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  transition: border-color 0.2s;
+  position: relative;
+}
+
+.var-picker-wrapper:hover {
+  border-color: #4096ff;
+}
+
+.var-picker-wrapper:focus-within {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.1);
+}
+
+.var-picker-wrapper.is-disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.var-picker-editor {
+  flex: 1;
+  min-height: 24px;
+  outline: none;
+  font-size: 14px;
+  line-height: 24px;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-y: auto;
+}
+
+.var-picker-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #bfbfbf;
+  pointer-events: none;
 }
 
 .trigger-icon {
@@ -525,10 +782,25 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
   cursor: pointer;
   color: #bfbfbf;
   transition: color 0.2s;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .trigger-icon:hover {
   color: #1677ff;
+}
+
+.var-picker-sm {
+  min-height: 24px;
+  padding: 0 20px 0 6px;
+}
+
+.var-picker-sm .var-picker-editor {
+  min-height: 20px;
+  font-size: 13px;
+  line-height: 20px;
 }
 </style>
 
@@ -657,5 +929,28 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
 
 .var-picker-popover .var-empty {
   padding: 32px 16px;
+}
+
+/* ===== VarPicker Token 样式（必须在非 scoped 块，因为 token 是动态创建的） ===== */
+.var-token {
+  display: inline;
+  padding: 0 4px;
+  margin: 0 1px;
+  background: #e6f4ff;
+  border-radius: 4px;
+  color: #1677ff;
+  font-size: 0.85em;
+  font-weight: 500;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  vertical-align: baseline;
+  white-space: nowrap;
+  user-select: all;
+  transition: background 0.15s ease;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.var-token:hover {
+  background: #bae0ff;
 }
 </style>
