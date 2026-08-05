@@ -117,10 +117,28 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
           }
         }
 
+        // 找出当前节点沿出边可达的下游节点（用于过滤）
+        const downstreamIds = new Set<string>();
+        {
+          const dfsStack = [id];
+          while (dfsStack.length > 0) {
+            const dfsId = dfsStack.pop()!;
+            for (const e of edges) {
+              if (e.source === dfsId) {
+                if (!downstreamIds.has(e.target)) {
+                  downstreamIds.add(e.target);
+                  dfsStack.push(e.target);
+                }
+              }
+            }
+          }
+        }
+
         if (visitedChildBranchKeys.size > 0) {
           // 1a. 当前节点在容器内部：只提取已访问分支的兄弟节点（分支隔离）
+          // 排除下游节点（当前节点执行后才执行的节点）
           for (const child of allChildren) {
-            if (visitedChildBranchKeys.has(child.branchKey) && !visited.has(child.nodeId)) {
+            if (visitedChildBranchKeys.has(child.branchKey) && !visited.has(child.nodeId) && !downstreamIds.has(child.nodeId)) {
               visited.add(child.nodeId);
               queue.push(child.nodeId);
               const childNode = nodes.find((n) => n.id === child.nodeId);
@@ -150,9 +168,24 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
         const branchInfo = findBranchInContainer(parentNode.data.config, id);
         if (branchInfo) {
           // 当前节点在父容器的某个分支中
-          // 将同分支的兄弟节点添加到队列
+          // 找出当前节点沿出边可达的下游节点（同分支内）
+          const downstreamIds = new Set<string>();
+          const dfsStack = [id];
+          while (dfsStack.length > 0) {
+            const dfsId = dfsStack.pop()!;
+            for (const e of edges) {
+              if (e.source === dfsId && branchInfo.nodeIds.includes(e.target)) {
+                if (!downstreamIds.has(e.target)) {
+                  downstreamIds.add(e.target);
+                  dfsStack.push(e.target);
+                }
+              }
+            }
+          }
+
+          // 将同分支的兄弟节点中 非下游 的节点添加到队列
           for (const siblingId of branchInfo.nodeIds) {
-            if (!visited.has(siblingId) && siblingId !== id) {
+            if (!visited.has(siblingId) && siblingId !== id && !downstreamIds.has(siblingId)) {
               visited.add(siblingId);
               queue.push(siblingId);
               const siblingNode = nodes.find((n) => n.id === siblingId);
