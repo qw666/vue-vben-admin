@@ -30,6 +30,10 @@ const { availableVars } = useVarSources();
 
 const editorRef = ref<HTMLElement | null>(null);
 
+function getPopupContainer() {
+  return document.body;
+}
+
 // ===== 树形数据 =====
 interface TreeNode {
   key: string;
@@ -476,7 +480,7 @@ function togglePanel() {
         trigger="click"
         placement="bottomRight"
         overlay-class-name="var-inserter-popover"
-        :get-popup-container="(trigger: any) => trigger.parentNode || document.body"
+        :get-popup-container="getPopupContainer"
       >
         <template #content>
           <div class="var-dropdown" @click.stop>
@@ -600,10 +604,33 @@ function togglePanel() {
 <style>
 .var-inserter-popover .ant-popover-inner {
   padding: 0 !important;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
 }
 
 .var-inserter-popover .ant-popover-inner-content {
   padding: 0 !important;
+}
+
+.var-inserter-popover .var-dropdown {
+  width: 320px;
+  max-height: 420px;
+  overflow: hidden;
+}
+
+.var-inserter-popover .var-search {
+  padding: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.var-inserter-popover .var-tree-wrap {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.var-inserter-popover .var-empty {
+  padding: 32px 16px;
 }
 
 /* ===== VarToken 样式（必须在非 scoped 块） ===== */
