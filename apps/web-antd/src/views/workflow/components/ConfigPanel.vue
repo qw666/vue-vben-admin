@@ -213,9 +213,6 @@ function handleSaveConfig() {
           </template>
         </div>
       </div>
-      <div class="p-4 border-t border-gray-200">
-        <Button type="primary" block @click="handleSaveConfig">保存配置</Button>
-      </div>
     </div>
   </div>
 </template>
