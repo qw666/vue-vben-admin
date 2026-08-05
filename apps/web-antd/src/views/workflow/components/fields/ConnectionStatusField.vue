@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { useWorkflowStore } from '#/store/workflow';
+import { flowControlNodeRegistry } from '../../nodes/types';
 
 const props = defineProps<{
   field: any;
@@ -14,14 +15,51 @@ const store = useWorkflowStore();
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
-// Collect all items including chain descendants via edges
-const allItems = computed(() => {
-  const configItems = props.nodeConfigForm[fieldKey.value];
-  if (!Array.isArray(configItems)) return [];
-
+// 收集链式后代节点（与 SwitchCasesField 保持一致）
+function collectChainDescendants(nodeId: string): any[] {
   const workflow = store.currentWorkflow;
   const edges = workflow?.edges || [];
   const nodes = workflow?.nodes || [];
+  const result: any[] = [];
+  const visitedIds = new Set<string>([nodeId]);
+
+  let currentId = nodeId;
+  while (currentId) {
+    const currentNode = nodes.find((n: any) => n.id === currentId);
+    // 如果当前节点是容器节点（Switch/If/ForEach/Parallel），停止链遍历
+    // 容器内部的子节点通过容器的边连接，不属于当前分支的链式后代
+    if (currentNode && flowControlNodeRegistry.isFlowControlContainer(currentNode.data.type)) {
+      break;
+    }
+    const downstreamEdges = edges.filter((e: any) => e.source === currentId);
+    let nextId: string | undefined;
+    for (const edge of downstreamEdges) {
+      const targetNode = nodes.find((n: any) => n.id === edge.target);
+      if (!targetNode) continue;
+      if (visitedIds.has(targetNode.id)) continue;
+      if (targetNode.data.type === 'idp_core_flow_End') continue;
+      // 遇到容器节点，停止链遍历
+      if (flowControlNodeRegistry.isFlowControlContainer(targetNode.data.type)) {
+        return result;
+      }
+      visitedIds.add(targetNode.id);
+      result.push({
+        nodeId: targetNode.id,
+        type: targetNode.data.type,
+        label: targetNode.data.label,
+      });
+      nextId = targetNode.id;
+      break;
+    }
+    currentId = nextId;
+  }
+  return result;
+}
+
+// 收集所有节点：直接配置项 + 链式后代
+const allItems = computed(() => {
+  const configItems = props.nodeConfigForm[fieldKey.value];
+  if (!Array.isArray(configItems)) return [];
 
   const result: any[] = [];
   const visitedIds = new Set<string>();
@@ -30,37 +68,16 @@ const allItems = computed(() => {
     if (item.nodeId) {
       if (!visitedIds.has(item.nodeId)) {
         visitedIds.add(item.nodeId);
+        // 直接连接的节点都显示（包括容器节点）
         result.push(item);
       }
-      // Collect chain descendants via edges
-      let currentId = item.nodeId;
-      while (currentId) {
-        const downstreamEdges = edges.filter((e: any) => e.source === currentId);
-        let nextId: string | undefined;
-        for (const edge of downstreamEdges) {
-          const targetNode = nodes.find((n: any) => n.id === edge.target);
-          if (!targetNode) continue;
-          if (visitedIds.has(targetNode.id)) continue;
-          // Skip flow control nodes and end nodes
-          if (targetNode.data.type === 'idp_core_flow_End') continue;
-          // Check if it's a flow control container node (has taskFields)
-          const fcConfig = targetNode.data.config;
-          const hasTaskFields = fcConfig && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else || fcConfig.tasks);
-          if (hasTaskFields && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else)) {
-            continue;
-          }
-          visitedIds.add(targetNode.id);
-          // Create display item from node
-          const displayItem = {
-            nodeId: targetNode.id,
-            type: targetNode.data.type,
-            label: targetNode.data.label,
-          };
-          result.push(displayItem);
-          nextId = targetNode.id;
-          break;
+      // 收集该节点后的链式后代（遇到容器节点会停止）
+      const chainItems = collectChainDescendants(item.nodeId);
+      for (const chainItem of chainItems) {
+        if (!visitedIds.has(chainItem.nodeId)) {
+          visitedIds.add(chainItem.nodeId);
+          result.push(chainItem);
         }
-        currentId = nextId;
       }
     } else {
       result.push(item);

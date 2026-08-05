@@ -46,7 +46,7 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
   }
 
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    const { formProperties, formDefs } = this.meta;
+    const { formProperties = {}, formDefs = {} } = this.meta;
     const config: Record<string, any> = {};
 
     Object.keys(formProperties).forEach(key => {
@@ -123,19 +123,29 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
     }
   }
 
-  getRequiredFields(formValues: Record<string, any>): { type: string; props: Record<string, any> }[] {
-    return this.getFields(formValues, true);
+  getRequiredFields(formValues: Record<string, any> = {}): { type: string; props: Record<string, any> }[] {
+    try {
+      return this.getFields(formValues, true);
+    } catch (e: any) {
+      console.error('[SchemaNodeStrategy] getRequiredFields error:', e?.message || e, this.nodeType);
+      return [];
+    }
   }
 
-  getOptionalFields(formValues: Record<string, any>): { type: string; props: Record<string, any> }[] {
-    return this.getFields(formValues, false);
+  getOptionalFields(formValues: Record<string, any> = {}): { type: string; props: Record<string, any> }[] {
+    try {
+      return this.getFields(formValues, false);
+    } catch (e: any) {
+      console.error('[SchemaNodeStrategy] getOptionalFields error:', e?.message || e, this.nodeType);
+      return [];
+    }
   }
 
   private getFields(
     formValues: Record<string, any>,
     isRequired: boolean,
   ): { type: string; props: Record<string, any> }[] {
-    const { formProperties, formRequired, formDefs } = this.meta;
+    const { formProperties = {}, formRequired = [], formDefs = {} } = this.meta;
     const fields: { type: string; props: Record<string, any> }[] = [];
 
     Object.keys(formProperties).forEach(key => {
@@ -169,37 +179,52 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
   }
 
   serializeConfig(config: Record<string, any>): Record<string, any> {
-    const { formProperties, formDefs } = this.meta;
+    const { formProperties = {}, formDefs = {} } = this.meta;
     const result: Record<string, any> = {};
 
-    Object.keys(formProperties).forEach(key => {
-      if (key === '$schema') return;
-      const schema = formProperties[key];
-      if (!schema) return;
+    try {
+      Object.keys(formProperties).forEach(key => {
+        if (key === '$schema') return;
+        const schema = formProperties[key];
+        if (!schema) return;
 
-      if (schema.anyOf) {
-        const selectedIndex = config[key];
-        if (selectedIndex !== undefined && selectedIndex !== null) {
-          const selectedOption = schema.anyOf[selectedIndex];
-          if (selectedOption) {
-            const subValues = config[key + '_values'];
-            const directValue = config[key + '_value'];
-            const values = subValues || directValue;
-            if (values !== undefined) {
-              result[key] = serializeFieldValue(selectedOption, values, formDefs);
+        if (schema.anyOf) {
+          const selectedIndex = config[key];
+          const subValues = config[key + '_values'];
+          const directValue = config[key + '_value'];
+
+          // 幂等性处理：如果 config[key] 已经是序列化后的值（不是索引）
+          // 则直接使用该值，不需要再次通过 anyOf 索引查找
+          if (typeof selectedIndex !== 'number' || selectedIndex >= schema.anyOf.length) {
+            // config[key] 已经是最终值（如字符串 'm'），直接使用
+            if (selectedIndex !== undefined && selectedIndex !== null) {
+              result[key] = selectedIndex;
+            }
+            return;
+          }
+
+          if (selectedIndex !== undefined && selectedIndex !== null) {
+            const selectedOption = schema.anyOf[selectedIndex];
+            if (selectedOption) {
+              const values = subValues || directValue;
+              if (values !== undefined) {
+                result[key] = serializeFieldValue(selectedOption, values, formDefs);
+              }
             }
           }
+        } else {
+          result[key] = serializeFieldValue(schema, config[key], formDefs);
         }
-      } else {
-        result[key] = serializeFieldValue(schema, config[key], formDefs);
-      }
-    });
+      });
+    } catch (e: any) {
+      console.error('[SchemaNodeStrategy] serializeConfig error:', e?.message || e, this.nodeType);
+    }
 
     return result;
   }
 
   validateConfig(config: Record<string, any>): string | null {
-    const { formProperties, formRequired } = this.meta;
+    const { formProperties = {}, formRequired = [] } = this.meta;
 
     for (const key of formRequired) {
       const value = config[key];

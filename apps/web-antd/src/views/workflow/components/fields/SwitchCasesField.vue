@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Input, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { useWorkflowStore } from '#/store/workflow';
+import { flowControlNodeRegistry } from '../../nodes/types';
 
 const props = defineProps<{
   field: any;
@@ -37,6 +38,11 @@ function collectChainDescendants(nodeId: string, excludeNodeIds: Set<string> = n
 
   let currentId = nodeId;
   while (currentId) {
+    const currentNode = nodes.find((n: any) => n.id === currentId);
+    // 如果当前节点是容器节点（Switch/If/ForEach/Parallel），停止链遍历
+    if (currentNode && flowControlNodeRegistry.isFlowControlContainer(currentNode.data.type)) {
+      break;
+    }
     const downstreamEdges = edges.filter((e: any) => e.source === currentId);
     let nextId: string | undefined;
     for (const edge of downstreamEdges) {
@@ -44,11 +50,9 @@ function collectChainDescendants(nodeId: string, excludeNodeIds: Set<string> = n
       if (!targetNode) continue;
       if (visitedIds.has(targetNode.id)) continue;
       if (targetNode.data.type === 'idp_core_flow_End') continue;
-      // Skip flow control container nodes (has taskFields like cases/defaults/then/else)
-      const fcConfig = targetNode.data.config;
-      const hasTaskFields = fcConfig && (fcConfig.cases || fcConfig.defaults || fcConfig.then || fcConfig.else);
-      if (hasTaskFields) {
-        continue;
+      // 遇到容器节点（Switch/If/ForEach/Parallel），停止链遍历
+      if (flowControlNodeRegistry.isFlowControlContainer(targetNode.data.type)) {
+        return result;
       }
       visitedIds.add(targetNode.id);
       result.push({
@@ -88,7 +92,7 @@ function getAllCaseItems(caseItems: any[]): any[] {
   const result: any[] = [];
   if (!Array.isArray(caseItems) || caseItems.length === 0) return result;
 
-  // Step 1: Add all items from caseItems
+  // Step 1: Add all items from caseItems (直接连接的节点都显示)
   const seenNodeIds = new Set<string>();
   for (const item of caseItems) {
     if (item.nodeId) {
