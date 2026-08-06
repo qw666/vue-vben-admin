@@ -398,7 +398,13 @@ function getJsonValidationTip(value: string): string {
               </div>
               <Select
                 :value="item.itemType || 'STRING'"
-                @change="(val: SelectValue) => updateField(index as number, 'itemType', val)"
+                @change="
+                  (val: SelectValue) => {
+                    updateField(index as number, 'itemType', val);
+                    // 切换子类型时重置默认值，避免类型不匹配
+                    updateField(index as number, 'defaults', []);
+                  }
+                "
                 style="flex: 1"
                 size="small"
               >

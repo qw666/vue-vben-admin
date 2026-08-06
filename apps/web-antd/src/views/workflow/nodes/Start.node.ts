@@ -147,6 +147,20 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
           // 对 STRING 类型，空字符串不保存
           if (input.type === 'STRING' && input.defaults === '') {
             // 跳过
+          } else if (input.type === 'ARRAY' && Array.isArray(input.defaults)) {
+            // ARRAY 类型：根据 itemType 转换数组元素类型
+            result.defaults = input.defaults.map((item: any) => {
+              if (input.itemType === 'INT') {
+                const num = parseInt(item, 10);
+                return isNaN(num) ? item : num;
+              } else if (input.itemType === 'FLOAT') {
+                const num = parseFloat(item);
+                return isNaN(num) ? item : num;
+              } else if (input.itemType === 'BOOLEAN') {
+                return Boolean(item);
+              }
+              return String(item);
+            });
           } else {
             result.defaults = input.defaults;
           }
