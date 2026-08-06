@@ -9,6 +9,7 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '并行执行',
     icon: 'mdi:split-vertical',
     description: '并行分支',
+    group: 'flowControl',
     ports: {
       input: 1,
       output: [

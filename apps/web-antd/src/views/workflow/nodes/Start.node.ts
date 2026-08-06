@@ -8,6 +8,7 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '开始',
     icon: 'mdi:play-circle',
     description: '流程开始节点',
+    group: 'hidden',
     ports: {
       input: 0,
       output: [

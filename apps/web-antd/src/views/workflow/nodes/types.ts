@@ -1,6 +1,12 @@
 export type ConnectionType = 'single' | 'list' | 'cases';
 export type ConnectionMode = 'parallel' | 'sequential';
 
+/** 前端节点分组标识（与后端 groupKey 对齐） */
+export type FrontendNodeGroup =
+  | 'flowControl' // 流程控制
+  | 'tools' // 工具
+  | 'hidden'; // 不在面板显示
+
 export interface WorkflowNodePort {
   field: string;
   label: string;
@@ -16,6 +22,8 @@ export interface FlowControlNodeConfig {
   nodeName: string;
   icon: string;
   description: string;
+  /** 前端节点声明的分组 */
+  group: FrontendNodeGroup;
   ports: {
     input?: number;
     output?: WorkflowNodePort[];
@@ -266,6 +274,50 @@ class FlowControlNodeRegistry {
       }
     });
     return result;
+  }
+
+  /**
+   * 获取前端维护的所有节点（含分组信息）
+   */
+  getFrontendNodes(): Array<{
+    type: string;
+    nodeName: string;
+    icon: string;
+    description: string;
+    group: FrontendNodeGroup;
+  }> {
+    const result: Array<{
+      type: string;
+      nodeName: string;
+      icon: string;
+      description: string;
+      group: FrontendNodeGroup;
+    }> = [];
+    this.strategies.forEach((strategy, type) => {
+      if (type !== 'default') {
+        result.push({
+          type,
+          nodeName: strategy.config.nodeName,
+          icon: strategy.config.icon,
+          description: strategy.config.description,
+          group: strategy.config.group || 'tools',
+        });
+      }
+    });
+    return result;
+  }
+
+  /**
+   * 获取前端节点（排除 hidden 分组）
+   */
+  getVisibleFrontendNodes(): Array<{
+    type: string;
+    nodeName: string;
+    icon: string;
+    description: string;
+    group: FrontendNodeGroup;
+  }> {
+    return this.getFrontendNodes().filter((n) => n.group !== 'hidden');
   }
 
   getConfig(nodeType: string): FlowControlNodeConfig {

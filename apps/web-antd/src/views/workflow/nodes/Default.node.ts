@@ -8,6 +8,7 @@ export const DefaultNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '默认节点',
     icon: 'mdi:circle',
     description: '基础执行节点',
+    group: 'hidden',
     ports: {
       input: 1,
       output: [

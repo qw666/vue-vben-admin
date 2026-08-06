@@ -9,6 +9,7 @@ export const ForEachNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '循环',
     icon: 'mdi:repeat',
     description: '循环执行',
+    group: 'flowControl',
     ports: {
       input: 1,
       output: [

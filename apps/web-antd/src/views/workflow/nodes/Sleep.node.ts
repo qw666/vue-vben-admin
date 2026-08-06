@@ -9,6 +9,7 @@ export const SleepNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '等待',
     icon: 'mdi:sleep',
     description: '睡眠等待',
+    group: 'flowControl',
     ports: {
       input: 1,
       output: [

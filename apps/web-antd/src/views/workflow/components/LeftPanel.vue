@@ -1,7 +1,11 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 import { IconifyIcon } from '@vben/icons';
-import { getFlowControlNodes } from '../config/workflow-node-config';
+import {
+  getVisibleFrontendNodes,
+  getGroupKey,
+  getGroupLabel,
+} from '../config/workflow-node-config';
 import { resolveNodeIcon } from '../utils/nodeIcon';
 
 const props = defineProps<{
@@ -15,79 +19,81 @@ const emit = defineEmits<{
   (e: 'dragStart', event: DragEvent, nodeType: string): void;
 }>();
 
-const flowControlNodes = computed(() => {
-  return getFlowControlNodes().filter(
-    (node) => node.type !== 'idp_core_flow_Start' && 
-             node.type !== 'idp_core_flow_End' &&
-             node.type !== 'idp_core_http_Request' &&
-             node.type !== 'idp_scripts_python_Script'
-  );
-});
+/**
+ * 合并前端节点到后端分组
+ * 
+ * 逻辑：
+ * 1. 前端节点优先：如果前端已有某个节点类型(type)，后端返回的同类型节点被忽略
+ * 2. 如果前端没有某个节点类型，则后端返回的节点正常显示
+ * 3. 前端节点的 group 直接与后端 groupKey 对齐
+ */
+const mergedGroups = computed(() => {
+  const frontendNodes = getVisibleFrontendNodes();
 
-const httpRequestNode = computed(() => {
-  return getFlowControlNodes().find((node) => node.type === 'idp_core_http_Request');
-});
+  // 1. 构建前端分组映射和节点类型集合
+  const frontendGroupMap = new Map<string, any>();
+  const frontendTypeSet = new Set<string>();
 
-const codeNode = computed(() => {
-  return getFlowControlNodes().find((node) => node.type === 'idp_scripts_python_Script');
-});
+  for (const node of frontendNodes) {
+    const groupKey = getGroupKey(node.group);
+    const groupName = getGroupLabel(node.group);
 
-// OutputValues：从前端策略注册表获取（OutputValues.node.ts 已注册策略）
-const outputValuesNode = computed(() => {
-  return getFlowControlNodes().find((node) => node.type === 'idp_core_output_OutputValues');
-});
+    if (!frontendGroupMap.has(groupKey)) {
+      frontendGroupMap.set(groupKey, {
+        groupKey,
+        groupName,
+        sort: 0,
+        pluginList: [],
+      });
+    }
 
-/** 将前端策略节点放入"工具"分组（不存在则创建） */
-function ensureNodeInToolsGroup(
-  groups: any[],
-  node: { type: string; nodeName: string; icon: string; description: string } | undefined,
-) {
-  if (!node) return;
-  const pluginItem = {
-    type: node.type,
-    nodeName: node.nodeName,
-    icon: node.icon,
-    description: node.description,
-  };
-  const toolsGroup = groups.find((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
-  if (toolsGroup) {
-    toolsGroup.pluginList = toolsGroup.pluginList || [];
-    const exists = toolsGroup.pluginList.find((p: any) => p.type === node.type);
+    const pluginItem = {
+      type: node.type,
+      nodeName: node.nodeName,
+      icon: node.icon,
+      description: node.description,
+    };
+
+    const group = frontendGroupMap.get(groupKey);
+    const exists = group.pluginList.find((p: any) => p.type === node.type);
     if (!exists) {
-      toolsGroup.pluginList.push(pluginItem);
-    }
-  } else {
-    groups.push({
-      groupKey: 'tools',
-      groupName: '工具',
-      pluginList: [pluginItem],
-    });
-  }
-}
-
-const mergedPluginGroups = computed(() => {
-  const groups = [...props.pluginGroups];
-
-  // 过滤掉 OutputValues（后面单独放到工具分组）
-  for (const group of groups) {
-    if (group.pluginList) {
-      group.pluginList = group.pluginList.filter((p: any) => p.type !== 'idp_core_output_OutputValues');
+      group.pluginList.push(pluginItem);
+      frontendTypeSet.add(node.type);
     }
   }
 
-  // 将前端策略节点放入工具分组
-  ensureNodeInToolsGroup(groups, httpRequestNode.value);
-  ensureNodeInToolsGroup(groups, codeNode.value);
-  ensureNodeInToolsGroup(groups, outputValuesNode.value);
+  // 2. 处理后端节点：如果前端已有同类型节点则忽略，否则添加到对应分组
+  for (const backendGroup of props.pluginGroups) {
+    if (!backendGroup.pluginList) continue;
 
-  // 调整分组顺序：工具分组移到流程控制分组后面
-  const toolsIdx = groups.findIndex((g: any) => g.groupName === '工具' || g.groupKey === 'tools');
-  if (toolsIdx > 0) {
-    const [toolsGroup] = groups.splice(toolsIdx, 1);
-    groups.unshift(toolsGroup);
+    for (const backendNode of backendGroup.pluginList) {
+      // 如果前端已有该类型节点，跳过
+      if (frontendTypeSet.has(backendNode.type)) continue;
+
+      // 添加到对应分组（前端分组优先使用前端的 groupName）
+      const groupKey = backendGroup.groupKey;
+      let targetGroup = frontendGroupMap.get(groupKey);
+
+      if (targetGroup) {
+        // 添加到已有前端分组
+        targetGroup.pluginList.push(backendNode);
+      } else {
+        // 创建新分组（使用后端的 groupName）
+        frontendGroupMap.set(groupKey, {
+          groupKey,
+          groupName: backendGroup.groupName,
+          sort: backendGroup.sort || 0,
+          pluginList: [backendNode],
+        });
+      }
+      frontendTypeSet.add(backendNode.type);
+    }
   }
 
-  return groups;
+  // 3. 转换为数组并排序
+  return Array.from(frontendGroupMap.values()).sort(
+    (a, b) => (a.sort || 0) - (b.sort || 0),
+  );
 });
 </script>
 
@@ -121,32 +127,11 @@ const mergedPluginGroups = computed(() => {
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
         <div v-else>
-          <div class="group-section">
-            <h3 class="text-xs font-medium text-gray-500 mb-3 flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-primary" />
-              流程控制
-            </h3>
-            <div class="space-y-2">
-              <div
-                v-for="node in flowControlNodes"
-                :key="node.type"
-                class="flex items-center justify-start px-3 py-2 rounded-xl cursor-grab active:cursor-grabbing transition-all duration-200 border border-gray-200 hover:border-primary/50 hover:bg-primary/5 w-full"
-                draggable="true"
-                @dragstart="(e) => emit('dragStart', e, node.type)"
-              >
-                <div class="flex items-center gap-2">
-                  <div
-                    class="w-7 h-7 rounded-lg flex items-center justify-center text-primary-foreground bg-gradient-to-br from-primary to-primary-600"
-                  >
-                    <IconifyIcon :icon="node.icon" :size="14" />
-                  </div>
-                  <span class="font-medium text-sm text-gray-700">{{ node.nodeName }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-for="group in mergedPluginGroups" :key="group.groupKey" class="group-section">
-            <div class="h-px bg-gray-100 my-4" />
+          <div
+            v-for="group in mergedGroups"
+            :key="group.groupKey"
+            class="group-section"
+          >
             <h3 class="text-xs font-medium text-gray-500 mb-3 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-primary" />
               {{ group.groupName }}

@@ -17,6 +17,7 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '代码执行',
     icon: 'mdi:code-braces',
     description: 'Python代码执行节点',
+    group: 'tools',
     ports: {
       input: 1,
       output: [

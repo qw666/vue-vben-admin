@@ -9,6 +9,7 @@ export const SubflowNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '子流程',
     icon: 'mdi:folder-open',
     description: '子流程调用',
+    group: 'flowControl',
     ports: {
       input: 1,
       output: [

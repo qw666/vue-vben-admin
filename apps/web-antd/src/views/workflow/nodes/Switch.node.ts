@@ -9,6 +9,7 @@ export const SwitchNodeStrategy: FlowControlNodeStrategy = {
     nodeName: '分支路由',
     icon: 'mdi:hexagon',
     description: '多条件分支',
+    group: 'flowControl',
     ports: {
       input: 1,
       output: [
