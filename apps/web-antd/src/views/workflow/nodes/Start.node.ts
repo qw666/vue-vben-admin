@@ -137,6 +137,11 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
           result.required = true;
         }
 
+        // ARRAY 类型必须包含 itemType
+        if (input.type === 'ARRAY' && input.itemType) {
+          result.itemType = input.itemType;
+        }
+
         // 所有类型都支持默认值保存
         if (input.defaults !== undefined && input.defaults !== null) {
           // 对 STRING 类型，空字符串不保存
