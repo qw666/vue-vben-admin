@@ -10,7 +10,7 @@ import {
   DatePicker,
   Input,
   message,
-  Popconfirm,
+  Modal,
   Select,
   Tooltip,
 } from 'ant-design-vue';
@@ -62,17 +62,25 @@ async function handleRun(workflowId: string) {
     return;
   }
 
-  // 检查是否有 inputs 或 triggers 配置
   const inputs = workflow.inputs || [];
-  const triggers = workflow.triggers || [];
-  if (inputs.length > 0 || triggers.length > 0) {
+  
+  // 有 inputs 配置，弹框填写参数
+  if (inputs.length > 0) {
     currentRunWorkflow.value = workflow;
     showInputDialog.value = true;
     return;
   }
 
-  // 无 inputs 和 triggers，直接运行
-  await doRunWorkflow(workflow);
+  // 无 inputs 配置，弹框二次确认
+  Modal.confirm({
+    title: '确认运行',
+    content: `确定要运行流程「${workflow.name}」吗？`,
+    okText: '运行',
+    cancelText: '取消',
+    onOk: async () => {
+      await doRunWorkflow(workflow);
+    },
+  });
 }
 
 async function doRunWorkflow(workflow: any, inputs?: Record<string, any>) {
@@ -98,44 +106,63 @@ function handleRunWithInputs(values: Record<string, any>) {
   inputDialogLoading.value = true;
   const workflow = currentRunWorkflow.value;
   if (workflow) {
-    // 提取 _triggers 字段，其余为 inputs
-    const { _triggers, ...inputs } = values;
-    doRunWorkflow(workflow, inputs).finally(() => {
+    doRunWorkflow(workflow, values).finally(() => {
       inputDialogLoading.value = false;
     });
   } else {
     inputDialogLoading.value = false;
   }
 }
-async function handleDelete(workflowId: string) {
-  const success = await store.deleteWorkflowById(workflowId);
-  if (success) {
-    message.success('删除成功');
-  } else {
-    message.error('删除失败');
-  }
+function handleDelete(workflow: any) {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除流程「${workflow.name}」吗？此操作不可恢复。`,
+    okText: '删除',
+    okButtonProps: { danger: true },
+    cancelText: '取消',
+    onOk: async () => {
+      const success = await store.deleteWorkflowById(workflow.id);
+      if (success) {
+        message.success('删除成功');
+      } else {
+        message.error('删除失败');
+      }
+    },
+  });
 }
 
-async function handleToggleEnable(workflow: any) {
+function handleToggleEnable(workflow: any) {
   if (!workflow.flowId) {
     message.warning('流程ID不存在，请先保存流程');
     return;
   }
-  if (workflow.enabled === false) {
-    const success = await store.enableWorkflow(workflow.flowId);
-    if (success) {
-      message.success('流程已启用');
-    } else {
-      message.error('启用失败');
-    }
-  } else {
-    const success = await store.disableWorkflow(workflow.flowId);
-    if (success) {
-      message.success('流程已停用');
-    } else {
-      message.error('停用失败');
-    }
-  }
+  const isDisabling = workflow.enabled !== false;
+  Modal.confirm({
+    title: isDisabling ? '确认停用' : '确认启用',
+    content: isDisabling
+      ? `确定要停用流程「${workflow.name}」吗？停用后流程将无法触发。`
+      : `确定要启用流程「${workflow.name}」吗？启用后流程可以正常触发。`,
+    okText: isDisabling ? '停用' : '启用',
+    okButtonProps: isDisabling ? { danger: true } : { type: 'primary' },
+    cancelText: '取消',
+    onOk: async () => {
+      if (isDisabling) {
+        const success = await store.disableWorkflow(workflow.flowId);
+        if (success) {
+          message.success('流程已停用');
+        } else {
+          message.error('停用失败');
+        }
+      } else {
+        const success = await store.enableWorkflow(workflow.flowId);
+        if (success) {
+          message.success('流程已启用');
+        } else {
+          message.error('启用失败');
+        }
+      }
+    },
+  });
 }
 function triggerSearch() {
   if (searchTimer) {
@@ -404,22 +431,16 @@ watch(searchInput, () => {
                     <IconifyIcon icon="mdi:play-circle" :size="16" />
                   </Button>
                 </Tooltip>
-                <Popconfirm
-                  title="确定删除这个流程吗？"
-                  ok-text="确定"
-                  cancel-text="取消"
-                  @confirm="handleDelete(workflow.id)"
-                >
-                  <Tooltip title="删除">
-                    <Button
-                      type="text"
-                      size="small"
-                      danger
-                    >
-                      <IconifyIcon icon="mdi:trash-can" :size="16" />
-                    </Button>
-                  </Tooltip>
-                </Popconfirm>
+                <Tooltip title="删除">
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    @click="handleDelete(workflow)"
+                  >
+                    <IconifyIcon icon="mdi:trash-can" :size="16" />
+                  </Button>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -518,7 +539,6 @@ watch(searchInput, () => {
     <RunInputDialog
       :visible="showInputDialog"
       :inputs="currentRunWorkflow?.inputs || []"
-      :triggers="currentRunWorkflow?.triggers || []"
       :loading="inputDialogLoading"
       @update:visible="showInputDialog = $event"
       @confirm="handleRunWithInputs"

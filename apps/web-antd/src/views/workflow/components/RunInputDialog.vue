@@ -6,26 +6,21 @@ import {
   InputNumber,
   Modal,
   Radio,
-  Tabs,
   Tag,
   Tooltip,
   message,
 } from 'ant-design-vue';
 
-const TabPane = Tabs.TabPane;
-
-import type { FlowInput, FlowTrigger } from '#/api';
+import type { FlowInput } from '#/api';
 
 interface Props {
   inputs: FlowInput[];
-  triggers?: FlowTrigger[];
   visible: boolean;
   loading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
-  triggers: () => [],
 });
 
 const emit = defineEmits<{
@@ -36,9 +31,6 @@ const emit = defineEmits<{
 const formValues = ref<Record<string, any>>({});
 const arrayInputs = ref<Record<string, string>>({});
 const jsonInputs = ref<Record<string, string>>({});
-const triggerValues = ref<Record<string, any>>({});
-const activeTab = ref<string>('inputs');
-
 const validationErrors = ref<Record<string, string>>({});
 
 function getDefaultByType(type: string): any {
@@ -98,18 +90,12 @@ function initFormValues() {
   formValues.value = values;
   arrayInputs.value = arrays;
   jsonInputs.value = jsons;
-
-  const trigValues: Record<string, any> = {};
-  props.triggers.forEach((trigger) => {
-    trigValues[trigger.id] = { ...trigger };
-  });
-  triggerValues.value = trigValues;
 }
 
 watch(
-  () => [props.inputs, props.triggers],
+  () => props.inputs,
   () => {
-    if (props.inputs.length > 0 || props.triggers.length > 0) {
+    if (props.inputs.length > 0) {
       initFormValues();
     }
   },
@@ -120,11 +106,6 @@ watch(
   () => props.visible,
   (val) => {
     if (val) {
-      if (props.inputs.length > 0) {
-        activeTab.value = 'inputs';
-      } else if (props.triggers.length > 0) {
-        activeTab.value = 'triggers';
-      }
       validationErrors.value = {};
       initFormValues();
     }
@@ -277,14 +258,6 @@ function handleConfirm() {
     }
   }
 
-  if (props.triggers.length > 0) {
-    const triggersResult: Record<string, any> = {};
-    for (const trigger of props.triggers) {
-      triggersResult[trigger.id] = triggerValues.value[trigger.id];
-    }
-    result['_triggers'] = triggersResult;
-  }
-
   if (errors.length > 0) {
     message.warning(errors[0]);
     return;
@@ -328,14 +301,6 @@ function getPlaceholder(input: FlowInput): string {
   }
 }
 
-function getTriggerTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    schedule: '定时调度',
-    webhook: 'Webhook',
-  };
-  return labels[type] || type;
-}
-
 function getTypeColor(type: string): string {
   const colors: Record<string, string> = {
     STRING: 'default',
@@ -363,17 +328,6 @@ function getTypeLabelFull(input: FlowInput): string {
   };
   return labels[type] || type;
 }
-
-const hasArrayInputs = computed(
-  () => props.inputs.some((i) => i.type === 'ARRAY'),
-);
-const hasJsonInputs = computed(
-  () => props.inputs.some((i) => i.type === 'JSON'),
-);
-
-const hasInputs = computed(() => props.inputs.length > 0);
-const hasTriggers = computed(() => props.triggers.length > 0);
-const hasBoth = computed(() => hasInputs.value && hasTriggers.value);
 
 function getValidationStatus(inputId: string): '' | 'error' | 'success' {
   const error = validationErrors.value[inputId];
@@ -404,247 +358,90 @@ function getTypeTooltip(input: FlowInput): string {
     :mask-closable="false"
     :destroy-on-close="true"
     :body-style="{ maxHeight: '70vh', overflowY: 'auto', padding: '12px 16px' }"
-    :width="hasBoth ? 520 : 460"
+    :width="520"
     @ok="handleConfirm"
     @cancel="handleCancel"
   >
-    <template v-if="hasBoth">
-      <Tabs v-model:active-key="activeTab" size="small">
-        <TabPane v-if="hasInputs" key="inputs" tab="输入参数">
-          <div class="form-list">
-            <div
-              v-for="input in inputs"
-              :key="input.id"
-              class="form-row"
-            >
-              <div class="form-row-header">
-                <span class="label-prefix">参数名：</span>
-                <span class="label-text">{{ input.displayName || input.id }}</span>
-                <span v-if="input.required" class="required">*</span>
-                <span class="label-spacer"></span>
-                <Tooltip :title="getTypeTooltip(input)">
-                  <Tag :color="getTypeColor(input.type)" size="small" class="type-tag">
-                    {{ getTypeLabelFull(input) }}
-                  </Tag>
-                </Tooltip>
-              </div>
-              <div class="form-row-control">
-                <span class="control-prefix">参数值：</span>
-                <div class="control-wrapper">
-                  <Input
-                    v-if="input.type === 'STRING'"
-                    v-model:value="formValues[input.id]"
-                    :placeholder="getPlaceholder(input)"
-                    size="small"
-                  />
-                  <InputNumber
-                    v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
-                    v-model:value="formValues[input.id]"
-                    :step="input.type === 'INT' ? 1 : 0.01"
-                    :precision="input.type === 'INT' ? 0 : 2"
-                    style="width: 100%"
-                    :placeholder="getPlaceholder(input)"
-                    size="small"
-                  />
-                  <Radio.Group
-                    v-else-if="input.type === 'BOOLEAN'"
-                    v-model:value="formValues[input.id]"
-                  >
-                    <Radio :value="true">是</Radio>
-                    <Radio :value="false">否</Radio>
-                  </Radio.Group>
-                  <template v-else-if="input.type === 'ARRAY'">
-                    <Input.TextArea
-                      :value="arrayInputs[input.id]"
-                      :auto-size="{ minRows: 1, maxRows: 5 }"
-                      :placeholder="getPlaceholder(input)"
-                      :status="getValidationStatus(input.id)"
-                      @input="onArrayInput(input.id, $event)"
-                      size="small"
-                      class="form-textarea"
-                    />
-                    <div v-if="validationErrors[input.id]" class="field-error">
-                      {{ validationErrors[input.id] }}
-                    </div>
-                  </template>
-                  <template v-else-if="input.type === 'JSON'">
-                    <Input.TextArea
-                      :value="jsonInputs[input.id]"
-                      :auto-size="{ minRows: 2, maxRows: 10 }"
-                      :placeholder="getPlaceholder(input)"
-                      :status="getValidationStatus(input.id)"
-                      @input="onJsonInput(input.id, $event)"
-                      size="small"
-                      class="form-textarea"
-                    />
-                    <div v-if="validationErrors[input.id]" class="field-error">
-                      {{ validationErrors[input.id] }}
-                    </div>
-                  </template>
-                  <Input
-                    v-else
-                    v-model:value="formValues[input.id]"
-                    :placeholder="getPlaceholder(input)"
-                    size="small"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </TabPane>
-
-        <TabPane v-if="hasTriggers" key="triggers" tab="触发器">
-          <div class="trigger-list">
-            <div
-              v-for="trigger in triggers"
-              :key="trigger.id"
-              class="trigger-item"
-            >
-              <div class="trigger-header">
-                <Tag :color="trigger.type === 'schedule' ? 'blue' : trigger.type === 'webhook' ? 'green' : 'default'">
-                  {{ getTriggerTypeLabel(trigger.type) }}
-                </Tag>
-                <span class="trigger-id">{{ trigger.id }}</span>
-              </div>
-              <div class="trigger-body">
-                <div v-if="trigger.type === 'schedule'" class="trigger-info">
-                  <span class="label">Cron 表达式：</span>
-                  <span class="value">{{ trigger.cron || '-' }}</span>
-                </div>
-                <div v-else-if="trigger.type === 'webhook'" class="trigger-info">
-                  <span class="label">Webhook Key：</span>
-                  <span class="value">{{ trigger.key || '-' }}</span>
-                </div>
-                <div v-else class="trigger-info">
-                  <span class="label">类型：</span>
-                  <span class="value">{{ trigger.type }}</span>
-                </div>
-              </div>
-              <div class="trigger-notice">
-                <span class="notice-text">触发器已配置，将在运行时自动生效</span>
-              </div>
-            </div>
-          </div>
-        </TabPane>
-      </Tabs>
-    </template>
-
-    <template v-else-if="hasInputs">
-      <div class="form-list">
-        <div
-          v-for="input in inputs"
-          :key="input.id"
-          class="form-row"
-        >
-          <div class="form-row-header">
-            <span class="label-prefix">参数名：</span>
-            <span class="label-text">{{ input.displayName || input.id }}</span>
-            <span v-if="input.required" class="required">*</span>
-            <span class="label-spacer"></span>
-            <Tooltip :title="getTypeTooltip(input)">
-              <Tag :color="getTypeColor(input.type)" size="small" class="type-tag">
-                {{ getTypeLabelFull(input) }}
-              </Tag>
-            </Tooltip>
-          </div>
-          <div class="form-row-control">
-            <span class="control-prefix">参数值：</span>
-            <div class="control-wrapper">
-              <Input
-                v-if="input.type === 'STRING'"
-                v-model:value="formValues[input.id]"
-                :placeholder="getPlaceholder(input)"
-                size="small"
-              />
-              <InputNumber
-                v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
-                v-model:value="formValues[input.id]"
-                :step="input.type === 'INT' ? 1 : 0.01"
-                :precision="input.type === 'INT' ? 0 : 2"
-                style="width: 100%"
-                :placeholder="getPlaceholder(input)"
-                size="small"
-              />
-              <Radio.Group
-                v-else-if="input.type === 'BOOLEAN'"
-                v-model:value="formValues[input.id]"
-              >
-                <Radio :value="true">是</Radio>
-                <Radio :value="false">否</Radio>
-              </Radio.Group>
-              <template v-else-if="input.type === 'ARRAY'">
-                <Input.TextArea
-                  :value="arrayInputs[input.id]"
-                  :auto-size="{ minRows: 1, maxRows: 5 }"
-                  :placeholder="getPlaceholder(input)"
-                  :status="getValidationStatus(input.id)"
-                  @input="onArrayInput(input.id, $event)"
-                  size="small"
-                  class="form-textarea"
-                />
-                <div v-if="validationErrors[input.id]" class="field-error">
-                  {{ validationErrors[input.id] }}
-                </div>
-              </template>
-              <template v-else-if="input.type === 'JSON'">
-                <Input.TextArea
-                  :value="jsonInputs[input.id]"
-                  :auto-size="{ minRows: 2, maxRows: 10 }"
-                  :placeholder="getPlaceholder(input)"
-                  :status="getValidationStatus(input.id)"
-                  @input="onJsonInput(input.id, $event)"
-                  size="small"
-                  class="form-textarea"
-                />
-                <div v-if="validationErrors[input.id]" class="field-error">
-                  {{ validationErrors[input.id] }}
-                </div>
-              </template>
-              <Input
-                v-else
-                v-model:value="formValues[input.id]"
-                :placeholder="getPlaceholder(input)"
-                size="small"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <template v-else-if="hasTriggers">
-      <div class="trigger-list">
-        <div
-          v-for="trigger in triggers"
-          :key="trigger.id"
-          class="trigger-item"
-        >
-          <div class="trigger-header">
-            <Tag :color="trigger.type === 'schedule' ? 'blue' : trigger.type === 'webhook' ? 'green' : 'default'">
-              {{ getTriggerTypeLabel(trigger.type) }}
+    <div class="form-list">
+      <div
+        v-for="input in inputs"
+        :key="input.id"
+        class="form-row"
+      >
+        <div class="form-row-header">
+          <span class="label-prefix">参数名：</span>
+          <span class="label-text">{{ input.displayName || input.id }}</span>
+          <span v-if="input.required" class="required">*</span>
+          <span class="label-spacer"></span>
+          <Tooltip :title="getTypeTooltip(input)">
+            <Tag :color="getTypeColor(input.type)" size="small" class="type-tag">
+              {{ getTypeLabelFull(input) }}
             </Tag>
-            <span class="trigger-id">{{ trigger.id }}</span>
-          </div>
-          <div class="trigger-body">
-            <div v-if="trigger.type === 'schedule'" class="trigger-info">
-              <span class="label">Cron 表达式：</span>
-              <span class="value">{{ trigger.cron || '-' }}</span>
-            </div>
-            <div v-else-if="trigger.type === 'webhook'" class="trigger-info">
-              <span class="label">Webhook Key：</span>
-              <span class="value">{{ trigger.key || '-' }}</span>
-            </div>
-            <div v-else class="trigger-info">
-              <span class="label">类型：</span>
-              <span class="value">{{ trigger.type }}</span>
-            </div>
-          </div>
-          <div class="trigger-notice">
-            <span class="notice-text">触发器已配置，将在运行时自动生效</span>
+          </Tooltip>
+        </div>
+        <div class="form-row-control">
+          <span class="control-prefix">参数值：</span>
+          <div class="control-wrapper">
+            <Input
+              v-if="input.type === 'STRING'"
+              v-model:value="formValues[input.id]"
+              :placeholder="getPlaceholder(input)"
+              size="small"
+            />
+            <InputNumber
+              v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
+              v-model:value="formValues[input.id]"
+              :step="input.type === 'INT' ? 1 : 0.01"
+              :precision="input.type === 'INT' ? 0 : 2"
+              style="width: 100%"
+              :placeholder="getPlaceholder(input)"
+              size="small"
+            />
+            <Radio.Group
+              v-else-if="input.type === 'BOOLEAN'"
+              v-model:value="formValues[input.id]"
+            >
+              <Radio :value="true">是</Radio>
+              <Radio :value="false">否</Radio>
+            </Radio.Group>
+            <template v-else-if="input.type === 'ARRAY'">
+              <Input.TextArea
+                :value="arrayInputs[input.id]"
+                :auto-size="{ minRows: 1, maxRows: 5 }"
+                :placeholder="getPlaceholder(input)"
+                :status="getValidationStatus(input.id)"
+                @input="onArrayInput(input.id, $event)"
+                size="small"
+                class="form-textarea"
+              />
+              <div v-if="validationErrors[input.id]" class="field-error">
+                {{ validationErrors[input.id] }}
+              </div>
+            </template>
+            <template v-else-if="input.type === 'JSON'">
+              <Input.TextArea
+                :value="jsonInputs[input.id]"
+                :auto-size="{ minRows: 2, maxRows: 10 }"
+                :placeholder="getPlaceholder(input)"
+                :status="getValidationStatus(input.id)"
+                @input="onJsonInput(input.id, $event)"
+                size="small"
+                class="form-textarea"
+              />
+              <div v-if="validationErrors[input.id]" class="field-error">
+                {{ validationErrors[input.id] }}
+              </div>
+            </template>
+            <Input
+              v-else
+              v-model:value="formValues[input.id]"
+              :placeholder="getPlaceholder(input)"
+              size="small"
+            />
           </div>
         </div>
       </div>
-    </template>
+    </div>
   </Modal>
 </template>
 
@@ -726,65 +523,5 @@ function getTypeTooltip(input: FlowInput): string {
 
 .form-textarea {
   width: 100%;
-}
-
-.trigger-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.trigger-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 12px;
-  background: #fafafa;
-}
-
-.trigger-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.trigger-id {
-  font-size: 13px;
-  color: #6b7280;
-  font-family: monospace;
-}
-
-.trigger-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.trigger-info {
-  display: flex;
-  align-items: center;
-  font-size: 13px;
-}
-
-.trigger-info .label {
-  color: #6b7280;
-  width: 100px;
-  flex-shrink: 0;
-}
-
-.trigger-info .value {
-  color: #374151;
-  font-family: monospace;
-}
-
-.trigger-notice {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed #e5e7eb;
-}
-
-.notice-text {
-  font-size: 12px;
-  color: #9ca3af;
 }
 </style>

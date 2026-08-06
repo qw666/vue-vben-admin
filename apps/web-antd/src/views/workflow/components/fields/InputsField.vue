@@ -389,7 +389,7 @@ function getJsonValidationTip(value: string): string {
             <!-- ARRAY: itemType 选择器 -->
             <div v-if="item.type === 'ARRAY'" style="display: flex; gap: 8px; align-items: center;">
               <div style="display: flex; align-items: center; width: 80px;">
-                <span style="font-size: 12px; color: #ef4444;">{{ fieldLabels.itemType.label }}</span>
+                <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.itemType.label }}</span>
                 <Tooltip :title="fieldLabels.itemType.tooltip">
                   <span class="help-icon-wrapper">
                     <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; cursor: pointer; margin-left: 4px; pointer-events: none;" />
