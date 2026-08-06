@@ -18,8 +18,10 @@ let projectChangeTimer: ReturnType<typeof setTimeout> | null = null;
 onMounted(async () => {
   try {
     await store.loadProjects();
-    await store.loadFolders();
-    await store.loadWorkflows();
+    await Promise.all([
+      store.loadFolders(),
+      store.loadWorkflows(),
+    ]);
   } finally {
     isLoading.value = false;
   }

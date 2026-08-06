@@ -684,15 +684,21 @@ function ensureStartAndEndNodes() {
 
 onMounted(async () => {
   loadPlugins();
-  await loadProjects();
 
   const workflowId = route.params.id as string;
+  const projectsPromise = loadProjects();
+  const detailPromise = workflowId
+    ? store.loadWorkflowDetail(workflowId)
+    : null;
+
+  await projectsPromise;
+
   if (workflowId) {
     const parsedBackendId = Number.parseInt(
       workflowId.replace('workflow-', ''),
     );
     if (!Number.isNaN(parsedBackendId)) {
-      const detail = await store.loadWorkflowDetail(workflowId);
+      const detail = await detailPromise;
       if (detail) {
         const restoredWorkflow = convertFlowModelToWorkflow(
           detail.flowModel || { tasks: [] },

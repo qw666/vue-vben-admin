@@ -565,8 +565,10 @@ onMounted(async () => {
       await workflowStore.loadProjects();
     }
     localProjectId.value = workflowStore.projectId;
-    await searchFlows('');
-    await loadData();
+    await Promise.all([
+      searchFlows(''),
+      loadData(),
+    ]);
   } finally {
     isLoading.value = false;
   }
