@@ -5,6 +5,23 @@ import { getFlowControlConfig } from '../config/workflow-node-config';
 import { generateFlowId } from './idGenerator';
 import { flowControlNodeRegistry, mapTaskField, forEachTaskField } from '../nodes/types';
 
+/**
+ * 获取节点默认输出端口的 field 名称
+ * 容器节点(If/Switch/ForEach/Parallel)的默认端口是 next，普通节点是 output
+ */
+export function getDefaultOutputPortField(nodeType: string): string {
+  const config = getFlowControlConfig(nodeType);
+  const outputPorts: any[] = config?.ports?.output || [];
+  if (outputPorts.length > 0) {
+    // 优先返回 next 端口（容器节点的下游出口）
+    const nextPort = outputPorts.find(p => p.field === 'next');
+    if (nextPort) return 'next';
+    // 否则返回第一个端口的 field
+    return outputPorts[0].field;
+  }
+  return 'output'; // 默认回退
+}
+
 function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: FlowTask[]): Record<string, any> {
   const config: Record<string, any> = {};
   for (const key of Object.keys(task)) {
@@ -98,10 +115,8 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
                 if (!prevItem) {
                   buildEdges([item], task, edges, field, undefined);
                 } else {
-                  const prevFlowControlConfig = getFlowControlConfig(prevItem.type);
-                  const sourceHandle = prevFlowControlConfig
-                    ? `${prevItem.id}-output-next`
-                    : `${prevItem.id}-output`;
+                  const portField = getDefaultOutputPortField(prevItem.type);
+                  const sourceHandle = `${prevItem.id}-output-${portField}`;
                   edges.push({
                     id: `edge-${prevItem.id}-${item.id}`,
                     source: prevItem.id,
@@ -125,10 +140,8 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
                   if (!prevItem) {
                     buildEdges([item], task, edges, field, caseKey);
                   } else {
-                    const prevFlowControlConfig = getFlowControlConfig(prevItem.type);
-                    const sourceHandle = prevFlowControlConfig
-                      ? `${prevItem.id}-output-next`
-                      : `${prevItem.id}-output`;
+                    const portField = getDefaultOutputPortField(prevItem.type);
+                    const sourceHandle = `${prevItem.id}-output-${portField}`;
                     edges.push({
                       id: `edge-${prevItem.id}-${item.id}`,
                       source: prevItem.id,
@@ -248,10 +261,8 @@ export function convertFlowModelToWorkflow(
     const currentTask = tasks[i];
     const nextTask = tasks[i + 1];
     if (currentTask && nextTask) {
-      const currentFlowControlConfig = getFlowControlConfig(currentTask.type);
-      const sourceHandle = currentFlowControlConfig
-        ? `${currentTask.id}-output-next`
-        : `${currentTask.id}-output`;
+      const portField = getDefaultOutputPortField(currentTask.type);
+      const sourceHandle = `${currentTask.id}-output-${portField}`;
       edges.push({
         id: `edge-${currentTask.id}-${nextTask.id}`,
         source: currentTask.id,

@@ -29,6 +29,7 @@ import { flowControlNodeRegistry } from './nodes/types';
 import {
   convertFlowModelToWorkflow,
   buildFlowSavePayload,
+  getDefaultOutputPortField,
 } from './utils/flowModelConverter';
 import {
   validateAll as validateWorkflowStructure,
@@ -676,10 +677,12 @@ function ensureStartAndEndNodes() {
       (e) => e.target === endNodeId,
     );
     if (!endAlreadyConnected) {
+      const lastTaskNode = store.currentWorkflow.nodes.find((n) => n.id === lastTask.id);
+      const portField = lastTaskNode ? getDefaultOutputPortField(lastTaskNode.data.type) : 'output';
       const edge = {
         id: `edge_end_${Date.now()}`,
         source: lastTask.id,
-        sourceHandle: `${lastTask.id}-output-next`,
+        sourceHandle: `${lastTask.id}-output-${portField}`,
         target: endNodeId,
         targetHandle: `${endNodeId}-input`,
       };
