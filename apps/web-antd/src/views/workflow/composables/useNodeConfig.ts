@@ -221,9 +221,38 @@ export function useNodeConfig(
     closeConfigPanel();
   }
 
+  /**
+   * 自动保存配置（关闭面板时调用）
+   * 与 handleSaveConfig 类似，但不显示成功提示
+   */
+  function autoSaveConfig() {
+    if (!selectedNode.value) return;
+
+    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+
+    // 1. 收集表单数据
+    let config: Record<string, any> = { ...nodeConfigForm };
+
+    // 2. 序列化（前端表单 → Kestra 配置）
+    if (strategy.serializeConfig) {
+      config = strategy.serializeConfig(config);
+    }
+
+    // 3. 保存到节点
+    selectedNode.value.data.config = config;
+
+    // 4. 特殊保存逻辑（如 Start 节点的 inputs/triggers 需写入 store.currentWorkflow）
+    if (strategy.saveConfig) {
+      strategy.saveConfig(config, store);
+    }
+  }
+
   // 关闭面板时必须先置空 selectedNode，再清空表单。
   // 否则 setupRealtimeConfigSync 的 watch 会把空表单同步到节点 config，导致数据丢失。
   function closeConfigPanel() {
+    // 先自动保存配置
+    autoSaveConfig();
+    // 再关闭面板
     selectedNode.value = null;
     handleConfigClose();
   }
