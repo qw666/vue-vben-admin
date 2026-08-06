@@ -362,13 +362,13 @@ onMounted(() => {
             <defs>
               <marker
                 id="arrowhead"
-                markerWidth="10"
-                markerHeight="7"
-                refX="9"
-                refY="3.5"
+                markerWidth="7"
+                markerHeight="5"
+                refX="6"
+                refY="2.5"
                 orient="auto"
               >
-                <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+                <polygon points="0 0, 7 2.5, 0 5" fill="#64748b" />
               </marker>
             </defs>
             <g>
@@ -500,10 +500,10 @@ onMounted(() => {
             <div
               v-for="port in getNodePorts(node.id, node.data.type)"
               :key="port.id"
-              class="node-port absolute w-3 h-3 rounded-full border-2 border-white cursor-crosshair hover:scale-125 transition-all shadow-sm flex items-center justify-center pointer-events-auto"
+              class="node-port absolute w-2 h-2 rounded-full border border-white cursor-crosshair hover:scale-150 transition-all shadow-sm flex items-center justify-center pointer-events-auto"
               :style="{
-                left: `${port.position.x - 6 }px`,
-                top: `${port.position.y - 6 }px`,
+                left: `${port.position.x - 4}px`,
+                top: `${port.position.y - 4}px`,
                 backgroundColor: port.color || '#3b82f6',
               }"
               :data-node-id="node.id"

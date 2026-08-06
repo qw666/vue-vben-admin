@@ -774,13 +774,14 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 32px;
-  padding: 2px 24px 2px 8px;
+  min-height: 28px;
+  padding: 2px 22px 2px 6px;
   background: #fff;
   border: 1px solid #d9d9d9;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: border-color 0.2s;
   position: relative;
+  box-sizing: border-box;
 }
 
 .var-picker-wrapper:hover {
