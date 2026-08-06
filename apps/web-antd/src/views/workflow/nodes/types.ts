@@ -265,14 +265,6 @@ class FlowControlNodeRegistry {
         });
       }
     });
-    this.schemaMetaCache.forEach((meta, type) => {
-      result.push({
-        type,
-        nodeName: meta.nodeName,
-        icon: meta.icon,
-        description: meta.description,
-      });
-    });
     return result;
   }
 
