@@ -94,6 +94,7 @@ export interface FlowInput {
   defaults?: any;
   displayName?: string;
   required?: boolean;
+  itemType?: string;
 }
 
 export interface FlowTrigger {

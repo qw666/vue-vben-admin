@@ -2,13 +2,13 @@
 import { computed, ref, watch } from 'vue';
 
 import {
-  Alert,
   Input,
   InputNumber,
   Modal,
-  Switch,
+  Radio,
   Tabs,
   Tag,
+  Tooltip,
   message,
 } from 'ant-design-vue';
 
@@ -39,6 +39,8 @@ const jsonInputs = ref<Record<string, string>>({});
 const triggerValues = ref<Record<string, any>>({});
 const activeTab = ref<string>('inputs');
 
+const validationErrors = ref<Record<string, string>>({});
+
 function getDefaultByType(type: string): any {
   switch (type) {
     case 'BOOLEAN':
@@ -65,14 +67,31 @@ function initFormValues() {
     values[input.id] = defaultVal;
 
     if (input.type === 'ARRAY') {
-      arrays[input.id] = Array.isArray(defaultVal)
-        ? JSON.stringify(defaultVal)
-        : '[]';
+      if (Array.isArray(defaultVal)) {
+        arrays[input.id] = JSON.stringify(defaultVal);
+      } else if (typeof defaultVal === 'string') {
+        try {
+          JSON.parse(defaultVal);
+          arrays[input.id] = defaultVal;
+        } catch {
+          arrays[input.id] = '[]';
+        }
+      } else {
+        arrays[input.id] = '[]';
+      }
     } else if (input.type === 'JSON') {
-      jsons[input.id] =
-        typeof defaultVal === 'object' && defaultVal !== null
-          ? JSON.stringify(defaultVal, null, 2)
-          : '{}';
+      if (typeof defaultVal === 'object' && defaultVal !== null) {
+        jsons[input.id] = JSON.stringify(defaultVal, null, 2);
+      } else if (typeof defaultVal === 'string') {
+        try {
+          JSON.parse(defaultVal);
+          jsons[input.id] = defaultVal;
+        } catch {
+          jsons[input.id] = '{}';
+        }
+      } else {
+        jsons[input.id] = '{}';
+      }
     }
   });
 
@@ -80,7 +99,6 @@ function initFormValues() {
   arrayInputs.value = arrays;
   jsonInputs.value = jsons;
 
-  // 初始化触发器值
   const trigValues: Record<string, any> = {};
   props.triggers.forEach((trigger) => {
     trigValues[trigger.id] = { ...trigger };
@@ -107,9 +125,74 @@ watch(
       } else if (props.triggers.length > 0) {
         activeTab.value = 'triggers';
       }
+      validationErrors.value = {};
+      initFormValues();
     }
   },
 );
+
+function validateArray(inputId: string): string {
+  const raw = arrayInputs.value[inputId];
+  if (!raw || !raw.trim()) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return '格式错误：请输入有效的 JSON 数组，如 [1, 2, 3]';
+    }
+    return '';
+  } catch {
+    return '格式错误：请输入有效的 JSON 数组';
+  }
+}
+
+function validateJson(inputId: string): string {
+  const raw = jsonInputs.value[inputId];
+  if (!raw || !raw.trim()) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return '格式错误：请输入有效的 JSON 对象，如 {"key": "value"}';
+    }
+    return '';
+  } catch {
+    return '格式错误：请输入有效的 JSON 对象';
+  }
+}
+
+function validateField(input: FlowInput): string {
+  const displayName = input.displayName || input.id;
+
+  if (input.required) {
+    const rawValue = formValues.value[input.id];
+    if (input.type === 'ARRAY') {
+      const raw = arrayInputs.value[input.id];
+      if (!raw || !raw.trim()) return `请填写「${displayName}」`;
+    } else if (input.type === 'JSON') {
+      const raw = jsonInputs.value[input.id];
+      if (!raw || !raw.trim()) return `请填写「${displayName}」`;
+    } else {
+      if (rawValue === undefined || rawValue === null || rawValue === '') {
+        return `请填写「${displayName}」`;
+      }
+    }
+  }
+
+  if (input.type === 'ARRAY') {
+    return validateArray(input.id);
+  }
+  if (input.type === 'JSON') {
+    return validateJson(input.id);
+  }
+  return '';
+}
+
+function updateValidation(inputId: string, error: string) {
+  if (error) {
+    validationErrors.value[inputId] = error;
+  } else {
+    delete validationErrors.value[inputId];
+  }
+}
 
 function parseArrayField(inputId: string, displayName: string): any[] {
   const raw = arrayInputs.value[inputId] || '[]';
@@ -141,15 +224,28 @@ function handleConfirm() {
   const result: Record<string, any> = {};
   const errors: string[] = [];
 
-  // 处理 inputs
   for (const input of props.inputs) {
     const displayName = input.displayName || input.id;
     const rawValue = formValues.value[input.id];
 
     if (input.required) {
-      if (rawValue === undefined || rawValue === null || rawValue === '') {
-        errors.push(`请填写「${displayName}」`);
-        continue;
+      if (input.type === 'ARRAY') {
+        const raw = arrayInputs.value[input.id];
+        if (!raw || !raw.trim()) {
+          errors.push(`请填写「${displayName}」`);
+          continue;
+        }
+      } else if (input.type === 'JSON') {
+        const raw = jsonInputs.value[input.id];
+        if (!raw || !raw.trim()) {
+          errors.push(`请填写「${displayName}」`);
+          continue;
+        }
+      } else {
+        if (rawValue === undefined || rawValue === null || rawValue === '') {
+          errors.push(`请填写「${displayName}」`);
+          continue;
+        }
       }
     }
 
@@ -181,7 +277,6 @@ function handleConfirm() {
     }
   }
 
-  // 处理 triggers
   if (props.triggers.length > 0) {
     const triggersResult: Record<string, any> = {};
     for (const trigger of props.triggers) {
@@ -205,25 +300,31 @@ function handleCancel() {
 function onArrayInput(inputId: string, e: Event) {
   const target = e.target as HTMLTextAreaElement;
   arrayInputs.value[inputId] = target.value;
+  const input = props.inputs.find((i) => i.id === inputId);
+  if (input) {
+    const error = validateField(input);
+    updateValidation(inputId, error);
+  }
 }
 
 function onJsonInput(inputId: string, e: Event) {
   const target = e.target as HTMLTextAreaElement;
   jsonInputs.value[inputId] = target.value;
+  const input = props.inputs.find((i) => i.id === inputId);
+  if (input) {
+    const error = validateField(input);
+    updateValidation(inputId, error);
+  }
 }
 
 function getPlaceholder(input: FlowInput): string {
-  const name = input.displayName || input.id;
   switch (input.type) {
     case 'ARRAY':
-      return '请输入 JSON 数组，如 [1, 2, 3]';
+      return '如 [1, 2, 3]';
     case 'JSON':
-      return '请输入 JSON 对象，如 {"key": "value"}';
-    case 'INT':
-    case 'FLOAT':
-      return `请输入${name}`;
+      return '如 {"key": "value"}';
     default:
-      return `请输入${name}`;
+      return '';
   }
 }
 
@@ -231,6 +332,34 @@ function getTriggerTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     schedule: '定时调度',
     webhook: 'Webhook',
+  };
+  return labels[type] || type;
+}
+
+function getTypeColor(type: string): string {
+  const colors: Record<string, string> = {
+    STRING: 'default',
+    INT: 'blue',
+    FLOAT: 'blue',
+    BOOLEAN: 'green',
+    ARRAY: 'purple',
+    JSON: 'cyan',
+  };
+  return colors[type] || 'default';
+}
+
+function getTypeLabelFull(input: FlowInput): string {
+  const { type, itemType } = input;
+  if (type === 'ARRAY' && itemType) {
+    return `ARRAY<${itemType}>`;
+  }
+  const labels: Record<string, string> = {
+    STRING: 'STRING',
+    INT: 'INT',
+    FLOAT: 'FLOAT',
+    BOOLEAN: 'BOOLEAN',
+    ARRAY: 'ARRAY',
+    JSON: 'JSON',
   };
   return labels[type] || type;
 }
@@ -245,6 +374,24 @@ const hasJsonInputs = computed(
 const hasInputs = computed(() => props.inputs.length > 0);
 const hasTriggers = computed(() => props.triggers.length > 0);
 const hasBoth = computed(() => hasInputs.value && hasTriggers.value);
+
+function getValidationStatus(inputId: string): '' | 'error' | 'success' {
+  const error = validationErrors.value[inputId];
+  if (error) return 'error';
+  return '';
+}
+
+function getTypeTooltip(input: FlowInput): string {
+  const tips: Record<string, string> = {
+    STRING: '字符串类型',
+    INT: '整数类型',
+    FLOAT: '浮点数类型',
+    BOOLEAN: '布尔类型（true/false）',
+    ARRAY: '数组类型，需配置元素类型',
+    JSON: 'JSON 对象类型',
+  };
+  return tips[input.type] || input.type;
+}
 </script>
 
 <template>
@@ -256,76 +403,91 @@ const hasBoth = computed(() => hasInputs.value && hasTriggers.value);
     cancel-text="取消"
     :mask-closable="false"
     :destroy-on-close="true"
-    :body-style="{ maxHeight: '65vh', overflowY: 'auto' }"
-    :width="hasBoth ? 480 : 400"
+    :body-style="{ maxHeight: '70vh', overflowY: 'auto', padding: '12px 16px' }"
+    :width="hasBoth ? 520 : 460"
     @ok="handleConfirm"
     @cancel="handleCancel"
   >
     <template v-if="hasBoth">
       <Tabs v-model:active-key="activeTab" size="small">
         <TabPane v-if="hasInputs" key="inputs" tab="输入参数">
-          <template v-if="hasArrayInputs || hasJsonInputs">
-            <Alert
-              type="info"
-              show-icon
-              message="提示"
-              description="数组和 JSON 类型请输入合法的 JSON 格式内容"
-              style="margin-bottom: 12px"
-            />
-          </template>
-          <div class="form-grid">
+          <div class="form-list">
             <div
               v-for="input in inputs"
               :key="input.id"
-              class="form-item"
+              class="form-row"
             >
-              <div class="form-label">
-                {{ input.displayName || input.id }}
+              <div class="form-row-header">
+                <span class="label-prefix">参数名：</span>
+                <span class="label-text">{{ input.displayName || input.id }}</span>
                 <span v-if="input.required" class="required">*</span>
+                <span class="label-spacer"></span>
+                <Tooltip :title="getTypeTooltip(input)">
+                  <Tag :color="getTypeColor(input.type)" size="small" class="type-tag">
+                    {{ getTypeLabelFull(input) }}
+                  </Tag>
+                </Tooltip>
               </div>
-              <div class="form-control">
-                <Input
-                  v-if="input.type === 'STRING'"
-                  v-model:value="formValues[input.id]"
-                  :placeholder="getPlaceholder(input)"
-                />
-                <InputNumber
-                  v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
-                  v-model:value="formValues[input.id]"
-                  :step="input.type === 'INT' ? 1 : 0.01"
-                  :precision="input.type === 'INT' ? 0 : 2"
-                  style="width: 100%"
-                  :placeholder="getPlaceholder(input)"
-                />
-                <Switch
-                  v-else-if="input.type === 'BOOLEAN'"
-                  v-model:checked="formValues[input.id]"
-                  checked-children="是"
-                  un-checked-children="否"
-                />
-                <template v-else-if="input.type === 'ARRAY'">
-                  <Input.TextArea
-                    :value="arrayInputs[input.id]"
-                    :rows="3"
+              <div class="form-row-control">
+                <span class="control-prefix">参数值：</span>
+                <div class="control-wrapper">
+                  <Input
+                    v-if="input.type === 'STRING'"
+                    v-model:value="formValues[input.id]"
                     :placeholder="getPlaceholder(input)"
-                    @input="onArrayInput(input.id, $event)"
+                    size="small"
                   />
-                  <div class="form-hint">将以原生 JSON 数组形式传递</div>
-                </template>
-                <template v-else-if="input.type === 'JSON'">
-                  <Input.TextArea
-                    :value="jsonInputs[input.id]"
-                    :rows="4"
+                  <InputNumber
+                    v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
+                    v-model:value="formValues[input.id]"
+                    :step="input.type === 'INT' ? 1 : 0.01"
+                    :precision="input.type === 'INT' ? 0 : 2"
+                    style="width: 100%"
                     :placeholder="getPlaceholder(input)"
-                    @input="onJsonInput(input.id, $event)"
+                    size="small"
                   />
-                  <div class="form-hint">将以原生对象形式传递</div>
-                </template>
-                <Input
-                  v-else
-                  v-model:value="formValues[input.id]"
-                  :placeholder="getPlaceholder(input)"
-                />
+                  <Radio.Group
+                    v-else-if="input.type === 'BOOLEAN'"
+                    v-model:value="formValues[input.id]"
+                  >
+                    <Radio :value="true">是</Radio>
+                    <Radio :value="false">否</Radio>
+                  </Radio.Group>
+                  <template v-else-if="input.type === 'ARRAY'">
+                    <Input.TextArea
+                      :value="arrayInputs[input.id]"
+                      :auto-size="{ minRows: 1, maxRows: 5 }"
+                      :placeholder="getPlaceholder(input)"
+                      :status="getValidationStatus(input.id)"
+                      @input="onArrayInput(input.id, $event)"
+                      size="small"
+                      class="form-textarea"
+                    />
+                    <div v-if="validationErrors[input.id]" class="field-error">
+                      {{ validationErrors[input.id] }}
+                    </div>
+                  </template>
+                  <template v-else-if="input.type === 'JSON'">
+                    <Input.TextArea
+                      :value="jsonInputs[input.id]"
+                      :auto-size="{ minRows: 2, maxRows: 10 }"
+                      :placeholder="getPlaceholder(input)"
+                      :status="getValidationStatus(input.id)"
+                      @input="onJsonInput(input.id, $event)"
+                      size="small"
+                      class="form-textarea"
+                    />
+                    <div v-if="validationErrors[input.id]" class="field-error">
+                      {{ validationErrors[input.id] }}
+                    </div>
+                  </template>
+                  <Input
+                    v-else
+                    v-model:value="formValues[input.id]"
+                    :placeholder="getPlaceholder(input)"
+                    size="small"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -368,68 +530,83 @@ const hasBoth = computed(() => hasInputs.value && hasTriggers.value);
     </template>
 
     <template v-else-if="hasInputs">
-      <template v-if="hasArrayInputs || hasJsonInputs">
-        <Alert
-          type="info"
-          show-icon
-          message="提示"
-          description="数组和 JSON 类型请输入合法的 JSON 格式内容"
-          style="margin-bottom: 12px"
-        />
-      </template>
-      <div class="form-grid">
+      <div class="form-list">
         <div
           v-for="input in inputs"
           :key="input.id"
-          class="form-item"
+          class="form-row"
         >
-          <div class="form-label">
-            {{ input.displayName || input.id }}
+          <div class="form-row-header">
+            <span class="label-prefix">参数名：</span>
+            <span class="label-text">{{ input.displayName || input.id }}</span>
             <span v-if="input.required" class="required">*</span>
+            <span class="label-spacer"></span>
+            <Tooltip :title="getTypeTooltip(input)">
+              <Tag :color="getTypeColor(input.type)" size="small" class="type-tag">
+                {{ getTypeLabelFull(input) }}
+              </Tag>
+            </Tooltip>
           </div>
-          <div class="form-control">
-            <Input
-              v-if="input.type === 'STRING'"
-              v-model:value="formValues[input.id]"
-              :placeholder="getPlaceholder(input)"
-            />
-            <InputNumber
-              v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
-              v-model:value="formValues[input.id]"
-              :step="input.type === 'INT' ? 1 : 0.01"
-              :precision="input.type === 'INT' ? 0 : 2"
-              style="width: 100%"
-              :placeholder="getPlaceholder(input)"
-            />
-            <Switch
-              v-else-if="input.type === 'BOOLEAN'"
-              v-model:checked="formValues[input.id]"
-              checked-children="是"
-              un-checked-children="否"
-            />
-            <template v-else-if="input.type === 'ARRAY'">
-              <Input.TextArea
-                :value="arrayInputs[input.id]"
-                :rows="3"
+          <div class="form-row-control">
+            <span class="control-prefix">参数值：</span>
+            <div class="control-wrapper">
+              <Input
+                v-if="input.type === 'STRING'"
+                v-model:value="formValues[input.id]"
                 :placeholder="getPlaceholder(input)"
-                @input="onArrayInput(input.id, $event)"
+                size="small"
               />
-              <div class="form-hint">将以原生 JSON 数组形式传递</div>
-            </template>
-            <template v-else-if="input.type === 'JSON'">
-              <Input.TextArea
-                :value="jsonInputs[input.id]"
-                :rows="4"
+              <InputNumber
+                v-else-if="input.type === 'INT' || input.type === 'FLOAT'"
+                v-model:value="formValues[input.id]"
+                :step="input.type === 'INT' ? 1 : 0.01"
+                :precision="input.type === 'INT' ? 0 : 2"
+                style="width: 100%"
                 :placeholder="getPlaceholder(input)"
-                @input="onJsonInput(input.id, $event)"
+                size="small"
               />
-              <div class="form-hint">将以原生对象形式传递</div>
-            </template>
-            <Input
-              v-else
-              v-model:value="formValues[input.id]"
-              :placeholder="getPlaceholder(input)"
-            />
+              <Radio.Group
+                v-else-if="input.type === 'BOOLEAN'"
+                v-model:value="formValues[input.id]"
+              >
+                <Radio :value="true">是</Radio>
+                <Radio :value="false">否</Radio>
+              </Radio.Group>
+              <template v-else-if="input.type === 'ARRAY'">
+                <Input.TextArea
+                  :value="arrayInputs[input.id]"
+                  :auto-size="{ minRows: 1, maxRows: 5 }"
+                  :placeholder="getPlaceholder(input)"
+                  :status="getValidationStatus(input.id)"
+                  @input="onArrayInput(input.id, $event)"
+                  size="small"
+                  class="form-textarea"
+                />
+                <div v-if="validationErrors[input.id]" class="field-error">
+                  {{ validationErrors[input.id] }}
+                </div>
+              </template>
+              <template v-else-if="input.type === 'JSON'">
+                <Input.TextArea
+                  :value="jsonInputs[input.id]"
+                  :auto-size="{ minRows: 2, maxRows: 10 }"
+                  :placeholder="getPlaceholder(input)"
+                  :status="getValidationStatus(input.id)"
+                  @input="onJsonInput(input.id, $event)"
+                  size="small"
+                  class="form-textarea"
+                />
+                <div v-if="validationErrors[input.id]" class="field-error">
+                  {{ validationErrors[input.id] }}
+                </div>
+              </template>
+              <Input
+                v-else
+                v-model:value="formValues[input.id]"
+                :placeholder="getPlaceholder(input)"
+                size="small"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -472,34 +649,83 @@ const hasBoth = computed(() => hasInputs.value && hasTriggers.value);
 </template>
 
 <style scoped>
-.form-grid {
+.form-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.form-item {
+.form-row {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.form-label {
+.form-row-header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.85);
+  color: rgba(0, 0, 0, 0.88);
+  line-height: 1.5;
+  gap: 4px;
+}
+
+.label-prefix {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.label-text {
   font-weight: 500;
+}
+
+.label-spacer {
+  flex: 1;
+}
+
+.form-row-header .required {
+  color: #ff4d4f;
+}
+
+.form-row-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.control-prefix {
+  flex-shrink: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.8;
+  padding-top: 2px;
+}
+
+.control-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-error {
+  color: #ff4d4f;
+  font-size: 12px;
   line-height: 1.4;
 }
 
-.form-label .required {
-  color: #ff4d4f;
-  margin-left: 2px;
+.type-tag {
+  cursor: help;
+  user-select: none;
+  flex-shrink: 0;
+  font-size: 11px;
 }
 
-.form-hint {
-  color: #8c8c8c;
-  font-size: 12px;
-  margin-top: 4px;
+.form-textarea {
+  width: 100%;
 }
 
 .trigger-list {
