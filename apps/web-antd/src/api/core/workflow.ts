@@ -45,6 +45,9 @@ export interface FlowVO {
   createTime: string;
   disabled?: boolean;
   deleted?: boolean;
+  inputs?: FlowInput[];
+  triggers?: FlowTrigger[];
+  hasActiveTrigger?: boolean;
 }
 
 export interface FlowPageRequest {
@@ -333,6 +336,7 @@ export async function validateFlow(
 export interface ExecutionTriggerRequest {
   flowId: string;
   projectId: number;
+  inputs?: Record<string, any>;
 }
 
 export interface ExecutionBriefDTO {

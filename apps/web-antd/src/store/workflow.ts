@@ -358,6 +358,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
             status,
             enabled: (item as any).flowEnabled === true || (item as any).flowEnabled === 'true',
             hasActiveTrigger: (item as any).hasActiveTrigger === true || (item as any).hasActiveTrigger === 'true',
+            inputs: (item as any).inputs || [],
             triggers: ((item as any).triggers || []).map((t: any) => ({
               ...t,
               disabled: t.disabled !== undefined ? t.disabled : (t.enabled === false),
@@ -452,7 +453,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  async function runWorkflow(id: string): Promise<boolean> {
+  async function runWorkflow(id: string, inputs?: Record<string, any>): Promise<boolean> {
     try {
       const workflow = findWorkflowById(id);
       if (!workflow) {
@@ -466,6 +467,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       await runFlow({
         flowId: workflow.flowId,
         projectId: projectId.value,
+        ...(inputs ? { inputs } : {}),
       });
       return true;
     } catch (error) {

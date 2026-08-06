@@ -16,6 +16,9 @@ import {
 } from 'ant-design-vue';
 
 import { useWorkflowStore } from '#/store/workflow';
+
+import RunInputDialog from './RunInputDialog.vue';
+
 const router = useRouter();
 const store = useWorkflowStore();
 const searchInput = ref('');
@@ -24,6 +27,11 @@ const endTime = ref<string | undefined>();
 const currentPage = ref(1);
 const pageSize = ref(10);
 const runningWorkflowId = ref<string | null>(null);
+
+// 输入对话框状态
+const showInputDialog = ref(false);
+const inputDialogLoading = ref(false);
+const currentRunWorkflow = ref<any>(null);
 let searchTimer: null | ReturnType<typeof setTimeout> = null;
 
 const workflows = computed(() => store.workflows);
@@ -53,9 +61,25 @@ async function handleRun(workflowId: string) {
     message.warning('流程已停用，请先启用流程');
     return;
   }
-  runningWorkflowId.value = workflowId;
+
+  // 检查是否有 inputs 或 triggers 配置
+  const inputs = workflow.inputs || [];
+  const triggers = workflow.triggers || [];
+  if (inputs.length > 0 || triggers.length > 0) {
+    currentRunWorkflow.value = workflow;
+    showInputDialog.value = true;
+    return;
+  }
+
+  // 无 inputs 和 triggers，直接运行
+  await doRunWorkflow(workflow);
+}
+
+async function doRunWorkflow(workflow: any, inputs?: Record<string, any>) {
+  if (runningWorkflowId.value) return;
+  runningWorkflowId.value = workflow.id;
   try {
-    const success = await store.runWorkflow(workflowId);
+    const success = await store.runWorkflow(workflow.id, inputs);
     if (success) {
       message.success('流程运行成功');
     } else {
@@ -66,6 +90,21 @@ async function handleRun(workflowId: string) {
     message.error('流程运行失败');
   } finally {
     runningWorkflowId.value = null;
+  }
+}
+
+function handleRunWithInputs(values: Record<string, any>) {
+  showInputDialog.value = false;
+  inputDialogLoading.value = true;
+  const workflow = currentRunWorkflow.value;
+  if (workflow) {
+    // 提取 _triggers 字段，其余为 inputs
+    const { _triggers, ...inputs } = values;
+    doRunWorkflow(workflow, inputs).finally(() => {
+      inputDialogLoading.value = false;
+    });
+  } else {
+    inputDialogLoading.value = false;
   }
 }
 async function handleDelete(workflowId: string) {
@@ -474,6 +513,16 @@ watch(searchInput, () => {
         </div>
       </div>
     </Card>
+
+    <!-- 运行参数输入对话框 -->
+    <RunInputDialog
+      :visible="showInputDialog"
+      :inputs="currentRunWorkflow?.inputs || []"
+      :triggers="currentRunWorkflow?.triggers || []"
+      :loading="inputDialogLoading"
+      @update:visible="showInputDialog = $event"
+      @confirm="handleRunWithInputs"
+    />
   </div>
 </template>
 
