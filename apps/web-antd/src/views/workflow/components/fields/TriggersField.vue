@@ -143,6 +143,10 @@ function updateField(index: number, key: string, value: any) {
   emit('updateTriggersField', fieldKey.value, index, key, value);
   if (key === 'type' && value) {
     loadTriggerMeta(value);
+    // Schedule 触发器自动添加 withSeconds: false
+    if (value === 'idp_core_trigger_Schedule') {
+      emit('updateTriggersField', fieldKey.value, index, 'withSeconds', false);
+    }
   }
 }
 

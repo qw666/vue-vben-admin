@@ -170,7 +170,18 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
         return result;
       });
     store.currentWorkflow.inputs = processedInputs;
-    store.currentWorkflow.triggers = config.triggers || [];
+
+    // 处理 triggers：Schedule 触发器自动添加 withSeconds: false
+    const processedTriggers = (config.triggers || []).map((trigger: any) => {
+      if (trigger.type === 'idp_core_trigger_Schedule') {
+        return {
+          ...trigger,
+          withSeconds: false,
+        };
+      }
+      return trigger;
+    });
+    store.currentWorkflow.triggers = processedTriggers;
   },
 };
 
