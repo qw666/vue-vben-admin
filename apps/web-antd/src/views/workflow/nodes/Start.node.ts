@@ -121,22 +121,34 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
 
   saveConfig(config: Record<string, any>, store: any): void {
     if (!store.currentWorkflow) return;
-    const processedInputs = (config.inputs || []).map((input: any) => {
-      const result: Record<string, any> = {
-        id: input.id,
-        type: input.type,
-      };
-      if (input.displayName) {
-        result.displayName = input.displayName;
-      }
-      if (input.required) {
-        result.required = true;
-        if (input.defaults !== undefined && input.defaults !== '') {
-          result.defaults = input.defaults;
+    const processedInputs = (config.inputs || [])
+      .filter((input: any) => input.id && input.type)
+      .map((input: any) => {
+        const result: Record<string, any> = {
+          id: input.id,
+          type: input.type,
+        };
+
+        if (input.displayName) {
+          result.displayName = input.displayName;
         }
-      }
-      return result;
-    });
+
+        if (input.required) {
+          result.required = true;
+        }
+
+        // 所有类型都支持默认值保存
+        if (input.defaults !== undefined && input.defaults !== null) {
+          // 对 STRING 类型，空字符串不保存
+          if (input.type === 'STRING' && input.defaults === '') {
+            // 跳过
+          } else {
+            result.defaults = input.defaults;
+          }
+        }
+
+        return result;
+      });
     store.currentWorkflow.inputs = processedInputs;
     store.currentWorkflow.triggers = config.triggers || [];
   },

@@ -25,6 +25,7 @@ import { rewriteVarReferences } from './composables/useVarSources';
 import { createVarSelectContext, provideVarSelect } from './composables/varSelectContext';
 import { getFlowControlConfig } from './config/workflow-node-config';
 import { useFlowControlNode } from './composables/useFlowControlNode';
+import { flowControlNodeRegistry } from './nodes/types';
 import {
   convertFlowModelToWorkflow,
   buildFlowSavePayload,
@@ -428,6 +429,21 @@ async function handleSave() {
       (n) => n.data.type === 'idp_core_flow_End',
     );
     store.currentWorkflow.outputs = endNode?.data.config?.outputs || [];
+
+    const startNode = store.currentWorkflow.nodes.find(
+      (n) => n.data.type === 'idp_core_flow_Start',
+    );
+    // 通过策略处理 inputs 和 triggers，确保数据格式正确
+    const startStrategy = startNode 
+      ? flowControlNodeRegistry.get(startNode.data.type)
+      : null;
+    if (startStrategy?.saveConfig) {
+      startStrategy.saveConfig(startNode.data.config, store);
+    } else {
+      store.currentWorkflow.inputs = startNode?.data.config?.inputs || [];
+      store.currentWorkflow.triggers = startNode?.data.config?.triggers || [];
+    }
+
     store.currentWorkflow.name = workflowName.value;
     store.currentWorkflow.updatedAt = new Date().toISOString();
 

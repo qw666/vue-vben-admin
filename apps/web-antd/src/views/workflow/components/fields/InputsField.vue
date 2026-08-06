@@ -64,7 +64,7 @@ const fieldLabels: Record<string, { label: string; tooltip: string }> = {
   },
   defaults: {
     label: '默认值',
-    tooltip: '字段默认值，仅在必填字段时可用。',
+    tooltip: '字段默认值，当运行时未提供值时使用。',
   },
 };
 
@@ -254,7 +254,7 @@ function formatDefaultValue(item: any): any {
 </Select.Option>
               </Select>
             </div>
-            <div v-if="item.required" style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 8px; align-items: center;">
               <div style="display: flex; align-items: center; width: 80px;">
                 <span style="font-size: 12px; color: #6b7280;">{{ fieldLabels.defaults.label }}</span>
                 <Tooltip :title="fieldLabels.defaults.tooltip">
