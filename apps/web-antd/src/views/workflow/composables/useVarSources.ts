@@ -12,6 +12,10 @@ import { useWorkflowStore } from '#/store/workflow';
 import { flowControlNodeRegistry } from '../nodes/types';
 import { useVarSelect } from './varSelectContext';
 import { usePluginMeta } from './usePluginMeta';
+import { evalCondition } from '../utils/conditionEval';
+
+// 重新导出 evalCondition 以保持向后兼容
+export { evalCondition };
 
 // ===== 反向 BFS：找当前节点的所有上游节点 =====
 
@@ -262,39 +266,7 @@ const upstreamProvider: VarSourceProvider = {
   },
 };
 
-/**
- * 评估条件表达式，判断输出变量是否可用。
- * 支持的格式：
- * - "field == 'value'" 或 'field == "value"'：字段等于指定值
- * - "field in ['v1', 'v2']" 或 'field in ["v1", "v2"]'：字段在指定值列表中
- * - 无 condition 或空字符串：总是返回 true
- */
-function evalCondition(condition: string | undefined, config: Record<string, any>): boolean {
-  if (!condition || !condition.trim()) return true;
 
-  const cond = condition.trim();
-
-  // 匹配 "field == 'value'" 或 'field == "value"' 格式
-  const eqMatch = cond.match(/^(\w+)\s*==\s*['"]([^'"]*)['"]$/);
-  if (eqMatch && eqMatch[1]) {
-    const field = eqMatch[1];
-    const value = eqMatch[2] || '';
-    return String(config[field] ?? '') === value;
-  }
-
-  // 匹配 "field in ['v1', 'v2']" 或 'field in ["v1", "v2"]' 格式
-  const inMatch = cond.match(/^(\w+)\s+in\s*\[([^\]]*)\]$/);
-  if (inMatch && inMatch[1]) {
-    const field = inMatch[1];
-    const valuesStr = inMatch[2] || '';
-    // 同时支持单引号和双引号
-    const values = valuesStr.match(/['"]([^'"]*)['"]/g)?.map((s) => s.slice(1, -1)) || [];
-    return values.includes(String(config[field] ?? ''));
-  }
-
-  // 未知格式，默认显示
-  return true;
-}
 
 /** 获取节点的输出声明 */
 function getNodeOutputs(

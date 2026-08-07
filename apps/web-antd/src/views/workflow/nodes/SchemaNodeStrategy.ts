@@ -1,6 +1,7 @@
 import type {
   FlowControlNodeConfig,
   FlowControlNodeStrategy,
+  NodeOutputDef,
   SchemaNodeMeta,
   WorkflowNodePort,
 } from './types';
@@ -11,6 +12,7 @@ import {
   serializeFieldValue,
 } from '../composables/useSchemaParser';
 import { renderFormField } from '../composables/useFormFieldResolver';
+import { evalCondition } from '../utils/conditionEval';
 
 /**
  * SchemaNodeStrategy: 将后端 Schema 节点适配为 FlowControlNodeStrategy 接口。
@@ -29,6 +31,7 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
       nodeName: meta.nodeName,
       icon: meta.icon,
       description: meta.description,
+      group: 'tools',
       ports: {
         input: 1,
         output: [
@@ -243,8 +246,23 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
     return null;
   }
 
-  getOutputs(): { key: string; label?: string }[] {
-    return this.meta.outputKeys || [];
+  getOutputs(config: Record<string, any>): NodeOutputDef[] {
+    // 优先使用带 condition 的 outputs 字段（支持条件过滤）
+    if (this.meta.outputs && this.meta.outputs.length > 0) {
+      return this.meta.outputs
+        .filter((o) => o?.key && evalCondition(o.condition, config || {}))
+        .map((o) => ({
+          key: o.key,
+          label: o.label || o.key,
+          type: (o.type as NodeOutputDef['type']) || 'any',
+        }));
+    }
+    // 向后兼容：使用 outputKeys（无条件过滤）
+    return (this.meta.outputKeys || []).map((o) => ({
+      key: o.key,
+      label: o.label || o.key,
+      type: 'any' as const,
+    }));
   }
 
   getNodeDescription(): { title?: string; description?: string } {

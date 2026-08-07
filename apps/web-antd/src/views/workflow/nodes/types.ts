@@ -82,6 +82,9 @@ export interface SchemaNodeMeta {
   formRequired: string[];
   formDefs: Record<string, any>;
   taskFields?: string[];
+  /** 输出变量声明，支持条件过滤（condition） */
+  outputs?: { key: string; label?: string; type?: string; condition?: string }[];
+  /** @deprecated 使用 outputs 字段替代，保留用于向后兼容 */
   outputKeys?: { key: string; label?: string }[];
 }
 

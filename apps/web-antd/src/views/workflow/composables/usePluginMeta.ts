@@ -89,7 +89,12 @@ async function loadPluginMeta(nodeType: string): Promise<PluginMetaDetailDTO | n
             formProperties: cached.formProperties as any,
             formRequired: cached.formRequired || [],
             formDefs: cached.formDefs || {},
-            outputKeys: cached.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+            outputs: cached.outputs?.map((o: any) => ({
+              key: o.key,
+              label: o.label,
+              type: o.type,
+              condition: o.condition,
+            })),
           });
         }
       });
@@ -119,7 +124,12 @@ async function loadPluginMeta(nodeType: string): Promise<PluginMetaDetailDTO | n
               formProperties: meta.formProperties as any,
               formRequired: meta.formRequired || [],
               formDefs: meta.formDefs || {},
-              outputKeys: meta.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+              outputs: meta.outputs?.map((o: any) => ({
+                key: o.key,
+                label: o.label,
+                type: o.type,
+                condition: o.condition,
+              })),
             });
           }
         });
@@ -226,7 +236,12 @@ async function preloadPluginMeta(nodeTypes: string[]): Promise<void> {
           formProperties: cached.formProperties as any,
           formRequired: cached.formRequired || [],
           formDefs: cached.formDefs || {},
-          outputKeys: cached.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+          outputs: cached.outputs?.map((o: any) => ({
+            key: o.key,
+            label: o.label,
+            type: o.type,
+            condition: o.condition,
+          })),
         });
       }
     }
@@ -254,7 +269,12 @@ async function preloadPluginMeta(nodeTypes: string[]): Promise<void> {
             formProperties: meta.formProperties as any,
             formRequired: meta.formRequired || [],
             formDefs: meta.formDefs || {},
-            outputKeys: meta.outputs?.map((o: any) => ({ key: o.key, label: o.label })),
+            outputs: meta.outputs?.map((o: any) => ({
+              key: o.key,
+              label: o.label,
+              type: o.type,
+              condition: o.condition,
+            })),
           });
         }
       }
