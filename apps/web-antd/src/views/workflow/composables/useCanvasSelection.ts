@@ -44,6 +44,9 @@ export function useCanvasSelection(
     if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
       return;
     }
+    if (target.isContentEditable || target.closest('[contenteditable="true"]')) {
+      return;
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       if (selectedNodeId.value) {
         const nodeId = selectedNodeId.value;
