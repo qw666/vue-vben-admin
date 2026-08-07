@@ -63,15 +63,16 @@ async function handleRun(workflowId: string) {
   }
 
   const inputs = workflow.inputs || [];
+  const hasWebhook = !!(workflow.flowId && store.projectId);
   
-  // 有 inputs 配置，弹框填写参数
-  if (inputs.length > 0) {
+  // 有 inputs 或有 flowId（可配置 webhook），弹框显示
+  if (inputs.length > 0 || hasWebhook) {
     currentRunWorkflow.value = workflow;
     showInputDialog.value = true;
     return;
   }
 
-  // 无 inputs 配置，弹框二次确认
+  // 无 inputs 且无 flowId，弹框二次确认
   Modal.confirm({
     title: '确认运行',
     content: `确定要运行流程「${workflow.name}」吗？`,
@@ -540,6 +541,8 @@ watch(searchInput, () => {
       :visible="showInputDialog"
       :inputs="currentRunWorkflow?.inputs || []"
       :loading="inputDialogLoading"
+      :project-id="store.projectId"
+      :flow-id="currentRunWorkflow?.flowId"
       @update:visible="showInputDialog = $event"
       @confirm="handleRunWithInputs"
     />
