@@ -22,19 +22,12 @@ import {
   isFrontendTrigger,
 } from '../triggers';
 import ScheduleConfig from '../triggers/ScheduleConfig.vue';
-import WebhookConfig from '../triggers/WebhookConfig.vue';
 import DynamicConfig from '../triggers/DynamicConfig.vue';
 
 registerTriggerConfig({
   type: 'idp_core_trigger_Schedule',
   label: '定时调度',
   component: markRaw(ScheduleConfig),
-});
-
-registerTriggerConfig({
-  type: 'idp_core_trigger_Webhook',
-  label: 'Webhook',
-  component: markRaw(WebhookConfig),
 });
 
 const props = defineProps<{
