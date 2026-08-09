@@ -141,8 +141,19 @@ export function useFormState() {
 
   function updateArrayItemValue(fieldKey: string, index: number, itemKey: string, value: any) {
     const currentValue = nodeConfigForm[fieldKey] || [];
-    currentValue[index][itemKey] = value;
-    nodeConfigForm[fieldKey] = [...currentValue];
+    if (itemKey === '') {
+      // 字符串数组：直接替换整个元素值
+      nodeConfigForm[fieldKey] = currentValue.map((item: any, i: number) => (i === index ? value : item));
+    } else {
+      // 对象数组：更新指定属性
+      const updated = [...currentValue];
+      if (updated[index] && typeof updated[index] === 'object') {
+        updated[index] = { ...updated[index], [itemKey]: value };
+      } else {
+        updated[index] = { [itemKey]: value };
+      }
+      nodeConfigForm[fieldKey] = updated;
+    }
   }
 
   function startResize(e: MouseEvent) {
