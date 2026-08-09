@@ -374,8 +374,85 @@ export function validateConnectivity(workflow: Workflow): ValidationError[] {
   return errors;
 }
 
+function isEmptyValue(value: any): boolean {
+  if (value === '' || value === null || value === undefined) {
+    return true;
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return true;
+  }
+  if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 配置层校验：检查所有节点的必填项是否已填写
+ */
+export function validateNodeConfigs(workflow: Workflow): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  for (const node of workflow.nodes) {
+    if (!node.data.label || !node.data.label.trim()) {
+      errors.push({
+        message: `节点「${node.data.label || node.id}」缺少节点名称`,
+        nodeId: node.id,
+        nodeLabel: node.data.label || node.id,
+        type: 'error',
+      });
+    }
+
+    const nodeType = node.data.type;
+    const strategy = flowControlNodeRegistry.get(nodeType);
+    const config = node.data.config || {};
+
+    const requiredFields = strategy.getRequiredFields?.() || [];
+
+    requiredFields.forEach(field => {
+      if (field.props) {
+        const fieldKey = field.props.key;
+        const fieldValue = config[fieldKey];
+
+        const isArrayTableField = field.type === 'ArrayTable';
+        if (isArrayTableField) {
+          if (fieldValue === undefined || fieldValue === null ||
+              (Array.isArray(fieldValue) && fieldValue.length === 0)) {
+            return;
+          }
+        }
+        if (isEmptyValue(fieldValue)) {
+          errors.push({
+            message: `节点「${node.data.label || node.id}」缺少必填项：${field.props.label}`,
+            nodeId: node.id,
+            nodeLabel: node.data.label || node.id,
+            type: 'error',
+          });
+        }
+      }
+    });
+
+    if (strategy.validateConfig) {
+      const error = strategy.validateConfig(config);
+      if (error) {
+        errors.push({
+          message: error,
+          nodeId: node.id,
+          nodeLabel: node.data.label || node.id,
+          type: 'error',
+        });
+      }
+    }
+  }
+
+  return errors;
+}
+
 export function validateAll(workflow: Workflow): ValidationResult {
   const errors: ValidationError[] = [];
+
+  // 规则0: 配置层校验（必填项）
+  errors.push(...validateNodeConfigs(workflow));
 
   // 规则1: 开始/输出节点数量和连接
   errors.push(...validateStartEndNodes(workflow));

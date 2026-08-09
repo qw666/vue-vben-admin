@@ -4,7 +4,6 @@ import type { WorkflowNode } from '#/types/workflow';
 import { flowControlNodeRegistry } from '../config/workflow-node-config';
 import { UI_CONFIG } from '../config/ui-config';
 import type { SchemaNode as ParserSchemaNode } from './useSchemaParser';
-import { validateAllNodes, validateNodeConfig } from './useFieldValidation';
 import { useChildNodeSelection } from './useChildNodeSelection';
 import { useFormState } from './useFormState';
 import { useWorkflowStore } from '#/store/workflow';
@@ -318,5 +317,3 @@ export function useNodeConfig(
     confirmEditChildNode,
   };
 }
-
-export { validateAllNodes, validateNodeConfig };

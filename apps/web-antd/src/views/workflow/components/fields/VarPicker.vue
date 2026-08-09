@@ -307,6 +307,17 @@ watch(currentValue, (val) => {
   }
 });
 
+watch(fieldKey, () => {
+  isUserInputting = false;
+  popoverOpen.value = false;
+  slashQuery.value = '';
+  searchValue.value = '';
+  storedValue.value = currentValue.value;
+  nextTick(() => {
+    syncDomFromStored();
+  });
+});
+
 onMounted(() => {
   // 组件挂载后首次同步 DOM（确保 editorRef 已就绪）
   nextTick(() => {

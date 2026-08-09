@@ -19,7 +19,7 @@ import ConfigPanel from './components/ConfigPanel.vue';
 import LeftPanel from './components/LeftPanel.vue';
 import NodeSelectModal from './components/NodeSelectModal.vue';
 import { useCanvasInteraction } from './composables/useCanvasInteraction';
-import { useNodeConfig, validateAllNodes } from './composables/useNodeConfig';
+import { useNodeConfig } from './composables/useNodeConfig';
 import { usePluginMeta } from './composables/usePluginMeta';
 import { rewriteVarReferences } from './composables/useVarSources';
 import { createVarSelectContext, provideVarSelect } from './composables/varSelectContext';
@@ -32,7 +32,7 @@ import {
   getDefaultOutputPortField,
 } from './utils/flowModelConverter';
 import {
-  validateAll as validateWorkflowStructure,
+  validateAll,
   formatValidationErrors,
 } from './utils/validateWorkflow';
 
@@ -405,24 +405,10 @@ async function handleSave() {
       return;
     }
 
-    const configValidation = validateAllNodes(
-      store.currentWorkflow.nodes,
-    );
+    const validation = validateAll(store.currentWorkflow);
 
-    if (!configValidation.isValid) {
-      const errorMessages = configValidation.errors.map(
-        (err) => `${err.nodeLabel}：${err.missingFields.join('、')}`,
-      );
-      message.error(`以下节点存在未填写的必填项：\n${errorMessages.join('\n')}`);
-      return;
-    }
-
-    const structureValidation = validateWorkflowStructure(
-      store.currentWorkflow,
-    );
-
-    if (!structureValidation.valid) {
-      message.error(formatValidationErrors(structureValidation.errors));
+    if (!validation.valid) {
+      message.error(formatValidationErrors(validation.errors));
       return;
     }
 
