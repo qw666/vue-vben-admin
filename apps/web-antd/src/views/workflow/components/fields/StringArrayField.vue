@@ -52,7 +52,7 @@ const emit = defineEmits<{
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div v-for="(item, index) in arrayValue" :key="`${fieldKey}-item-${index}`" style="display: flex; align-items: center; gap: 8px;">
           <VarPicker
-            :key="`${fieldKey}-${index}-${item}`"
+            :key="`${fieldKey}-item-${index}`"
             :value="item"
             @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, '', val)"
             :placeholder="'输入 / 选择变量'"
