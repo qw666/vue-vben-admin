@@ -3,7 +3,9 @@ import { onMounted, ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 import { Tooltip } from 'ant-design-vue';
+
 import { UI_CONFIG } from '../config/ui-config';
+import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 import { resolveNodeIcon } from '../utils/nodeIcon';
 
 const props = defineProps<{
@@ -67,6 +69,10 @@ const canvasRef = ref<HTMLElement | null>(null);
 
 function getCategoryColor(): string {
   return 'bg-primary';
+}
+
+function isContainerNode(node: any): boolean {
+  return flowControlNodeRegistry.isFlowControlContainer(node?.data?.type);
 }
 
 const triggerTypeMap: Record<string, { label: string; icon: string; color: string }> = {
@@ -313,12 +319,7 @@ onMounted(() => {
           <div
             v-for="node in nodes"
             :key="`group-bg-${ node.id}`"
-            v-show="
-              node.data.description === '条件分支' ||
-              node.data.description === '多条件分支' ||
-              node.data.description === '循环执行' ||
-              node.data.description === '并行分支'
-            "
+            v-show="isContainerNode(node)"
             class="absolute rounded-xl bg-purple-50/40"
             :style="{
               left: `${getGroupBounds(node.id)?.x ?? node.position.x - 24 }px`,
@@ -334,12 +335,7 @@ onMounted(() => {
           <div
             v-for="node in nodes"
             :key="`group-border-${ node.id}`"
-            v-show="
-              node.data.description === '条件分支' ||
-              node.data.description === '多条件分支' ||
-              node.data.description === '循环执行' ||
-              node.data.description === '并行分支'
-            "
+            v-show="isContainerNode(node)"
             class="absolute rounded-xl border-2 border-dashed border-purple-500 shadow-sm"
             :style="{
               left: `${getGroupBounds(node.id)?.x ?? node.position.x - 24 }px`,

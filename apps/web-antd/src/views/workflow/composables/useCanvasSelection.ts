@@ -1,6 +1,10 @@
 import { ref } from 'vue';
+
 import { message } from 'ant-design-vue';
+
 import { useWorkflowStore } from '#/store/workflow';
+
+import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 
 export function useCanvasSelection(
   connections: { value: { source: string; target: string }[] },
@@ -13,7 +17,8 @@ export function useCanvasSelection(
   function isStartOrEndNode(nodeId: string): boolean {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) return false;
-    return node.data.type === 'idp_core_flow_Start' || node.data.type === 'idp_core_flow_End';
+    return flowControlNodeRegistry.isCategory(node.data.type, 'start')
+      || flowControlNodeRegistry.isCategory(node.data.type, 'end');
   }
 
   function selectNode(nodeId: string) {
