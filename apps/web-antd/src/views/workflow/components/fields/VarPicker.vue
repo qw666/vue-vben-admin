@@ -702,14 +702,15 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
 </script>
 
 <template>
-  <Popover
-    v-model:open="popoverOpen"
-    :trigger="[]"
-    placement="bottomLeft"
-    overlay-class-name="var-picker-popover"
-    :get-popup-container="(trigger: any) => getPopupContainer(trigger)"
-  >
-    <template #content>
+  <div class="var-picker-root">
+    <Popover
+      v-model:open="popoverOpen"
+      :trigger="[]"
+      placement="bottomLeft"
+      overlay-class-name="var-picker-popover"
+      :get-popup-container="(trigger: any) => getPopupContainer(trigger)"
+    >
+      <template #content>
       <div class="var-dropdown" @click.stop>
         <div class="var-dropdown-header">
           <span class="var-dropdown-title">选择变量</span>
@@ -782,10 +783,16 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
         <IconifyIcon icon="mdi:variable" :size="14" />
       </span>
     </div>
-  </Popover>
+    </Popover>
+  </div>
 </template>
 
 <style scoped>
+.var-picker-root {
+  display: block;
+  width: 100%;
+}
+
 .var-picker-wrapper {
   display: flex;
   align-items: center;
