@@ -8,6 +8,7 @@ import { useEventCleanup } from './useEventCleanup';
 import { flowControlNodeRegistry } from '../nodes/types';
 import { useFlowControlNode } from './useFlowControlNode';
 import { getGroupBounds } from './useCanvasPorts';
+import { findChildLocation } from '../nodes/containerNodeAccessor';
 
 export function useCanvasConnections(
   nodeConfigForm?: NodeConfigForm,
@@ -184,31 +185,11 @@ export function useCanvasConnections(
           
           if (flowControlConfig.taskFields) {
             const taskFields = flowControlConfig.taskFields.filter(f => f !== 'next');
-            let targetField: string | undefined;
-            let caseKey: string | undefined;
+            const location = findChildLocation(parentNode.data.config || {}, taskFields, conn.source);
             
-            for (const field of taskFields) {
-              const fieldValue = parentNode.data.config?.[field];
-              if (fieldValue) {
-                if (Array.isArray(fieldValue)) {
-                  if (fieldValue.some(item => item.nodeId === conn.source)) {
-                    targetField = field;
-                    break;
-                  }
-                } else if (typeof fieldValue === 'object' && fieldValue !== null) {
-                  for (const [key, value] of Object.entries(fieldValue)) {
-                    if (Array.isArray(value) && value.some((item: any) => item.nodeId === conn.source)) {
-                      targetField = field;
-                      caseKey = key;
-                      break;
-                    }
-                  }
-                  if (caseKey) break;
-                }
-              }
-            }
-            
-            if (targetField) {
+            if (location) {
+              const targetField = location.field;
+              const caseKey = location.caseKey;
               flowControlNodeRegistry.handleConnection(parentNode.data.type, {
                 conn: {
                   ...conn,

@@ -2,7 +2,15 @@ import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
 import type { NodeConfigForm, SelectedNode, TaskItem } from '../types/workflow';
-import { forEachTaskField, filterTaskField, findTaskField } from '../nodes/taskFieldUtils';
+import {
+  getAllChildIds,
+  forEachChild,
+  addChildToConfig,
+  removeChildFromConfig,
+  updateChildInConfig,
+  getExcludeFields,
+  findChildLocation,
+} from '../nodes/containerNodeAccessor';
 
 export function useFlowControlNode(
   nodeConfigForm?: NodeConfigForm,
@@ -10,27 +18,13 @@ export function useFlowControlNode(
 ) {
   const store = useWorkflowStore();
 
-  function getExcludeFields(flowControlConfig: any): string[] {
-    const excludeFields: string[] = ['next'];
-    if (flowControlConfig.ports?.output) {
-      flowControlConfig.ports.output.forEach((port: any) => {
-        if (port.excludeFromBounds) {
-          excludeFields.push(port.field);
-        }
-      });
-    }
-    return excludeFields;
-  }
-
   function getChildNodeIds(nodeId: string): string[] {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId) as WorkflowNode | undefined;
     if (!node) return [];
 
     const flowControlConfig = getFlowControlConfig(node.data.type);
-
-    const childIds: string[] = [];
     const taskFields = flowControlConfig.taskFields || [];
-    const excludeFields = getExcludeFields(flowControlConfig);
+    const excludeFields = getExcludeFields(taskFields, flowControlConfig.ports?.output);
     const edges = store.currentWorkflow?.edges || [];
 
     // Follow edges to collect chain descendants (sequential mode only)
@@ -52,31 +46,23 @@ export function useFlowControlNode(
       }
     };
 
-    taskFields.forEach(field => {
-      if (excludeFields.includes(field)) return;
-      const configValue = node.data.config?.[field];
+    // Use getAllChildIds for direct children (with exclude filter)
+    const config = node.data.config || {};
+    const activeFields = taskFields.filter(f => !excludeFields.includes(f));
+    const directChildIds = getAllChildIds(config, activeFields);
 
-      forEachTaskField(configValue, (item) => {
-        if (item.nodeId) {
-          if (!childIds.includes(item.nodeId)) {
-            childIds.push(item.nodeId);
-          }
-          // Collect chain descendants via edges (for both sequential and parallel modes)
-          // Parallel mode: each branch's chain nodes should be included in the container's bounds
-          // Sequential mode: chain nodes are already part of the sequential flow
-          collectChainDescendants(item.nodeId, childIds);
-          // Recursively get nested flow control children
-          const nestedChildIds = getChildNodeIds(item.nodeId);
-          nestedChildIds.forEach(nestedId => {
-            if (!childIds.includes(nestedId)) {
-              childIds.push(nestedId);
-            }
-          });
-        }
+    // Collect chain descendants for each direct child
+    const result = [...directChildIds];
+    for (const childId of directChildIds) {
+      collectChainDescendants(childId, result);
+      // Also recursively get nested flow control children (e.g. Switch inside Parallel)
+      const nestedChildIds = getChildNodeIds(childId);
+      nestedChildIds.forEach(id => {
+        if (!result.includes(id)) result.push(id);
       });
-    });
+    }
 
-    return childIds;
+    return result;
   }
 
   function getParentNodeId(nodeId: string): string | null {
@@ -103,33 +89,23 @@ export function useFlowControlNode(
       const flowControlConfig = getFlowControlConfig(node.data.type);
       const taskFields = flowControlConfig.taskFields || [];
 
+      // Check if nodeId is a direct child
+      const location = findChildLocation(node.data.config || {}, taskFields, nodeId);
+      if (location) {
+        return { parentId: node.id, field: location.field };
+      }
+
+      // Check if nodeId is a descendant of any direct child
       for (const field of taskFields) {
-        const configValue = node.data.config?.[field];
         let found = false;
-
-        const checkItems = (items: any[]): boolean => {
-          for (const item of items) {
-            if (item.nodeId === nodeId) return true;
-            if (item.nodeId) {
-              const descendants = getChildNodeIds(item.nodeId);
-              if (descendants.includes(nodeId)) return true;
-            }
-          }
-          return false;
-        };
-
-        if (Array.isArray(configValue)) {
-          found = checkItems(configValue);
-        } else if (typeof configValue === 'object' && configValue !== null) {
-          for (const caseKey of Object.keys(configValue)) {
-            const caseItems = configValue[caseKey];
-            if (Array.isArray(caseItems) && checkItems(caseItems)) {
+        forEachChild(node.data.config || {}, [field], [], (item) => {
+          if (item.nodeId) {
+            const descendants = getChildNodeIds(item.nodeId);
+            if (descendants.includes(nodeId)) {
               found = true;
-              break;
             }
           }
-        }
-
+        });
         if (found) {
           return { parentId: node.id, field };
         }
@@ -144,24 +120,12 @@ export function useFlowControlNode(
     if (!node) return [];
 
     const flowControlConfig = getFlowControlConfig(node.data.type);
-
-    const childIds: string[] = [];
     const taskFields = flowControlConfig.taskFields || [];
-    const excludeFields = getExcludeFields(flowControlConfig);
+    const excludeFields = getExcludeFields(taskFields, flowControlConfig.ports?.output);
 
-    taskFields.forEach(field => {
-      if (excludeFields.includes(field)) return;
-      const configValue = node.data.config?.[field];
-      forEachTaskField(configValue, (item) => {
-        if (item.nodeId) {
-          if (!childIds.includes(item.nodeId)) {
-            childIds.push(item.nodeId);
-          }
-        }
-      });
-    });
-
-    return childIds;
+    const config = node.data.config || {};
+    const activeFields = taskFields.filter(f => !excludeFields.includes(f));
+    return getAllChildIds(config, activeFields);
   }
 
   function addChildNode(nodeId: string, fieldKey: string, childNode: WorkflowNode) {
@@ -173,7 +137,6 @@ export function useFlowControlNode(
     }
 
     const flowControlConfig = getFlowControlConfig(node.data.type);
-
     const taskFields = flowControlConfig.taskFields || [];
     if (!taskFields.includes(fieldKey)) return;
 
@@ -184,40 +147,14 @@ export function useFlowControlNode(
       ...(childNode.data.config || {}),
     };
 
-    const addToField = (target: any) => {
-      const currentValue = target[fieldKey];
-      if (Array.isArray(currentValue)) {
-        const existing = currentValue.find((item: any) => item.nodeId === childNode.id);
-        if (!existing) {
-          target[fieldKey] = [...currentValue, taskItem];
-        }
-      } else if (typeof currentValue === 'object' && currentValue !== null) {
-        forEachTaskField(currentValue, (item) => {
-          if (item.nodeId === childNode.id) {
-            throw new Error('already_exists');
-          }
-        });
-        Object.keys(currentValue).forEach(key => {
-          const caseItems = currentValue[key];
-          if (Array.isArray(caseItems)) {
-            caseItems.push(taskItem);
-          }
-        });
-      } else {
-        target[fieldKey] = [taskItem];
-      }
-    };
+    addChildToConfig(node.data.config, taskFields, fieldKey, taskItem);
 
-    try {
-      addToField(node.data.config);
-      if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
-        addToField(nodeConfigForm);
-      }
-    } catch {
+    if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
+      addChildToConfig(nodeConfigForm as Record<string, any>, taskFields, fieldKey, taskItem);
     }
   }
 
-  function removeChildNode(nodeId: string, fieldKey: string, childNodeId: string) {
+  function removeChildNode(nodeId: string, _fieldKey: string, childNodeId: string) {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) return;
 
@@ -225,18 +162,13 @@ export function useFlowControlNode(
       node.data.config = {};
     }
 
-    const removeFromField = (target: any) => {
-      const currentValue = target[fieldKey];
-      const filtered = filterTaskField(currentValue, (item) => item.nodeId !== childNodeId);
-      if (filtered !== undefined) {
-        target[fieldKey] = filtered;
-      }
-    };
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    const taskFields = flowControlConfig.taskFields || [];
 
-    removeFromField(node.data.config);
+    removeChildFromConfig(node.data.config, taskFields, childNodeId);
 
     if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
-      removeFromField(nodeConfigForm);
+      removeChildFromConfig(nodeConfigForm as Record<string, any>, taskFields, childNodeId);
     }
 
     store.currentWorkflow!.edges = (store.currentWorkflow?.edges || []).filter(
@@ -244,22 +176,21 @@ export function useFlowControlNode(
     );
   }
 
-  function updateChildNodeLabel(nodeId: string, fieldKey: string, childNodeId: string, newLabel: string) {
+  function updateChildNodeLabel(nodeId: string, _fieldKey: string, childNodeId: string, newLabel: string) {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    const updateInField = (target: any) => {
-      const currentValue = target[fieldKey];
-      const item = findTaskField(currentValue, (item) => item.nodeId === childNodeId);
-      if (item) {
-        item.label = newLabel;
-      }
-    };
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    const taskFields = flowControlConfig.taskFields || [];
 
-    updateInField(node.data.config);
+    updateChildInConfig(node.data.config, taskFields, childNodeId, (item) => {
+      item.label = newLabel;
+    });
 
     if (nodeConfigForm && selectedNode?.value?.id === nodeId) {
-      updateInField(nodeConfigForm);
+      updateChildInConfig(nodeConfigForm as Record<string, any>, taskFields, childNodeId, (item) => {
+        item.label = newLabel;
+      });
     }
   }
 

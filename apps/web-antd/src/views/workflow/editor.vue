@@ -26,6 +26,7 @@ import { createVarSelectContext, provideVarSelect } from './composables/varSelec
 import { getFlowControlConfig } from './config/workflow-node-config';
 import { useFlowControlNode } from './composables/useFlowControlNode';
 import { flowControlNodeRegistry } from './nodes/types';
+import { rewriteNodeIdsInConfig } from './nodes/containerNodeAccessor';
 import {
   convertFlowModelToWorkflow,
   buildFlowSavePayload,
@@ -369,27 +370,10 @@ function updateNodeId(value: string) {
 }
 
 /** 遍历 config 里的 tasks/cases/then/else 等列表，更新 taskItem.nodeId */
+const CONTAINER_TASK_FIELDS = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults', 'cases'];
 function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
   if (!config || typeof config !== 'object') return;
-  const listFields = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults', 'cases'];
-  for (const field of listFields) {
-    const val = config[field];
-    if (Array.isArray(val)) {
-      val.forEach((item: any) => {
-        if (item && item.nodeId === oldId) item.nodeId = newId;
-      });
-    } else if (val && typeof val === 'object') {
-      // cases 是 Record<string, Array>
-      Object.keys(val).forEach((caseKey) => {
-        const arr = val[caseKey];
-        if (Array.isArray(arr)) {
-          arr.forEach((item: any) => {
-            if (item && item.nodeId === oldId) item.nodeId = newId;
-          });
-        }
-      });
-    }
-  }
+  rewriteNodeIdsInConfig(config, CONTAINER_TASK_FIELDS, oldId, newId);
 }
 
 async function handleSave() {
