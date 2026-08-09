@@ -2,11 +2,11 @@
 import type { ProjectVO } from '#/api/core/workflow';
 
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, message, Tag } from 'ant-design-vue';
+import { Button, Input, Tag } from 'ant-design-vue';
 
 import { useTitle } from '@vueuse/core';
 
@@ -21,23 +21,15 @@ import NodeSelectModal from './components/NodeSelectModal.vue';
 import { useCanvasInteraction } from './composables/useCanvasInteraction';
 import { useNodeConfig } from './composables/useNodeConfig';
 import { usePluginMeta } from './composables/usePluginMeta';
-import { rewriteVarReferences } from './composables/useVarSources';
 import { createVarSelectContext, provideVarSelect } from './composables/varSelectContext';
-import { getFlowControlConfig } from './config/workflow-node-config';
 import { useFlowControlNode } from './composables/useFlowControlNode';
-import { flowControlNodeRegistry } from './nodes/types';
-import { rewriteNodeIdsInConfig } from './nodes/containerNodeAccessor';
 import {
   convertFlowModelToWorkflow,
-  buildFlowSavePayload,
-  getDefaultOutputPortField,
 } from './utils/flowModelConverter';
-import {
-  validateAll,
-  formatValidationErrors,
-} from './utils/validateWorkflow';
+import { useWorkflowInit } from './composables/useWorkflowInit';
+import { useWorkflowActions } from './composables/useWorkflowActions';
+import { useNodeOperations } from './composables/useNodeOperations';
 
-const router = useRouter();
 const route = useRoute();
 const store = useWorkflowStore();
 
@@ -168,6 +160,28 @@ const workflowEnabled = computed(() => {
   return store.currentWorkflow?.enabled !== false;
 });
 
+// ===== 容器访问层 =====
+const { ensureStartAndEndNodes, centerCanvasOnNodes } = useWorkflowInit(
+  connections,
+  updatePanOffset,
+);
+
+// ===== 工作流操作 =====
+const { handleSave, handleRun, handleClear, handleBack } = useWorkflowActions(
+  workflowName,
+  isLoading,
+  isRunning,
+  connections,
+);
+
+// ===== 节点操作 =====
+const { removeNodeFromCase, updateNodeLabel, updateNodeId } = useNodeOperations(
+  selectedNode,
+  nodeConfigForm,
+  connections,
+  getParentNodeFieldInfo,
+);
+
 // ===== 变量选择器上下文（provide 一次，所有 VarPicker 自动可用）=====
 provideVarSelect(
   createVarSelectContext({
@@ -197,33 +211,6 @@ const currentProjectName = computed(() => {
   );
   return project?.projectName || '';
 });
-
-function removeNodeFromCase(fieldKey: string, caseKey: string, index: number) {
-  const node = store.currentWorkflow?.nodes.find(
-    (n) => n.id === selectedNode.value?.id,
-  );
-  if (node && node.data.config?.[fieldKey]?.[caseKey]) {
-    const items = [...node.data.config[fieldKey][caseKey]];
-    const removedItem = items.splice(index, 1)[0];
-    node.data.config[fieldKey][caseKey] = items;
-    node.data.config[fieldKey] = { ...node.data.config[fieldKey] };
-    store.updateNode(node.id, { data: { ...node.data } });
-    if (nodeConfigForm[fieldKey]) {
-      nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
-    }
-    if (removedItem?.nodeId && store.currentWorkflow) {
-      store.currentWorkflow.edges = (store.currentWorkflow.edges || []).filter(
-        (conn) =>
-          !(conn.source === node.id && conn.target === removedItem.nodeId),
-      );
-      connections.value = connections.value.filter(
-        (conn) =>
-          !(conn.source === node.id && conn.target === removedItem.nodeId),
-      );
-      store.removeNode(removedItem.nodeId);
-    }
-  }
-}
 
 const fieldRendererEvents = computed(() => ({
   addObjectItem,
@@ -255,237 +242,6 @@ const fieldRendererEvents = computed(() => ({
   removeTriggersItem,
 }));
 
-function updateNodeLabel(value: string) {
-  const node = store.currentWorkflow?.nodes.find(
-    (n) => n.id === selectedNode.value?.id,
-  );
-  if (node) {
-    node.data.label = value;
-    store.updateNode(node.id, { data: { ...node.data } });
-
-    // Sync label to parent flow control node's config (cases/defaults/etc.)
-    const parentInfo = getParentNodeFieldInfo(node.id);
-    if (parentInfo) {
-      const parentNode = store.currentWorkflow?.nodes.find(n => n.id === parentInfo.parentId);
-      if (parentNode) {
-        const configValue = parentNode.data.config?.[parentInfo.field];
-        const updateLabelInItems = (items: any[]) => {
-          for (const item of items) {
-            if (item.nodeId === node.id) {
-              item.label = value;
-            }
-          }
-        };
-        if (Array.isArray(configValue)) {
-          updateLabelInItems(configValue);
-        } else if (typeof configValue === 'object' && configValue !== null) {
-          for (const caseKey of Object.keys(configValue)) {
-            if (Array.isArray(configValue[caseKey])) {
-              updateLabelInItems(configValue[caseKey]);
-            }
-          }
-        }
-        // Force Vue reactivity by assigning a new reference
-        parentNode.data.config = { ...parentNode.data.config };
-        store.updateNode(parentNode.id, { data: { ...parentNode.data } });
-
-        // Sync to nodeConfigForm so the right panel reflects the change immediately
-        if (nodeConfigForm[parentInfo.field]) {
-          nodeConfigForm[parentInfo.field] = parentNode.data.config[parentInfo.field];
-        }
-      }
-    }
-
-    const freshNode = store.currentWorkflow?.nodes.find(
-      (n) => n.id === selectedNode.value?.id,
-    );
-    if (freshNode) {
-      selectedNode.value = freshNode;
-    }
-  }
-}
-
-function updateNodeId(value: string) {
-  const node = store.currentWorkflow?.nodes.find(
-    (n) => n.id === selectedNode.value?.id,
-  );
-  if (!node) return;
-
-  const sanitized = value.replaceAll(/[^a-zA-Z0-9_-]/g, '');
-  if (sanitized !== value) return;
-
-  const oldId = node.id;
-  if (oldId === value) return;
-
-  // 校验新 id 不与现有节点冲突
-  const exists = store.currentWorkflow?.nodes.some((n: any) => n.id === value);
-  if (exists) {
-    message.warning(`节点ID "${value}" 已存在`);
-    return;
-  }
-
-  // 1. 更新当前节点 id
-  node.id = value;
-
-  // 2. 更新所有 edges 的 source/target
-  if (store.currentWorkflow) {
-    store.currentWorkflow.edges.forEach((e: any) => {
-      if (e.source === oldId) e.source = value;
-      if (e.target === oldId) e.target = value;
-      // sourceHandle/targetHandle 形如 `${oldId}-output-xxx`
-      if (e.sourceHandle) {
-        e.sourceHandle = e.sourceHandle.replace(`${oldId}-`, `${value}-`);
-      }
-      if (e.targetHandle) {
-        e.targetHandle = e.targetHandle.replace(`${oldId}-`, `${value}-`);
-      }
-    });
-  }
-
-  // 3. 更新其他节点 config 里引用该 id 的表达式（outputs.oldId. → outputs.newId.）
-  //    以及 taskItem.nodeId 引用（容器节点的 tasks/cases 列表）
-  if (store.currentWorkflow) {
-    store.currentWorkflow.nodes.forEach((n: any) => {
-      if (n.id === value) return;
-      if (n.data?.config) {
-        n.data.config = rewriteVarReferences(n.data.config, oldId, value);
-        // 更新容器节点 taskItem.nodeId 引用
-        rewriteTaskItemNodeIds(n.data.config, oldId, value);
-      }
-    });
-  }
-
-  // 4. 更新当前节点 config 里 taskItem 对自身的引用（少见，但兜底）
-  if (node.data?.config) {
-    rewriteTaskItemNodeIds(node.data.config, oldId, value);
-  }
-
-  // 5. 刷新选中节点引用
-  const freshNode = store.currentWorkflow?.nodes.find(
-    (n: any) => n.id === value,
-  );
-  if (freshNode) {
-    selectedNode.value = freshNode;
-  }
-}
-
-/** 遍历 config 里的 tasks/cases/then/else 等列表，更新 taskItem.nodeId */
-const CONTAINER_TASK_FIELDS = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults', 'cases'];
-function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
-  if (!config || typeof config !== 'object') return;
-  rewriteNodeIdsInConfig(config, CONTAINER_TASK_FIELDS, oldId, newId);
-}
-
-async function handleSave() {
-  isLoading.value = true;
-  try {
-    if (!store.currentWorkflow) {
-      message.error('请先创建流程');
-      return;
-    }
-
-    if (!workflowName.value || !workflowName.value.trim()) {
-      message.error('请填写流程名称');
-      return;
-    }
-
-    const validation = validateAll(store.currentWorkflow);
-
-    if (!validation.valid) {
-      message.error(formatValidationErrors(validation.errors));
-      return;
-    }
-
-    const endNode = store.currentWorkflow.nodes.find(
-      (n) => n.data.type === 'idp_core_flow_End',
-    );
-    store.currentWorkflow.outputs = endNode?.data.config?.outputs || [];
-
-    const startNode = store.currentWorkflow.nodes.find(
-      (n) => n.data.type === 'idp_core_flow_Start',
-    );
-    // 通过策略处理 inputs 和 triggers，确保数据格式正确
-    const startStrategy = startNode 
-      ? flowControlNodeRegistry.get(startNode.data.type)
-      : null;
-    if (startStrategy?.saveConfig) {
-      startStrategy.saveConfig(startNode.data.config, store);
-    } else {
-      store.currentWorkflow.inputs = startNode?.data.config?.inputs || [];
-      store.currentWorkflow.triggers = startNode?.data.config?.triggers || [];
-    }
-
-    store.currentWorkflow.name = workflowName.value;
-    store.currentWorkflow.updatedAt = new Date().toISOString();
-
-    const payload = buildFlowSavePayload(
-      store.currentWorkflow,
-      store.projectId,
-      workflowName.value,
-    );
-
-    const backendValidationResult = await store.validateFlow(payload);
-
-    if (backendValidationResult?.constraints) {
-      message.error(`流程校验失败：${backendValidationResult.constraints}`);
-      return;
-    }
-
-    const saved = await store.saveWorkflowToBackend(payload);
-
-    if (saved) {
-      message.success('流程已保存');
-    } else {
-      message.error('保存失败');
-    }
-  } catch (error) {
-    console.error('Failed to save workflow:', error);
-    message.error('保存失败');
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-async function handleRun() {
-  if (isRunning.value) return;
-  if (!store.currentWorkflow) {
-    message.warning('请先创建流程');
-    return;
-  }
-  if (!store.currentWorkflow.flowId) {
-    message.warning('工作流ID不存在，请先保存流程');
-    return;
-  }
-  isRunning.value = true;
-  try {
-    const success = await store.runWorkflow(store.currentWorkflow.id);
-    if (success) {
-      message.success('流程运行成功');
-    } else {
-      message.error('流程运行失败');
-    }
-  } catch (error) {
-    console.error('Failed to run workflow:', error);
-    message.error('流程运行失败');
-  } finally {
-    isRunning.value = false;
-  }
-}
-
-function handleClear() {
-  if (store.currentWorkflow) {
-    store.currentWorkflow.nodes = [];
-    store.currentWorkflow.edges = [];
-    connections.value = [];
-  }
-  message.info('画布已清空');
-}
-
-function handleBack() {
-  store.setCurrentWorkflow(null);
-  router.push('/shuzhiliu/workflow/list');
-}
-
 async function loadProjects() {
   isProjectsLoading.value = true;
   try {
@@ -494,180 +250,6 @@ async function loadProjects() {
     message.error('加载项目列表失败');
   } finally {
     isProjectsLoading.value = false;
-  }
-}
-
-function ensureStartAndEndNodes() {
-  if (!store.currentWorkflow) return;
-
-  const hasStartNode = store.currentWorkflow.nodes.some(
-    (n) => n.data.type === 'idp_core_flow_Start',
-  );
-  const hasEndNode = store.currentWorkflow.nodes.some(
-    (n) => n.data.type === 'idp_core_flow_End',
-  );
-
-  let layoutNodes: Record<string, { x: number; y: number }> = {};
-  if (store.currentWorkflow.flowLayout) {
-    try {
-      const parsedLayout = JSON.parse(store.currentWorkflow.flowLayout);
-      if (parsedLayout && parsedLayout.nodes) {
-        layoutNodes = parsedLayout.nodes as Record<string, { x: number; y: number }>;
-      }
-    } catch {
-    }
-  }
-
-  const taskNodes = store.currentWorkflow.nodes.filter(
-    (n) => n.data.type !== 'idp_core_flow_Start' && n.data.type !== 'idp_core_flow_End',
-  );
-
-  const firstLevelNodes = taskNodes.filter((node) => {
-    for (const other of store.currentWorkflow?.nodes || []) {
-      if (other.id === node.id) continue;
-      const config = other.data.config || {};
-      for (const key of Object.keys(config)) {
-        const value = config[key];
-        const checkValue = (v: any) => {
-          if (Array.isArray(v)) {
-            for (const item of v) {
-              if (item.nodeId === node.id) return true;
-              if (typeof item === 'object' && item) {
-                if (checkValue(item)) return true;
-              }
-            }
-          } else if (typeof v === 'object' && v) {
-            for (const innerKey of Object.keys(v)) {
-              if (checkValue(v[innerKey])) return true;
-            }
-          }
-          return false;
-        };
-        if (checkValue(value)) return false;
-      }
-    }
-    return true;
-  });
-
-  let startNodeId: string | null = null;
-  if (!hasStartNode) {
-    const startNode = {
-      id: `start_${Date.now()}`,
-      type: 'custom',
-      position: layoutNodes['start'] || { x: 2000, y: 2000 },
-      data: {
-        label: '开始',
-        type: 'idp_core_flow_Start',
-        icon: 'mdi:play-circle',
-        description: '流程开始节点',
-        config: {
-          next: [],
-          inputs: store.currentWorkflow.inputs || [],
-          triggers: store.currentWorkflow.triggers || [],
-        },
-      },
-    };
-    store.addNode(startNode);
-    startNodeId = startNode.id;
-  } else {
-    const existingStart = store.currentWorkflow.nodes.find(
-      (n) => n.data.type === 'idp_core_flow_Start',
-    );
-    if (existingStart && store.currentWorkflow.inputs && !existingStart.data.config?.inputs) {
-      existingStart.data.config = existingStart.data.config || {};
-      existingStart.data.config.inputs = store.currentWorkflow.inputs;
-      store.updateNode(existingStart.id, { data: { ...existingStart.data } });
-    }
-    if (existingStart && store.currentWorkflow.triggers && !existingStart.data.config?.triggers) {
-      existingStart.data.config = existingStart.data.config || {};
-      existingStart.data.config.triggers = store.currentWorkflow.triggers;
-      store.updateNode(existingStart.id, { data: { ...existingStart.data } });
-    }
-    startNodeId = existingStart?.id || null;
-  }
-
-  let endNodeId: string | null = null;
-  if (!hasEndNode) {
-    const endNode = {
-      id: `end_${Date.now()}`,
-      type: 'custom',
-      position: layoutNodes['end'] || { x: 2400, y: 2000 },
-      data: {
-        label: '输出',
-        type: 'idp_core_flow_End',
-        icon: 'mdi:stop-circle',
-        description: '流程输出节点',
-        config: { outputs: store.currentWorkflow.outputs || [] },
-      },
-    };
-    store.addNode(endNode);
-    endNodeId = endNode.id;
-  } else {
-    const existingEnd = store.currentWorkflow.nodes.find(
-      (n) => n.data.type === 'idp_core_flow_End',
-    );
-    if (existingEnd && store.currentWorkflow.outputs && !existingEnd.data.config?.outputs) {
-      existingEnd.data.config = existingEnd.data.config || {};
-      existingEnd.data.config.outputs = store.currentWorkflow.outputs;
-      store.updateNode(existingEnd.id, { data: { ...existingEnd.data } });
-    }
-    endNodeId = existingEnd?.id || null;
-  }
-
-  if (firstLevelNodes.length > 0 && startNodeId) {
-    const targetNodes = firstLevelNodes.filter(
-      (n) => !store.currentWorkflow?.edges.some((e) => e.target === n.id),
-    );
-    const firstTask = targetNodes.length > 0 ? targetNodes[0] : firstLevelNodes[0];
-    const startAlreadyConnected = store.currentWorkflow.edges.some(
-      (e) => e.source === startNodeId,
-    );
-    if (!startAlreadyConnected) {
-      const edge = {
-        id: `edge_start_${Date.now()}`,
-        source: startNodeId,
-        sourceHandle: `${startNodeId}-output-next`,
-        target: firstTask.id,
-        targetHandle: `${firstTask.id}-input`,
-      };
-      store.addEdge(edge);
-      connections.value.push(edge);
-
-      const startNode = store.currentWorkflow.nodes.find((n) => n.id === startNodeId);
-      if (startNode && startNode.data.config) {
-        startNode.data.config.next = [{ nodeId: firstTask.id }];
-        store.updateNode(startNodeId, { data: { ...startNode.data } });
-      }
-    }
-  }
-
-  if (firstLevelNodes.length > 0 && endNodeId) {
-    const lastTask = firstLevelNodes[firstLevelNodes.length - 1];
-    const endAlreadyConnected = store.currentWorkflow.edges.some(
-      (e) => e.target === endNodeId,
-    );
-    if (!endAlreadyConnected) {
-      const lastTaskNode = store.currentWorkflow.nodes.find((n) => n.id === lastTask.id);
-      const portField = lastTaskNode ? getDefaultOutputPortField(lastTaskNode.data.type) : 'output';
-      const edge = {
-        id: `edge_end_${Date.now()}`,
-        source: lastTask.id,
-        sourceHandle: `${lastTask.id}-output-${portField}`,
-        target: endNodeId,
-        targetHandle: `${endNodeId}-input`,
-      };
-      store.addEdge(edge);
-      connections.value.push(edge);
-
-      const lastNode = store.currentWorkflow.nodes.find((n) => n.id === lastTask.id);
-      if (lastNode && lastNode.data.config) {
-        if (!lastNode.data.config.next) {
-          lastNode.data.config.next = [];
-        }
-        lastNode.data.config.next.push({ nodeId: endNodeId });
-        store.updateNode(lastTask.id, { data: { ...lastNode.data } });
-      }
-    }
   }
 }
 
@@ -717,25 +299,7 @@ onMounted(async () => {
         }
 
         setTimeout(() => {
-          const nodes = store.currentWorkflow?.nodes || [];
-          if (nodes.length > 0) {
-            const totalX = nodes.reduce((sum, node) => sum + node.position.x, 0);
-            const totalY = nodes.reduce((sum, node) => sum + node.position.y, 0);
-            const centerX = totalX / nodes.length + 88;
-            const centerY = totalY / nodes.length + 34;
-
-            const canvas = document.querySelector('.workflow-canvas');
-            if (canvas) {
-              const rect = canvas.getBoundingClientRect();
-              const panX = rect.width / 2 - centerX;
-              const panY = rect.height / 2 - centerY;
-              updatePanOffset({ x: panX, y: panY });
-            } else {
-              updatePanOffset({ x: 0, y: 0 });
-            }
-          } else {
-            updatePanOffset({ x: 0, y: 0 });
-          }
+          centerCanvasOnNodes();
         }, 200);
         return;
       }
@@ -764,25 +328,7 @@ onMounted(async () => {
       workflowLoaded.value = true;
     }
     setTimeout(() => {
-      const nodes = store.currentWorkflow?.nodes || [];
-      if (nodes.length > 0) {
-        const totalX = nodes.reduce((sum, node) => sum + node.position.x, 0);
-        const totalY = nodes.reduce((sum, node) => sum + node.position.y, 0);
-        const centerX = totalX / nodes.length + 88;
-        const centerY = totalY / nodes.length + 34;
-
-        const canvas = document.querySelector('.workflow-canvas');
-        if (canvas) {
-          const rect = canvas.getBoundingClientRect();
-          const panX = rect.width / 2 - centerX;
-          const panY = rect.height / 2 - centerY;
-          updatePanOffset({ x: panX, y: panY });
-        } else {
-          updatePanOffset({ x: 0, y: 0 });
-        }
-      } else {
-        updatePanOffset({ x: 0, y: 0 });
-      }
+      centerCanvasOnNodes();
     }, 200);
   }
 
