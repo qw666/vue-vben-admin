@@ -34,10 +34,40 @@ interface ContainerBranch {
 }
 
 /**
+ * 通过 edges 扩展分支节点列表，包含链式后代节点。
+ * 给定分支的起始节点 ID 列表，沿 edges 出边方向收集所有可达的节点。
+ * 注意：并行分支间不会有 edges 相连，所以不会越界。
+ */
+function expandBranchWithEdges(
+  branchNodeIds: string[],
+  edges: WorkflowEdge[],
+): string[] {
+  const expandedIds = new Set<string>(branchNodeIds);
+  const queue = [...branchNodeIds];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    const downstreamEdges = edges.filter((e) => e.source === currentId);
+
+    for (const edge of downstreamEdges) {
+      const targetId = edge.target;
+      if (!expandedIds.has(targetId)) {
+        expandedIds.add(targetId);
+        queue.push(targetId);
+      }
+    }
+  }
+
+  return Array.from(expandedIds);
+}
+
+/**
  * 从容器配置中提取所有分支及其子节点 ID。
  * 统一处理对象字段（cases/parallel）和数组字段（then/else/tasks/foreach/defaults/errors/finally）。
+ * 对于数组字段中的每个元素，创建独立分支（branchKey 包含索引）。
+ * 如果提供了 edges，会扩展每个分支的链式后代节点。
  */
-function getContainerBranches(config: any): ContainerBranch[] {
+function getContainerBranches(config: any, edges?: WorkflowEdge[]): ContainerBranch[] {
   if (!config || typeof config !== 'object') return [];
   const branches: ContainerBranch[] = [];
 
@@ -57,13 +87,26 @@ function getContainerBranches(config: any): ContainerBranch[] {
   }
 
   // 数组类型字段: then, else, tasks, foreach, defaults, errors, finally
+  // 每个数组元素是独立分支（并行、顺序容器的每个子节点都是独立分支）
   for (const field of ['then', 'else', 'tasks', 'foreach', 'defaults', 'errors', 'finally'] as const) {
     const value = config[field];
     if (Array.isArray(value)) {
-      const nodeIds = value.filter((t: any) => t?.nodeId).map((t: any) => t.nodeId);
-      if (nodeIds.length > 0) {
-        branches.push({ branchKey: field, nodeIds });
+      for (let i = 0; i < value.length; i++) {
+        const item = value[i];
+        if (item?.nodeId) {
+          branches.push({
+            branchKey: `${field}.${i}`,
+            nodeIds: [item.nodeId],
+          });
+        }
       }
+    }
+  }
+
+  // 如果提供了 edges，扩展每个分支的链式后代节点
+  if (edges && edges.length > 0) {
+    for (const branch of branches) {
+      branch.nodeIds = expandBranchWithEdges(branch.nodeIds, edges);
     }
   }
 
@@ -71,14 +114,14 @@ function getContainerBranches(config: any): ContainerBranch[] {
 }
 
 /** 找到某个 nodeId 在容器配置中所属的分支 */
-function findBranchInContainer(config: any, nodeId: string): ContainerBranch | null {
-  return getContainerBranches(config).find((b) => b.nodeIds.includes(nodeId)) || null;
+function findBranchInContainer(config: any, nodeId: string, edges?: WorkflowEdge[]): ContainerBranch | null {
+  return getContainerBranches(config, edges).find((b) => b.nodeIds.includes(nodeId)) || null;
 }
 
 /** 从容器配置中获取所有子节点 ID 及其所属分支 */
-function getAllBranchChildIds(config: any): { nodeId: string; branchKey: string }[] {
+function getAllBranchChildIds(config: any, edges?: WorkflowEdge[]): { nodeId: string; branchKey: string }[] {
   const result: { nodeId: string; branchKey: string }[] = [];
-  for (const branch of getContainerBranches(config)) {
+  for (const branch of getContainerBranches(config, edges)) {
     for (const nodeId of branch.nodeIds) {
       result.push({ nodeId, branchKey: branch.branchKey });
     }
@@ -111,7 +154,7 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
       const config = currentNode.data.config;
       
       // Case 1: 当前节点是容器节点
-      const allChildren = getAllBranchChildIds(config);
+      const allChildren = getAllBranchChildIds(config, edges);
       if (allChildren.length > 0) {
         // 找出哪些子节点已在visited中
         const visitedChildBranchKeys = new Set<string>();
@@ -169,7 +212,7 @@ function findUpstreamNodes(ctx: VarSourceContext): WorkflowNode[] {
     for (const parentEdge of parentEdges) {
       const parentNode = nodes.find((n) => n.id === parentEdge.source);
       if (parentNode && parentNode.data?.config) {
-        const branchInfo = findBranchInContainer(parentNode.data.config, id);
+        const branchInfo = findBranchInContainer(parentNode.data.config, id, edges);
         if (branchInfo) {
           // 当前节点在父容器的某个分支中
           // 找出当前节点沿出边可达的下游节点（同分支内）
