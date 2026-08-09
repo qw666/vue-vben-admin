@@ -2,7 +2,7 @@ import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 import { getFlowControlConfig, flowControlNodeRegistry } from '../config/workflow-node-config';
 import type { NodeConfigForm, SelectedNode, TaskItem } from '../types/workflow';
-import { forEachTaskField, filterTaskField, findTaskField } from '../nodes/types';
+import { forEachTaskField, filterTaskField, findTaskField } from '../nodes/taskFieldUtils';
 
 export function useFlowControlNode(
   nodeConfigForm?: NodeConfigForm,

@@ -2,7 +2,7 @@ import type { FlowTask } from '#/api/core/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 
 import { getFlowControlConfig } from '../config/workflow-node-config';
-import { forEachTaskField } from '../nodes/types';
+import { forEachTaskField } from '../nodes/taskFieldUtils';
 
 /**
  * 获取节点默认输出端口的 field 名称

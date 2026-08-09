@@ -3,7 +3,8 @@ import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowNodeType } from '#/t
 
 import { getFlowControlConfig } from '../config/workflow-node-config';
 import { generateFlowId } from './idGenerator';
-import { flowControlNodeRegistry, mapTaskField, forEachTaskField } from '../nodes/types';
+import { flowControlNodeRegistry } from '../nodes/types';
+import { mapTaskField, forEachTaskField } from '../nodes/taskFieldUtils';
 import { getDefaultOutputPortField, computeLayout, centerNodesInCanvas } from './flowLayout';
 
 /**
