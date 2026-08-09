@@ -118,3 +118,42 @@ export function serializeFieldValue(schema: SchemaNode, value: any, defs: Record
 
   return value;
 }
+
+/**
+ * 根据值推断 anyOf 选项索引
+ * @param options anyOf 选项数组
+ * @param value 当前值
+ * @returns 选项索引，未匹配返回 0
+ */
+export function inferAnyOfOption(options: any[], value: any): number {
+  if (value === undefined || value === null || value === '') return 0;
+
+  for (let i = 0; i < options.length; i++) {
+    const option = options[i];
+    if (!option || !option.schema) continue;
+
+    const schema = option.schema;
+    // 数组类型匹配
+    if (schema.type === 'array' && Array.isArray(value)) {
+      return i;
+    }
+    // 字符串类型匹配
+    if (schema.type === 'string' && typeof value === 'string') {
+      return i;
+    }
+    // 数字类型匹配
+    if ((schema.type === 'number' || schema.type === 'integer') && typeof value === 'number') {
+      return i;
+    }
+    // 布尔类型匹配
+    if (schema.type === 'boolean' && typeof value === 'boolean') {
+      return i;
+    }
+    // 对象类型匹配
+    if (schema.type === 'object' && typeof value === 'object' && !Array.isArray(value)) {
+      return i;
+    }
+  }
+
+  return 0;
+}

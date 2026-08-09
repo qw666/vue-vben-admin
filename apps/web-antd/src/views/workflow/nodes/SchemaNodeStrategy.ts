@@ -59,10 +59,8 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
 
         if (savedConfig[key] !== undefined) {
           if (prop.anyOf) {
-            // 先存储实际值到主字段
+            // 存储实际值到主字段，选项索引由 AnyOfRadioField 组件内部管理
             config[key] = savedConfig[key];
-            // 再设置 anyOf 选项索引
-            this.initAnyOfField(config, key, prop, savedConfig[key]);
           } else if (prop.type === 'object') {
             const savedValue = savedConfig[key];
             if (prop.additionalProperties && prop.additionalProperties.type === 'array') {
@@ -82,50 +80,6 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
     });
 
     return config;
-  }
-
-  private initAnyOfField(
-    config: Record<string, any>,
-    key: string,
-    prop: SchemaNode,
-    savedValue: any,
-  ): void {
-    const anyOf = prop.anyOf!;
-    let selectedIndex = 0;
-
-    for (let i = 0; i < anyOf.length; i++) {
-      const option = anyOf[i];
-      if (!option) continue;
-
-      if (option.const !== undefined && option.const === savedValue) {
-        selectedIndex = i;
-        break;
-      }
-      if (option.default !== undefined && option.default === savedValue) {
-        selectedIndex = i;
-        break;
-      }
-      // 数组类型需要特殊处理：typeof [] === 'object'，不能直接用 typeof 判断
-      if (option.type === 'array' && Array.isArray(savedValue)) {
-        selectedIndex = i;
-        break;
-      }
-      if (option.type && option.type !== 'array' && option.type === typeof savedValue) {
-        selectedIndex = i;
-        break;
-      }
-      if (option.$ref) {
-        const refSchema = internalResolveRef(option.$ref, this.meta.formDefs);
-        if (refSchema && refSchema.type === 'object' && typeof savedValue === 'object' && !Array.isArray(savedValue)) {
-          selectedIndex = i;
-          break;
-        }
-      }
-    }
-
-    // 使用 _index 后缀存储 anyOf 选项索引，避免污染主字段
-    // 实际值保持在主字段 config[key] 中，由 setupRealtimeConfigSync 实时同步
-    config[key + '_index'] = selectedIndex;
   }
 
   getRequiredFields(formValues: Record<string, any> = {}): { type: string; props: Record<string, any> }[] {
@@ -161,9 +115,7 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
       const propIsRequired = prop.$required === true || formRequired.includes(key);
       if (isRequired !== propIsRequired) return;
 
-      // 对 anyOf 字段：
-      // 1. 选项索引使用 _index 后缀字段（由 AnyOfRadioField 绑定）
-      // 2. 实际值保持在主字段（key）中
+      // 直接读取主字段的值
       const value = formValues[key];
       const onUpdate = (val: any) => {
         formValues[key] = val;
@@ -197,14 +149,9 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
         if (!schema) return;
 
         if (schema.anyOf) {
-          // 优先从 _index 后缀字段读取 anyOf 选项索引
-          let selectedIndex = config[key + '_index'];
+          // 选项索引由 AnyOfRadioField 组件内部管理，这里根据值的类型自动推断
           const value = config[key];
-
-          // 如果 _index 不存在或无效，自动根据值的类型推断
-          if (selectedIndex === undefined || selectedIndex === null || typeof selectedIndex !== 'number') {
-            selectedIndex = this.inferAnyOfIndex(schema.anyOf, value);
-          }
+          const selectedIndex = this.inferAnyOfIndex(schema.anyOf, value);
 
           if (selectedIndex !== undefined && selectedIndex !== null && typeof selectedIndex === 'number') {
             const selectedOption = schema.anyOf[selectedIndex];

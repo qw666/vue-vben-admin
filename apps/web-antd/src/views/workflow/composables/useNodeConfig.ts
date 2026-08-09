@@ -12,11 +12,29 @@ import { useWorkflowStore } from '#/store/workflow';
 const store = useWorkflowStore();
 
 /**
+ * 将 nodeConfigForm 中的数据序列化并返回干净的配置对象
+ * 这是所有保存路径的统一入口
+ */
+function flushConfig(
+  nodeConfigForm: Record<string, any>,
+  nodeType: string,
+): Record<string, any> {
+  const strategy = flowControlNodeRegistry.get(nodeType);
+
+  // 1. 收集表单数据（现在不再有 _index 字段，直接收集）
+  let config: Record<string, any> = { ...nodeConfigForm };
+
+  // 2. 序列化（前端表单 → Kestra 配置）
+  if (strategy.serializeConfig) {
+    config = strategy.serializeConfig(config);
+  }
+
+  return config;
+}
+
+/**
  * Watch nodeConfigForm and sync changes back to the store's node data.config in real-time.
  * This ensures downstream VarPicker can see upstream outputKeys immediately without requiring Save.
- * 
- * 重要：排除 _index 后缀的 UI 状态字段，只同步实际值
- * _index 只存在于 nodeConfigForm（UI状态），永远不进入 node.data.config
  */
 function setupRealtimeConfigSync(
   nodeConfigForm: Record<string, any>,
@@ -26,21 +44,9 @@ function setupRealtimeConfigSync(
     () => ({ ...nodeConfigForm }),
     () => {
       if (selectedNode.value) {
-        const cleanConfig: Record<string, any> = {};
-        const originalConfig = selectedNode.value.data.config || {};
-        
-        for (const [key, value] of Object.entries(nodeConfigForm)) {
-          // 排除 _index 后缀（UI 状态，不写入 node.data.config）
-          if (key.endsWith('_index')) {
-            continue;
-          }
-          cleanConfig[key] = value;
-        }
-        
-        selectedNode.value.data.config = {
-          ...originalConfig,
-          ...cleanConfig,
-        };
+        // 直接同步配置（不再需要 _index 过滤）
+        const config = flushConfig(nodeConfigForm, selectedNode.value.data.type);
+        selectedNode.value.data.config = config;
       }
     },
     { deep: true },
@@ -144,24 +150,10 @@ export function useNodeConfig(
 
   async function handleNodeDoubleClick(node: WorkflowNode) {
     // 关键：在切换节点前，先把当前 nodeConfigForm 的值同步回旧节点
-    // 注意：排除 _index 后缀的 UI 状态字段，只同步实际值
     if (selectedNode.value) {
       const oldNode = selectedNode.value;
-      const cleanConfig: Record<string, any> = {};
-      const originalConfig = oldNode.data.config || {};
-      
-      for (const [key, value] of Object.entries(nodeConfigForm)) {
-        // 排除 _index 后缀（UI 状态，不需要保存到 data.config）
-        if (key.endsWith('_index')) {
-          continue;
-        }
-        cleanConfig[key] = value;
-      }
-      
-      oldNode.data.config = {
-        ...originalConfig,
-        ...cleanConfig,
-      };
+      const config = flushConfig(nodeConfigForm, oldNode.data.type);
+      oldNode.data.config = config;
     }
 
     // 先清除选中状态，等下一帧再设置新节点，避免组件更新时出现 null 引用
@@ -170,7 +162,6 @@ export function useNodeConfig(
     await nextTick();
 
     // 在设置 selectedNode 之前快照 savedConfig
-    // 注意：这里拿到的是已排除 _index 的干净配置
     const savedConfig = { ...(node.data.config || {}) };
 
     // 确保节点类型有对应的策略（自动加载 Schema 元数据）
@@ -224,20 +215,13 @@ export function useNodeConfig(
       return;
     }
 
-    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const nodeType = selectedNode.value.data.type;
+    const strategy = flowControlNodeRegistry.get(nodeType);
 
-    // 1. 收集表单数据
-    let config: Record<string, any> = {};
-    Object.keys(nodeConfigForm).forEach(key => {
-      config[key] = nodeConfigForm[key];
-    });
+    // 1. 使用统一方法收集并序列化配置
+    const config = flushConfig(nodeConfigForm, nodeType);
 
-    // 2. 序列化（前端表单 → Kestra 配置）
-    if (strategy.serializeConfig) {
-      config = strategy.serializeConfig(config);
-    }
-
-    // 3. 校验
+    // 2. 校验
     if (strategy.validateConfig) {
       const error = strategy.validateConfig(config);
       if (error) {
@@ -246,7 +230,7 @@ export function useNodeConfig(
       }
     }
 
-    // 4. 保存
+    // 3. 保存
     selectedNode.value.data.config = config;
 
     if (strategy.saveConfig) {
@@ -264,20 +248,16 @@ export function useNodeConfig(
   function autoSaveConfig() {
     if (!selectedNode.value) return;
 
-    const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
+    const nodeType = selectedNode.value.data.type;
+    const strategy = flowControlNodeRegistry.get(nodeType);
 
-    // 1. 收集表单数据
-    let config: Record<string, any> = { ...nodeConfigForm };
+    // 1. 使用统一方法收集并序列化配置
+    const config = flushConfig(nodeConfigForm, nodeType);
 
-    // 2. 序列化（前端表单 → Kestra 配置）
-    if (strategy.serializeConfig) {
-      config = strategy.serializeConfig(config);
-    }
-
-    // 3. 保存到节点
+    // 2. 保存到节点
     selectedNode.value.data.config = config;
 
-    // 4. 特殊保存逻辑（如 Start 节点的 inputs/triggers 需写入 store.currentWorkflow）
+    // 3. 特殊保存逻辑（如 Start 节点的 inputs/triggers 需写入 store.currentWorkflow）
     if (strategy.saveConfig) {
       strategy.saveConfig(config, store);
     }

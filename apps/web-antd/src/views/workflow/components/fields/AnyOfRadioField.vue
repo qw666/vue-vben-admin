@@ -1,9 +1,10 @@
 <script lang="ts" setup>
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Tooltip, Button } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import FieldRenderer from '../FieldRenderer.vue';
 import { renderFormField } from '../../composables/useFormFieldResolver';
+import { inferAnyOfOption } from '../../composables/useSchemaParser';
 
 const props = defineProps<{
   field: any;
@@ -13,8 +14,38 @@ const props = defineProps<{
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
-/** 选项索引存储 key（使用 _index 后缀，避免污染主字段） */
-const indexKey = computed(() => fieldKey.value + '_index');
+// 组件内部管理选项索引状态，不再写入 nodeConfigForm
+const selectedIndex = ref<number | null>(null);
+
+// 从 nodeConfigForm 的值推断选项索引
+function initSelectedIndexFromValue(): number {
+  const value = props.nodeConfigForm[fieldKey.value];
+  const options = props.field.props.options || [];
+  return inferAnyOfOption(options, value);
+}
+
+// 监听字段 key 的变化（节点切换时），重新初始化选项索引
+watch(
+  fieldKey,
+  () => {
+    selectedIndex.value = initSelectedIndexFromValue();
+  },
+  { immediate: true }
+);
+
+// 当 nodeConfigForm 的值外部变化时，同步选项索引
+watch(
+  () => props.nodeConfigForm[fieldKey.value],
+  (newVal, oldVal) => {
+    // 只有当值真正变化且不是选项切换导致的才同步
+    if (newVal !== oldVal && selectedIndex.value !== null) {
+      const newIndex = inferAnyOfOption(props.field.props.options || [], newVal);
+      if (newIndex !== selectedIndex.value) {
+        selectedIndex.value = newIndex;
+      }
+    }
+  }
+);
 
 const emit = defineEmits<{
   (e: 'addObjectItem', fieldKey: string): void;
@@ -31,9 +62,8 @@ const emit = defineEmits<{
 }>();
 
 const selectedAnyOfOption = computed(() => {
-  const currentIndex = props.nodeConfigForm[indexKey.value];
-  if (currentIndex === undefined || currentIndex === null) return null;
-  return props.field.props.options.find((opt: any) => opt.value === currentIndex);
+  if (selectedIndex.value === null || selectedIndex.value === undefined) return null;
+  return props.field.props.options.find((opt: any) => opt.value === selectedIndex.value);
 });
 
 /** 动态创建的 renderedField（当选项没有 subFields 时） */
@@ -50,7 +80,7 @@ const renderedField = computed(() => {
 
   const isRequired = props.field.props.required;
 
-  // 直接使用主字段读取值（由 setupRealtimeConfigSync 实时同步）
+  // 直接使用主字段读取值
   const value = props.nodeConfigForm[fieldKey.value];
 
   // onUpdate 写入到主字段
@@ -58,7 +88,7 @@ const renderedField = computed(() => {
     props.nodeConfigForm[fieldKey.value] = val;
   };
 
-  // 创建字段，key 使用 fieldKey（主字段）
+  // 创建字段
   const field = renderFormField({ [fieldKey.value]: schema }, fieldKey.value, isRequired, {}, value, onUpdate, '');
 
   // 保持 label 为原始字段名
@@ -68,19 +98,15 @@ const renderedField = computed(() => {
 });
 
 function clearSelection() {
-  props.nodeConfigForm[indexKey.value] = null;
+  selectedIndex.value = null;
   // 清除主字段的值
   props.nodeConfigForm[fieldKey.value] = '';
 }
 
 // 监听选项切换，清除旧数据
-// 注意：必须检查 value 是否真正变化，避免 computed 重算导致的误触发
-watch(selectedAnyOfOption, (newOption, oldOption) => {
-  const newValue = newOption?.value;
-  const oldValue = oldOption?.value;
-  
-  // 只有当选项真正切换时才清空（value 变化了）
-  if (newValue === oldValue) return;
+watch(selectedIndex, (newIndex, oldIndex) => {
+  // 只有当选项真正切换时才清空（index 变化了）
+  if (newIndex === oldIndex) return;
   
   // 选项切换时，清除主字段的值
   props.nodeConfigForm[fieldKey.value] = '';
@@ -160,7 +186,7 @@ function updateArrayItemValueAt(parentKey: string, subKey: string, index: number
   obj[subKey] = [...cur];
 }
 
-/** 针对 renderedField 路径的数组操作（直接在 nodeConfigForm[valueKey] 上操作） */
+/** 针对 renderedField 路径的数组操作（直接在 nodeConfigForm[key] 上操作） */
 function addStringArrayItemDirect(key: string) {
   const cur = props.nodeConfigForm[key] || [];
   props.nodeConfigForm[key] = [...cur, ''];
@@ -227,13 +253,13 @@ function updateArrayItemValueDirect(key: string, index: number, itemKey: string,
           <input
             type="radio"
             :value="option.value"
-            v-model="nodeConfigForm[indexKey]"
+            v-model="selectedIndex"
             style="width: 16px; height: 16px; color: #2563eb;"
           />
           <span style="font-size: 14px; color: #374151;">{{ option.label }}</span>
         </label>
         <Button
-          v-if="nodeConfigForm[indexKey] !== undefined && nodeConfigForm[indexKey] !== null"
+          v-if="selectedIndex !== null && selectedIndex !== undefined"
           type="text"
           size="small"
           @click="clearSelection"
