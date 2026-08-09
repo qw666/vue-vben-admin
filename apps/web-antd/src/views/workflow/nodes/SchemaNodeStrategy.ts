@@ -56,8 +56,12 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
       if (key !== '$schema') {
         const prop = formProperties[key];
         if (!prop) return;
+
         if (savedConfig[key] !== undefined) {
           if (prop.anyOf) {
+            // 先存储实际值到主字段
+            config[key] = savedConfig[key];
+            // 再设置 anyOf 选项索引
             this.initAnyOfField(config, key, prop, savedConfig[key]);
           } else if (prop.type === 'object') {
             const savedValue = savedConfig[key];
@@ -92,6 +96,7 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
     for (let i = 0; i < anyOf.length; i++) {
       const option = anyOf[i];
       if (!option) continue;
+
       if (option.const !== undefined && option.const === savedValue) {
         selectedIndex = i;
         break;
@@ -118,17 +123,9 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
       }
     }
 
-    config[key] = selectedIndex;
-
-    const selectedOption = anyOf[selectedIndex];
-    const hasSubFields =
-      selectedOption?.properties && Object.keys(selectedOption.properties).length > 0;
-
-    if (hasSubFields && typeof savedValue === 'object' && savedValue !== null) {
-      config[key + '_values'] = savedValue;
-    } else {
-      config[key + '_value'] = savedValue;
-    }
+    // 使用 _index 后缀存储 anyOf 选项索引，避免污染主字段
+    // 实际值保持在主字段 config[key] 中，由 setupRealtimeConfigSync 实时同步
+    config[key + '_index'] = selectedIndex;
   }
 
   getRequiredFields(formValues: Record<string, any> = {}): { type: string; props: Record<string, any> }[] {
@@ -164,6 +161,9 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
       const propIsRequired = prop.$required === true || formRequired.includes(key);
       if (isRequired !== propIsRequired) return;
 
+      // 对 anyOf 字段：
+      // 1. 选项索引使用 _index 后缀字段（由 AnyOfRadioField 绑定）
+      // 2. 实际值保持在主字段（key）中
       const value = formValues[key];
       const onUpdate = (val: any) => {
         formValues[key] = val;
@@ -197,27 +197,19 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
         if (!schema) return;
 
         if (schema.anyOf) {
-          const selectedIndex = config[key];
-          const subValues = config[key + '_values'];
-          const directValue = config[key + '_value'];
+          // 优先从 _index 后缀字段读取 anyOf 选项索引
+          let selectedIndex = config[key + '_index'];
+          const value = config[key];
 
-          // 幂等性处理：如果 config[key] 已经是序列化后的值（不是索引）
-          // 则直接使用该值，不需要再次通过 anyOf 索引查找
-          if (typeof selectedIndex !== 'number' || selectedIndex >= schema.anyOf.length) {
-            // config[key] 已经是最终值（如字符串 'm'），直接使用
-            if (selectedIndex !== undefined && selectedIndex !== null) {
-              result[key] = selectedIndex;
-            }
-            return;
+          // 如果 _index 不存在或无效，自动根据值的类型推断
+          if (selectedIndex === undefined || selectedIndex === null || typeof selectedIndex !== 'number') {
+            selectedIndex = this.inferAnyOfIndex(schema.anyOf, value);
           }
 
-          if (selectedIndex !== undefined && selectedIndex !== null) {
+          if (selectedIndex !== undefined && selectedIndex !== null && typeof selectedIndex === 'number') {
             const selectedOption = schema.anyOf[selectedIndex];
-            if (selectedOption) {
-              const values = subValues || directValue;
-              if (values !== undefined) {
-                result[key] = serializeFieldValue(selectedOption, values, formDefs);
-              }
+            if (selectedOption && value !== undefined) {
+              result[key] = serializeFieldValue(selectedOption, value, formDefs);
             }
           }
         } else {
@@ -231,13 +223,41 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
     return result;
   }
 
+  /**
+   * 根据值的类型推断 anyOf 选项索引
+   */
+  private inferAnyOfIndex(anyOf: any[], value: any): number {
+    if (value === undefined || value === null) return 0;
+
+    for (let i = 0; i < anyOf.length; i++) {
+      const option = anyOf[i];
+      if (!option) continue;
+
+      if (option.type === 'array' && Array.isArray(value)) {
+        return i;
+      }
+      if (option.type && option.type !== 'array' && option.type === typeof value) {
+        return i;
+      }
+      if (option.$ref) {
+        const refSchema = internalResolveRef(option.$ref, this.meta.formDefs);
+        if (refSchema && refSchema.type === 'object' && typeof value === 'object' && !Array.isArray(value)) {
+          return i;
+        }
+      }
+    }
+
+    return 0;
+  }
+
   validateConfig(config: Record<string, any>): string | null {
     const { formProperties = {}, formRequired = [] } = this.meta;
 
     for (const key of formRequired) {
+      const schema = formProperties[key];
+      // 直接检查主字段的值（不再依赖 _index）
       const value = config[key];
       if (value === undefined || value === null || value === '') {
-        const schema = formProperties[key];
         const label = schema?.title || key;
         return `请填写必填项：${label}`;
       }

@@ -12,6 +12,13 @@ const props = defineProps<{
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
+const arrayValue = computed<any[]>(() => {
+  const val = props.nodeConfigForm[fieldKey.value];
+  return Array.isArray(val) ? val : [];
+});
+
+const arrayLength = computed(() => arrayValue.value.length);
+
 const emit = defineEmits<{
   (e: 'addStringArrayItem', fieldKey: string): void;
   (e: 'removeArrayItem', fieldKey: string, index: number): void;
@@ -37,16 +44,16 @@ const emit = defineEmits<{
     </div>
     <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ nodeConfigForm[fieldKey]?.length || 0 }})</span>
+        <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ arrayLength }})</span>
         <Button type="text" size="small" @click="emit('addStringArrayItem', fieldKey)">
           <IconifyIcon icon="mdi:plus" :size="14" /> 添加
         </Button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <div v-for="(_, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-string-' + (index as number)" style="display: flex; align-items: center; gap: 8px;">
+        <div v-for="(item, index) in arrayValue" :key="`${fieldKey}-item-${index}`" style="display: flex; align-items: center; gap: 8px;">
           <VarPicker
-            :key="`${fieldKey}-${index}`"
-            :value="nodeConfigForm[fieldKey][index as number]"
+            :key="`${fieldKey}-${index}-${item}`"
+            :value="item"
             @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, '', val)"
             :placeholder="'输入 / 选择变量'"
             style="flex: 1;"

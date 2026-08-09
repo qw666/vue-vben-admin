@@ -13,6 +13,9 @@ const props = defineProps<{
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
+/** 选项索引存储 key（使用 _index 后缀，避免污染主字段） */
+const indexKey = computed(() => fieldKey.value + '_index');
+
 const emit = defineEmits<{
   (e: 'addObjectItem', fieldKey: string): void;
   (e: 'updateObjectKey', fieldKey: string, index: number, value: string): void;
@@ -28,33 +31,35 @@ const emit = defineEmits<{
 }>();
 
 const selectedAnyOfOption = computed(() => {
-  if (!props.field.props.options || props.nodeConfigForm[fieldKey.value] === undefined || props.nodeConfigForm[fieldKey.value] === null) return null;
-  return props.field.props.options.find((opt: any) => opt.value === props.nodeConfigForm[fieldKey.value]);
+  const currentIndex = props.nodeConfigForm[indexKey.value];
+  if (currentIndex === undefined || currentIndex === null) return null;
+  return props.field.props.options.find((opt: any) => opt.value === currentIndex);
 });
-
-/** 值存储 key（与选项索引分开存储） */
-const valueKey = computed(() => fieldKey.value + '_value');
 
 /** 动态创建的 renderedField（当选项没有 subFields 时） */
 const renderedField = computed(() => {
   const option = selectedAnyOfOption.value;
-  if (!option || option.subFields?.length) return null;
+  
+  if (!option || option.subFields?.length) {
+    return null;
+  }
   const schema = option.schema;
-  if (!schema?.type) return null;
+  if (!schema?.type) {
+    return null;
+  }
 
-  const vKey = valueKey.value;
   const isRequired = props.field.props.required;
 
-  // 从正确位置读取值
-  const value = props.nodeConfigForm[vKey];
+  // 直接使用主字段读取值（由 setupRealtimeConfigSync 实时同步）
+  const value = props.nodeConfigForm[fieldKey.value];
 
-  // onUpdate 写入到正确位置
+  // onUpdate 写入到主字段
   const onUpdate = (val: any) => {
-    props.nodeConfigForm[vKey] = val;
+    props.nodeConfigForm[fieldKey.value] = val;
   };
 
-  // 创建字段，key 使用 vKey，这样 VarPicker 会从正确位置读写
-  const field = renderFormField({ [vKey]: schema }, vKey, isRequired, {}, value, onUpdate, '');
+  // 创建字段，key 使用 fieldKey（主字段）
+  const field = renderFormField({ [fieldKey.value]: schema }, fieldKey.value, isRequired, {}, value, onUpdate, '');
 
   // 保持 label 为原始字段名
   field.props.label = props.field.props.label;
@@ -63,17 +68,22 @@ const renderedField = computed(() => {
 });
 
 function clearSelection() {
-  props.nodeConfigForm[fieldKey.value] = null;
-  // 清除对应的值
-  delete props.nodeConfigForm[valueKey.value];
+  props.nodeConfigForm[indexKey.value] = null;
+  // 清除主字段的值
+  props.nodeConfigForm[fieldKey.value] = '';
 }
 
 // 监听选项切换，清除旧数据
+// 注意：必须检查 value 是否真正变化，避免 computed 重算导致的误触发
 watch(selectedAnyOfOption, (newOption, oldOption) => {
-  if (!newOption || !oldOption) return;
-  // 选项切换时，清除旧的值数据
-  delete props.nodeConfigForm[valueKey.value];
-  delete props.nodeConfigForm[fieldKey.value + '_values'];
+  const newValue = newOption?.value;
+  const oldValue = oldOption?.value;
+  
+  // 只有当选项真正切换时才清空（value 变化了）
+  if (newValue === oldValue) return;
+  
+  // 选项切换时，清除主字段的值
+  props.nodeConfigForm[fieldKey.value] = '';
 });
 
 function getNestedValue(parentKey: string): Record<string, any> {
@@ -217,13 +227,13 @@ function updateArrayItemValueDirect(key: string, index: number, itemKey: string,
           <input
             type="radio"
             :value="option.value"
-            v-model="nodeConfigForm[fieldKey]"
+            v-model="nodeConfigForm[indexKey]"
             style="width: 16px; height: 16px; color: #2563eb;"
           />
           <span style="font-size: 14px; color: #374151;">{{ option.label }}</span>
         </label>
         <Button
-          v-if="nodeConfigForm[fieldKey] !== undefined && nodeConfigForm[fieldKey] !== null"
+          v-if="nodeConfigForm[indexKey] !== undefined && nodeConfigForm[indexKey] !== null"
           type="text"
           size="small"
           @click="clearSelection"

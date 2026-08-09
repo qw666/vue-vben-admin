@@ -39,9 +39,12 @@ export function validateNodeConfig(node: any): { isValid: boolean; missingFields
 
   // 1. 检查必填字段是否为空
   const requiredFields = strategy.getRequiredFields?.() || [];
+  
   requiredFields.forEach(field => {
     if (field.props) {
-      const fieldValue = config[field.props.key];
+      const fieldKey = field.props.key;
+      const fieldValue = config[fieldKey];
+      
       // ArrayTable 字段允许空数组（用户可以选择不配置任何项）
       const isArrayTableField = field.type === 'ArrayTable';
       if (isArrayTableField) {
@@ -60,7 +63,6 @@ export function validateNodeConfig(node: any): { isValid: boolean; missingFields
   if (strategy.validateConfig) {
     const error = strategy.validateConfig(config);
     if (error) {
-      // 尝试从错误消息中提取字段名
       missingFields.push(error);
     }
   }

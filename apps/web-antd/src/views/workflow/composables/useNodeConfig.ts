@@ -14,6 +14,9 @@ const store = useWorkflowStore();
 /**
  * Watch nodeConfigForm and sync changes back to the store's node data.config in real-time.
  * This ensures downstream VarPicker can see upstream outputKeys immediately without requiring Save.
+ * 
+ * 重要：排除 _index 后缀的 UI 状态字段，只同步实际值
+ * _index 只存在于 nodeConfigForm（UI状态），永远不进入 node.data.config
  */
 function setupRealtimeConfigSync(
   nodeConfigForm: Record<string, any>,
@@ -23,11 +26,20 @@ function setupRealtimeConfigSync(
     () => ({ ...nodeConfigForm }),
     () => {
       if (selectedNode.value) {
-        // Merge instead of replace to preserve flow control fields (cases/defaults/then/else)
-        // that are managed separately through handleConnection, not through nodeConfigForm
+        const cleanConfig: Record<string, any> = {};
+        const originalConfig = selectedNode.value.data.config || {};
+        
+        for (const [key, value] of Object.entries(nodeConfigForm)) {
+          // 排除 _index 后缀（UI 状态，不写入 node.data.config）
+          if (key.endsWith('_index')) {
+            continue;
+          }
+          cleanConfig[key] = value;
+        }
+        
         selectedNode.value.data.config = {
-          ...selectedNode.value.data.config,
-          ...nodeConfigForm,
+          ...originalConfig,
+          ...cleanConfig,
         };
       }
     },
@@ -131,29 +143,53 @@ export function useNodeConfig(
   setupRealtimeConfigSync(nodeConfigForm, selectedNode);
 
   async function handleNodeDoubleClick(node: WorkflowNode) {
+    // 关键：在切换节点前，先把当前 nodeConfigForm 的值同步回旧节点
+    // 注意：排除 _index 后缀的 UI 状态字段，只同步实际值
+    if (selectedNode.value) {
+      const oldNode = selectedNode.value;
+      const cleanConfig: Record<string, any> = {};
+      const originalConfig = oldNode.data.config || {};
+      
+      for (const [key, value] of Object.entries(nodeConfigForm)) {
+        // 排除 _index 后缀（UI 状态，不需要保存到 data.config）
+        if (key.endsWith('_index')) {
+          continue;
+        }
+        cleanConfig[key] = value;
+      }
+      
+      oldNode.data.config = {
+        ...originalConfig,
+        ...cleanConfig,
+      };
+    }
+
     // 先清除选中状态，等下一帧再设置新节点，避免组件更新时出现 null 引用
     selectedNode.value = null;
     store.setSelectedNodeId(null);
     await nextTick();
 
-    // 在设置 selectedNode 之前快照 savedConfig，避免组件挂载后 watcher 污染 node.data.config
+    // 在设置 selectedNode 之前快照 savedConfig
+    // 注意：这里拿到的是已排除 _index 的干净配置
     const savedConfig = { ...(node.data.config || {}) };
-
-    selectedNode.value = node;
-    store.setSelectedNodeId(node.id);
-    isConfigPanelOpen.value = true;
-    configPanelWidth.value = DEFAULT_PANEL_WIDTH;
 
     // 确保节点类型有对应的策略（自动加载 Schema 元数据）
     const nodeType = node.data.type;
     await flowControlNodeRegistry.ensureStrategy(nodeType, loadPluginMeta);
 
-    // 统一走策略路径
+    // 关键：先初始化 nodeConfigForm，再设置 selectedNode
+    // 这样 ConfigPanel 渲染时就能读到正确的值
     const strategy = flowControlNodeRegistry.get(nodeType);
     const newConfig = strategy.initConfig(savedConfig);
 
     clearForm();
     Object.assign(nodeConfigForm, newConfig);
+
+    // 然后再设置 selectedNode 触发 ConfigPanel 渲染
+    selectedNode.value = node;
+    store.setSelectedNodeId(node.id);
+    isConfigPanelOpen.value = true;
+    configPanelWidth.value = DEFAULT_PANEL_WIDTH;
   }
 
   const currentNodeMeta = computed(() => {
