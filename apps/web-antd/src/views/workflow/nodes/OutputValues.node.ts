@@ -33,9 +33,9 @@ export const OutputValuesNodeStrategy: FlowControlNodeStrategy = {
   },
 
   initConfig(savedConfig: Record<string, any>): Record<string, any> {
-    // savedConfig 来自 deserializeConfig，values 已是数组格式
+    const deserialized = this.deserializeConfig?.(savedConfig) || savedConfig;
     return {
-      values: Array.isArray(savedConfig.values) ? savedConfig.values : [],
+      values: Array.isArray(deserialized.values) ? deserialized.values : [],
     };
   },
 

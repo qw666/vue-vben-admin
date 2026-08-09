@@ -5,28 +5,12 @@ import type {
   NodeOutputDef,
   SchemaNodeMeta,
 } from './nodeTypes';
+import { SchemaStrategyLoader } from './SchemaStrategyLoader';
 
 class FlowControlNodeRegistry {
   private strategies: Map<string, FlowControlNodeStrategy> = new Map();
   private defaultStrategy: FlowControlNodeStrategy | null = null;
-  private schemaMetaCache: Map<string, SchemaNodeMeta> = new Map();
-  private schemaStrategyCache: Map<string, FlowControlNodeStrategy> = new Map();
-  // 缓存 SchemaNodeStrategy 类，动态导入以避免循环依赖
-  private schemaStrategyClass: any = null;
-
-  /** 异步加载 SchemaNodeStrategy 类 */
-  private async loadSchemaStrategyClass(): Promise<any> {
-    if (!this.schemaStrategyClass) {
-      const mod = await import('./SchemaNodeStrategy');
-      this.schemaStrategyClass = mod.SchemaNodeStrategy;
-    }
-    return this.schemaStrategyClass;
-  }
-
-  /** 同步获取 SchemaNodeStrategy 类（需确保已异步加载过） */
-  private getSchemaStrategyClass(): any {
-    return this.schemaStrategyClass;
-  }
+  private schemaLoader = new SchemaStrategyLoader();
 
   register(strategy: FlowControlNodeStrategy): void {
     if (strategy.nodeType === 'default') {
@@ -41,11 +25,7 @@ class FlowControlNodeRegistry {
    * 会自动创建 SchemaNodeStrategy 并缓存。
    */
   registerSchemaMeta(meta: SchemaNodeMeta): void {
-    this.schemaMetaCache.set(meta.nodeType, meta);
-    // 清除缓存的策略实例，强制重新创建
-    this.schemaStrategyCache.delete(meta.nodeType);
-    // 确保 SchemaNodeStrategy 类已加载
-    this.loadSchemaStrategyClass().catch(() => {});
+    this.schemaLoader.registerMeta(meta);
   }
 
   /**
@@ -58,27 +38,8 @@ class FlowControlNodeRegistry {
     nodeType: string,
     loadMeta: (type: string) => Promise<any>,
   ): Promise<void> {
-    // 如果已经有策略（硬编码或 Schema），直接返回
     if (this.hasStrategy(nodeType)) return;
-
-    // 异步加载 Schema 元数据
-    try {
-      const meta = await loadMeta(nodeType);
-      if (meta && meta.formProperties) {
-        const schemaMeta: SchemaNodeMeta = {
-          nodeType,
-          nodeName: meta.nodeName || nodeType,
-          icon: meta.icon || 'mdi:cube-outline',
-          description: meta.description || '',
-          formProperties: meta.formProperties as any,
-          formRequired: meta.formRequired || [],
-          formDefs: meta.formDefs || {},
-        };
-        this.registerSchemaMeta(schemaMeta);
-      }
-    } catch {
-      // 加载失败，使用默认策略
-    }
+    await this.schemaLoader.ensureLoaded(nodeType, loadMeta);
   }
 
   get(nodeType: string): FlowControlNodeStrategy {
@@ -86,23 +47,9 @@ class FlowControlNodeRegistry {
     const hardcoded = this.strategies.get(nodeType);
     if (hardcoded) return hardcoded;
 
-    // 2. 如果有 Schema 元数据，创建或返回缓存的 SchemaNodeStrategy
-    const schemaMeta = this.schemaMetaCache.get(nodeType);
-    if (schemaMeta) {
-      const schemaStrategy = this.schemaStrategyCache.get(nodeType);
-      if (schemaStrategy) {
-        return schemaStrategy;
-      }
-      // SchemaNodeStrategy 类可能还在加载中，此时返回默认策略
-      const SchemaStrategyClass = this.getSchemaStrategyClass();
-      if (SchemaStrategyClass) {
-        const newStrategy = new SchemaStrategyClass(schemaMeta);
-        this.schemaStrategyCache.set(nodeType, newStrategy);
-        return newStrategy;
-      }
-      // 触发异步加载，下次调用 get() 时就能使用
-      this.loadSchemaStrategyClass().catch(() => {});
-    }
+    // 2. 如果有 Schema 元数据，返回创建/缓存的 SchemaNodeStrategy
+    const schemaStrategy = this.schemaLoader.getStrategy(nodeType);
+    if (schemaStrategy) return schemaStrategy;
 
     // 3. 返回默认策略
     return this.defaultStrategy!;
@@ -110,7 +57,7 @@ class FlowControlNodeRegistry {
 
   getAll(): FlowControlNodeStrategy[] {
     const all: FlowControlNodeStrategy[] = Array.from(this.strategies.values());
-    this.schemaStrategyCache.forEach(s => all.push(s));
+    this.schemaLoader.getAllStrategies().forEach(s => all.push(s));
     return all;
   }
 
@@ -163,14 +110,14 @@ class FlowControlNodeRegistry {
    * 用于区分：有前端策略的节点 vs 无任何策略的节点。
    */
   hasStrategy(nodeType: string): boolean {
-    return this.strategies.has(nodeType) || this.schemaMetaCache.has(nodeType);
+    return this.strategies.has(nodeType) || this.schemaLoader.hasMeta(nodeType);
   }
 
   /**
    * 判断节点是否是纯 Schema 驱动的节点（无硬编码策略）。
    */
   isSchemaNode(nodeType: string): boolean {
-    return !this.strategies.has(nodeType) && this.schemaMetaCache.has(nodeType);
+    return !this.strategies.has(nodeType) && this.schemaLoader.hasMeta(nodeType);
   }
 
   /**
