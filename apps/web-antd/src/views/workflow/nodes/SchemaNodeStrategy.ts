@@ -14,6 +14,17 @@ import {
 import { renderFormField } from '../composables/useFormFieldResolver';
 import { evalCondition } from '../utils/conditionEval';
 
+/** 分组优先级：数值越小越靠前 */
+const GROUP_PRIORITY: Record<string, number> = {
+  main: 1,
+  connection: 2,
+  execution: 3,
+  source: 4,
+  destination: 5,
+  advanced: 6,
+  default: 99,
+};
+
 /**
  * SchemaNodeStrategy: 将后端 Schema 节点适配为 FlowControlNodeStrategy 接口。
  * 所有后端动态节点（通过 formSchema 驱动的节点）都使用此适配器。
@@ -105,9 +116,12 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
     isRequired: boolean,
   ): { type: string; props: Record<string, any> }[] {
     const { formProperties = {}, formRequired = [], formDefs = {} } = this.meta;
-    const fields: { type: string; props: Record<string, any> }[] = [];
 
-    Object.keys(formProperties).forEach(key => {
+    // 1. 按 $group 分组收集字段
+    const groupMap = new Map<string, { type: string; props: Record<string, any> }[]>();
+    const groupOrder = new Map<string, number>(); // 记录分组出现顺序
+
+    Object.keys(formProperties).forEach((key) => {
       if (key === '$schema') return;
       const prop = formProperties[key];
       if (!prop) return;
@@ -115,7 +129,6 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
       const propIsRequired = prop.$required === true || formRequired.includes(key);
       if (isRequired !== propIsRequired) return;
 
-      // 直接读取主字段的值
       const value = formValues[key];
       const onUpdate = (val: any) => {
         formValues[key] = val;
@@ -130,12 +143,27 @@ export class SchemaNodeStrategy implements FlowControlNodeStrategy {
         onUpdate,
         this.nodeType,
       );
-      if (field) {
-        fields.push(field);
+      if (!field) return;
+
+      const group = prop.$group || 'default';
+      if (!groupMap.has(group)) {
+        groupMap.set(group, []);
+        groupOrder.set(group, groupOrder.size);
       }
+      groupMap.get(group)!.push(field);
     });
 
-    return fields;
+    // 2. 按分组优先级排序
+    const sortedGroups = Array.from(groupMap.entries()).sort(([groupA], [groupB]) => {
+      const priorityA = GROUP_PRIORITY[groupA] ?? 99;
+      const priorityB = GROUP_PRIORITY[groupB] ?? 99;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      // 同优先级保持原始出现顺序
+      return (groupOrder.get(groupA) ?? 0) - (groupOrder.get(groupB) ?? 0);
+    });
+
+    // 3. 扁平化输出
+    return sortedGroups.flatMap(([, fields]) => fields);
   }
 
   serializeConfig(config: Record<string, any>): Record<string, any> {
