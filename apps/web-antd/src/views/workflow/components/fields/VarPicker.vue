@@ -284,7 +284,7 @@ function syncDomFromStored() {
 
 /** 将 DOM 内容写回存储值 */
 function writeStoredFromDom() {
-  if (!editorRef.value || isInternalRender) return;
+  if (!editorRef.value) return;
   const stored = domToStoredValue(editorRef.value);
   storedValue.value = stored;
   if (props.field && props.nodeConfigForm) {
@@ -531,8 +531,13 @@ function pickVar(item: FlatVarItem) {
     insertNodeAtCursor(text);
   }
 
-  // 同步存储值
-  writeStoredFromDom();
+  // 同步存储值（在 nextTick 中执行，确保 DOM 操作完成）
+  // 设置 isUserInputting 防止 watch(storedValue) 触发不必要的 DOM 重渲染
+  isUserInputting = true;
+  nextTick(() => {
+    writeStoredFromDom();
+    isUserInputting = false;
+  });
 
   closePanel();
 }
