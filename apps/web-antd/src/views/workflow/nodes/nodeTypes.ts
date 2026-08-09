@@ -7,6 +7,16 @@ export type FrontendNodeGroup =
   | 'tools' // 工具
   | 'hidden'; // 不在面板显示
 
+/** 节点功能分类，用于 UI 渲染判断 */
+export type NodeCategory =
+  | 'start' // 开始节点
+  | 'end' // 结束节点
+  | 'http' // HTTP 请求节点
+  | 'code' // 代码/脚本节点
+  | 'flow' // 流程控制节点（Switch/If/ForEach 等）
+  | 'output' // 输出节点
+  | 'tool' // 通用工具节点
+
 export interface WorkflowNodePort {
   field: string;
   label: string;
@@ -24,6 +34,8 @@ export interface FlowControlNodeConfig {
   description: string;
   /** 前端节点声明的分组 */
   group: FrontendNodeGroup;
+  /** 节点功能分类，用于 UI 渲染判断 */
+  category?: NodeCategory;
   ports: {
     input?: number;
     output?: WorkflowNodePort[];

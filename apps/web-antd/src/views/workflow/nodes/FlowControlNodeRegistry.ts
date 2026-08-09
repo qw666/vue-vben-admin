@@ -81,6 +81,45 @@ class FlowControlNodeRegistry {
   }
 
   /**
+   * 获取节点分类。
+   * 用于：ConfigPanel 渲染判断等场景。
+   */
+  getCategory(nodeType: string): string | undefined {
+    const strategy = this.get(nodeType);
+    return strategy.config.category;
+  }
+
+  /**
+   * 判断节点是否属于指定分类。
+   * 用于：ConfigPanel 渲染判断等场景。
+   * 当 category 未设置时，回退到节点类型名称匹配（兼容 Schema 动态节点）。
+   */
+  isCategory(nodeType: string, category: string): boolean {
+    const configCategory = this.getCategory(nodeType);
+    if (configCategory) {
+      return configCategory === category;
+    }
+    // Fallback: 根据节点类型名称匹配（兼容 Schema 动态节点）
+    const typeLower = nodeType.toLowerCase();
+    switch (category) {
+      case 'http':
+        return typeLower.includes('http') || typeLower.includes('request');
+      case 'code':
+        return typeLower.includes('python') || typeLower.includes('code') || typeLower.includes('script');
+      case 'start':
+        return typeLower.includes('start');
+      case 'end':
+        return typeLower.includes('end');
+      case 'flow':
+        return typeLower.includes('switch') || typeLower.includes('if') || typeLower.includes('foreach') || typeLower.includes('parallel');
+      case 'output':
+        return typeLower.includes('output');
+      default:
+        return false;
+    }
+  }
+
+  /**
    * 获取节点描述信息，用于 ConfigPanel 显示。
    * 优先使用策略的 getNodeDescription，回退到 config 中的 description。
    */

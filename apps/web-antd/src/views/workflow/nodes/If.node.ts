@@ -10,6 +10,7 @@ export const IfNodeStrategy: FlowControlNodeStrategy = {
     icon: 'mdi:checkbox-marked-circle',
     description: '条件分支',
     group: 'flowControl',
+    category: 'flow',
     ports: {
       input: 1,
       output: [

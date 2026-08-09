@@ -10,6 +10,7 @@ export const PauseNodeStrategy: FlowControlNodeStrategy = {
     icon: 'mdi:pause',
     description: '暂停等待',
     group: 'flowControl',
+    category: 'tool',
     ports: {
       input: 1,
       output: [

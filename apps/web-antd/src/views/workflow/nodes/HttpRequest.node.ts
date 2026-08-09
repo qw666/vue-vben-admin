@@ -9,6 +9,7 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
     icon: 'mdi:web',
     description: 'HTTP请求节点',
     group: 'tools',
+    category: 'http',
     ports: {
       input: 1,
       output: [

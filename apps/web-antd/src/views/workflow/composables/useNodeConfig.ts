@@ -206,12 +206,19 @@ export function useNodeConfig(
     return [];
   });
 
-  function handleSaveConfig() {
+  /**
+   * 统一保存配置（内部函数）
+   * @param showMessage 是否显示成功提示和校验
+   */
+  function persistConfig(showMessage = false) {
     if (!selectedNode.value) return;
 
-    if (!selectedNode.value.data.label || !selectedNode.value.data.label.trim()) {
-      message.error('请填写节点名称');
-      return;
+    // 完整保存时进行校验
+    if (showMessage) {
+      if (!selectedNode.value.data.label || !selectedNode.value.data.label.trim()) {
+        message.error('请填写节点名称');
+        return;
+      }
     }
 
     const nodeType = selectedNode.value.data.type;
@@ -220,8 +227,8 @@ export function useNodeConfig(
     // 1. 使用统一方法收集并序列化配置
     const config = flushConfig(nodeConfigForm, nodeType);
 
-    // 2. 校验
-    if (strategy.validateConfig) {
+    // 2. 完整保存时校验
+    if (showMessage && strategy.validateConfig) {
       const error = strategy.validateConfig(config);
       if (error) {
         message.error(error);
@@ -229,37 +236,29 @@ export function useNodeConfig(
       }
     }
 
-    // 3. 保存
+    // 3. 保存到节点
     selectedNode.value.data.config = config;
 
+    // 4. 特殊保存逻辑（如 Start 节点的 inputs/triggers 需写入 store.currentWorkflow）
     if (strategy.saveConfig) {
       strategy.saveConfig(config, store);
     }
 
-    message.success('节点配置已保存');
-    closeConfigPanel();
+    if (showMessage) {
+      message.success('节点配置已保存');
+      closeConfigPanel();
+    }
+  }
+
+  function handleSaveConfig() {
+    persistConfig(true);
   }
 
   /**
    * 自动保存配置（关闭面板时调用）
-   * 与 handleSaveConfig 类似，但不显示成功提示
    */
   function autoSaveConfig() {
-    if (!selectedNode.value) return;
-
-    const nodeType = selectedNode.value.data.type;
-    const strategy = flowControlNodeRegistry.get(nodeType);
-
-    // 1. 使用统一方法收集并序列化配置
-    const config = flushConfig(nodeConfigForm, nodeType);
-
-    // 2. 保存到节点
-    selectedNode.value.data.config = config;
-
-    // 3. 特殊保存逻辑（如 Start 节点的 inputs/triggers 需写入 store.currentWorkflow）
-    if (strategy.saveConfig) {
-      strategy.saveConfig(config, store);
-    }
+    persistConfig(false);
   }
 
   // 关闭面板时必须先置空 selectedNode，再清空表单。

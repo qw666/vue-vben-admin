@@ -23,6 +23,7 @@ export const OutputValuesNodeStrategy: FlowControlNodeStrategy = {
     icon: 'mdi:export',
     description: '输出流程变量',
     group: 'tools',
+    category: 'output',
     ports: {
       input: 1,
       output: [

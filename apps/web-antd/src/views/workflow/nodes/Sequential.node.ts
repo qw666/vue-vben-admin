@@ -9,6 +9,7 @@ export const SequentialNodeStrategy: FlowControlNodeStrategy = {
     icon: 'mdi:format-list-ordered',
     description: '顺序分支',
     group: 'hidden',
+    category: 'flow',
     transparentContainer: true,
     taskFields: ['tasks'],
     ports: {

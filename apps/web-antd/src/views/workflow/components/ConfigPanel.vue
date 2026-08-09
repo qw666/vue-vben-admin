@@ -9,6 +9,7 @@ import CodeConfig from './custom/CodeConfig.vue';
 import FieldRenderer from './FieldRenderer.vue';
 import HttpRequestConfig from './custom/HttpRequestConfig.vue';
 import { getFlowControlConfig } from '../config/workflow-node-config';
+import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 
 const props = defineProps<{
   currentNodeMeta: any;
@@ -34,12 +35,20 @@ const emit = defineEmits<{
 
 const codeConfigRef = ref<InstanceType<typeof CodeConfig> | null>(null);
 
+// 使用 registry 的 category 来判断节点类型，避免硬编码字符串匹配
+const currentNodeType = computed(() => props.selectedNode?.data?.type);
+
 function isHttpRequestNode(nodeType: string): boolean {
-  return nodeType?.includes('http') || nodeType?.includes('request');
+  return flowControlNodeRegistry.isCategory(nodeType, 'http');
 }
 
 function isCodeNode(nodeType: string): boolean {
-  return nodeType?.includes('python') || nodeType?.includes('Code') || nodeType?.includes('Script');
+  return flowControlNodeRegistry.isCategory(nodeType, 'code');
+}
+
+function isStartOrEndNode(nodeType: string): boolean {
+  const category = flowControlNodeRegistry.getCategory(nodeType);
+  return category === 'start' || category === 'end';
 }
 
 // 节点类型显示名称：优先使用左侧节点列表中定义的 nodeName，其次取插件标题，最后回退到原始 type
@@ -108,7 +117,7 @@ function handleSaveConfig() {
           请选择一个节点
         </div>
         <div v-else :key="selectedNode?.id">
-          <template v-if="selectedNode.data.type !== 'idp_core_flow_Start' && selectedNode.data.type !== 'idp_core_flow_End'">
+          <template v-if="!isStartOrEndNode(selectedNode.data.type)">
             <div class="p-2.5 bg-gray-50 rounded-lg">
               <div class="text-sm text-gray-500">节点ID</div>
               <Input
@@ -170,7 +179,7 @@ function handleSaveConfig() {
               </div>
             </div>
             <div v-if="optionalFields.length > 0">
-              <template v-if="selectedNode.data.type === 'idp_core_flow_Start' || selectedNode.data.type === 'idp_core_flow_End'">
+              <template v-if="isStartOrEndNode(selectedNode.data.type)">
                 <div class="space-y-4">
                   <div
                     v-for="field in optionalFields"

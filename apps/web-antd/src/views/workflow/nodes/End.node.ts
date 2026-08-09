@@ -9,6 +9,7 @@ export const EndNodeStrategy: FlowControlNodeStrategy = {
     icon: 'mdi:stop-circle',
     description: '流程输出节点',
     group: 'hidden',
+    category: 'end',
     ports: {
       input: 1,
       output: [],
