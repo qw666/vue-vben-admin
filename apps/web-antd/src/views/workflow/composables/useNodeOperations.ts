@@ -4,9 +4,26 @@ import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 import { rewriteVarReferences } from './useVarSources';
 import { rewriteNodeIdsInConfig } from '../nodes/containerNodeAccessor';
+import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 import type { Connection, NodeConfigForm } from '../types/workflow';
 
-const CONTAINER_TASK_FIELDS = ['tasks', 'then', 'else', 'errors', 'finally', 'next', 'defaults', 'cases'];
+/**
+ * 获取容器节点的 taskFields，优先使用 registry 中的配置
+ */
+function getContainerTaskFields(nodeType?: string): string[] {
+  if (nodeType) {
+    const taskFields = flowControlNodeRegistry.getTaskFields(nodeType);
+    if (taskFields.length > 0) return taskFields;
+  }
+  // 兜底：遍历所有已知的 taskFields
+  const allFields = new Set<string>();
+  const containerTypes = ['Switch', 'If', 'ForEach', 'Parallel', 'Sequential'];
+  for (const type of containerTypes) {
+    const fields = flowControlNodeRegistry.getTaskFields(type);
+    fields.forEach(f => allFields.add(f));
+  }
+  return Array.from(allFields);
+}
 
 export function useNodeOperations(
   selectedNode: Ref<WorkflowNode | null>,
@@ -90,9 +107,10 @@ export function useNodeOperations(
     }
   }
 
-  function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string) {
+  function rewriteTaskItemNodeIds(config: any, oldId: string, newId: string, nodeType?: string) {
     if (!config || typeof config !== 'object') return;
-    rewriteNodeIdsInConfig(config, CONTAINER_TASK_FIELDS, oldId, newId);
+    const taskFields = getContainerTaskFields(nodeType);
+    rewriteNodeIdsInConfig(config, taskFields, oldId, newId);
   }
 
   function updateNodeId(value: string) {
@@ -133,13 +151,13 @@ export function useNodeOperations(
         if (n.id === value) return;
         if (n.data?.config) {
           n.data.config = rewriteVarReferences(n.data.config, oldId, value);
-          rewriteTaskItemNodeIds(n.data.config, oldId, value);
+          rewriteTaskItemNodeIds(n.data.config, oldId, value, n.data.type);
         }
       });
     }
 
     if (node.data?.config) {
-      rewriteTaskItemNodeIds(node.data.config, oldId, value);
+      rewriteTaskItemNodeIds(node.data.config, oldId, value, node.data.type);
     }
 
     const freshNode = store.currentWorkflow?.nodes.find(
