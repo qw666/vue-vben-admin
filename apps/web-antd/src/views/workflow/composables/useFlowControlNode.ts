@@ -56,19 +56,15 @@ export function useFlowControlNode(
       if (excludeFields.includes(field)) return;
       const configValue = node.data.config?.[field];
 
-      // Get connectionMode for this field
-      const port = flowControlConfig.ports?.output?.find((p: any) => p.field === field);
-      const mode = port?.connectionMode || 'sequential';
-
       forEachTaskField(configValue, (item) => {
         if (item.nodeId) {
           if (!childIds.includes(item.nodeId)) {
             childIds.push(item.nodeId);
           }
-          // For sequential mode, collect chain via edges from child node
-          if (mode !== 'parallel') {
-            collectChainDescendants(item.nodeId, childIds);
-          }
+          // Collect chain descendants via edges (for both sequential and parallel modes)
+          // Parallel mode: each branch's chain nodes should be included in the container's bounds
+          // Sequential mode: chain nodes are already part of the sequential flow
+          collectChainDescendants(item.nodeId, childIds);
           // Recursively get nested flow control children
           const nestedChildIds = getChildNodeIds(item.nodeId);
           nestedChildIds.forEach(nestedId => {

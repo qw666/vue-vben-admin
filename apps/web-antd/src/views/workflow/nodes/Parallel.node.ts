@@ -138,6 +138,31 @@ export const ParallelNodeStrategy: FlowControlNodeStrategy = {
       },
     ];
   },
+
+  serializeTaskFieldItems(
+    field: string,
+    items: any[],
+    helpers: { collectChain: (nodeId: string) => any[] },
+  ): any[] {
+    if (field !== 'tasks') return items;
+
+    return items.map((item: any) => {
+      if (item.nodeId) {
+        const chainNodes = helpers.collectChain(item.nodeId);
+        if (chainNodes.length > 1) {
+          return {
+            id: `seq_${item.nodeId}`,
+            type: 'idp_core_flow_Sequential',
+            description: 'Sequential',
+            tasks: chainNodes,
+          };
+        } else {
+          return chainNodes[0] || item;
+        }
+      }
+      return item;
+    });
+  },
 };
 
 flowControlNodeRegistry.register(ParallelNodeStrategy);

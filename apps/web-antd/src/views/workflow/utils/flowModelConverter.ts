@@ -22,6 +22,75 @@ export function getDefaultOutputPortField(nodeType: string): string {
   return 'output'; // 默认回退
 }
 
+/**
+ * 预处理：将透明容器节点展开为子任务
+ * 
+ * 功能：在加载流程模型到画布之前，将 Sequential 等透明容器节点
+ *       就地展开为其子任务数组
+ * 
+ * 规则：
+ *   - 只对 connectionMode 为 sequential/cases 的字段执行展开
+ *   - 对 parallel 模式的字段不展开（保留 Sequential 节点以保持分支内的链式关系）
+ *   - 后续的 extractAllTasks/buildEdges/convertTaskToConfig 会基于
+ *     transparentContainer 标志处理保留的 Sequential 节点
+ */
+function flattenTransparentContainers(tasks: FlowTask[]): FlowTask[] {
+  return tasks.map((task) => {
+    const config = getFlowControlConfig(task.type);
+    if (!config?.taskFields) return task;
+
+    const result = { ...task };
+    for (const field of config.taskFields) {
+      const fieldValue = task[field];
+      if (!fieldValue) continue;
+
+      // 获取该字段对应的 port 配置，判断 connectionMode
+      const port = config.ports?.output?.find((p: any) => p.field === field);
+      const connectionMode = port?.connectionMode || 'sequential';
+
+      // 只对 sequential/cases 模式执行展开
+      // parallel 模式下每个数组元素是独立分支，展开会丢失链式关系
+      if (connectionMode === 'parallel') {
+        continue;
+      }
+
+      const processItems = (items: any[]): any[] => {
+        return items.flatMap((item) => {
+          if (!item?.id || !item?.type) return [item];
+
+          const itemConfig = getFlowControlConfig(item.type);
+          if (itemConfig?.transparentContainer && itemConfig.taskFields) {
+            for (const subField of itemConfig.taskFields) {
+              const subItems = item[subField];
+              if (Array.isArray(subItems)) {
+                return flattenTransparentContainers(subItems);
+              }
+            }
+            return [item];
+          }
+          return [item];
+        });
+      };
+
+      if (Array.isArray(fieldValue)) {
+        result[field] = processItems(fieldValue);
+      } else if (typeof fieldValue === 'object' && fieldValue !== null) {
+        const mapped: Record<string, any[]> = {};
+        for (const caseKey of Object.keys(fieldValue)) {
+          const caseItems = fieldValue[caseKey];
+          if (Array.isArray(caseItems)) {
+            mapped[caseKey] = processItems(caseItems);
+          }
+        }
+        if (Object.keys(mapped).length > 0) {
+          result[field] = mapped;
+        }
+      }
+    }
+    return result;
+  });
+}
+
 function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: FlowTask[]): Record<string, any> {
   const config: Record<string, any> = {};
   for (const key of Object.keys(task)) {
@@ -32,6 +101,26 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: F
       const fieldValue = task[key];
       const mapped = mapTaskField(fieldValue, (item) => {
         if (item.id && item.type) {
+          const itemConfig = getFlowControlConfig(item.type);
+          
+          // 透明容器：替换为首个子任务的引用
+          if (itemConfig?.transparentContainer && itemConfig.taskFields) {
+            for (const subField of itemConfig.taskFields) {
+              const subItems = item[subField];
+              if (Array.isArray(subItems) && subItems.length > 0) {
+                const firstChild = subItems[0];
+                if (firstChild?.id && firstChild?.type) {
+                  return {
+                    type: firstChild.type,
+                    nodeId: firstChild.id,
+                    label: firstChild.description || firstChild.id,
+                  };
+                }
+              }
+            }
+            return { nodeId: item.id };
+          }
+          
           const fullTask = allTasks.find(t => t.id === item.id);
           if (fullTask) {
             const childFlowControlConfig = getFlowControlConfig(fullTask.type);
@@ -61,10 +150,26 @@ function convertTaskToConfig(task: FlowTask, flowControlConfig: any, allTasks: F
 
 function extractAllTasks(tasks: FlowTask[], allTasks: FlowTask[] = []): FlowTask[] {
   for (const task of tasks) {
+    const flowControlConfig = getFlowControlConfig(task.type);
+    
+    // 透明容器：跳过自身，但递归处理子任务
+    if (flowControlConfig?.transparentContainer) {
+      if (flowControlConfig.taskFields) {
+        for (const field of flowControlConfig.taskFields) {
+          const fieldValue = task[field];
+          forEachTaskField(fieldValue, (item) => {
+            if (item.id && item.type) {
+              extractAllTasks([item], allTasks);
+            }
+          });
+        }
+      }
+      continue;
+    }
+    
     if (!allTasks.find(t => t.id === task.id)) {
       allTasks.push(task);
     }
-    const flowControlConfig = getFlowControlConfig(task.type);
     if (flowControlConfig.taskFields) {
       for (const field of flowControlConfig.taskFields) {
         const fieldValue = task[field];
@@ -105,7 +210,39 @@ function buildEdges(tasks: FlowTask[], parentTask?: FlowTask, edges: WorkflowEdg
           if (connectionMode === 'parallel') {
             fieldValue.forEach(item => {
               if (item.id && item.type) {
-                buildEdges([item], task, edges, field, undefined);
+                const itemConfig = getFlowControlConfig(item.type);
+                
+                if (itemConfig?.transparentContainer && itemConfig.taskFields) {
+                  // 透明容器：连接父节点→首个子节点 + 子节点间链式边
+                  for (const subField of itemConfig.taskFields) {
+                    const subItems = item[subField];
+                    if (Array.isArray(subItems) && subItems.length > 0) {
+                      const firstChild = subItems[0];
+                      if (firstChild?.id && firstChild?.type) {
+                        // 父节点→首个子节点
+                        buildEdges([firstChild], task, edges, field, undefined);
+                        // 子节点间链式边
+                        for (let i = 1; i < subItems.length; i++) {
+                          const prevItem = subItems[i - 1];
+                          const currItem = subItems[i];
+                          if (prevItem.id && currItem.id) {
+                            const portField = getDefaultOutputPortField(prevItem.type);
+                            edges.push({
+                              id: `edge-${prevItem.id}-${currItem.id}`,
+                              source: prevItem.id,
+                              target: currItem.id,
+                              sourceHandle: `${prevItem.id}-output-${portField}`,
+                              targetHandle: `${currItem.id}-input`,
+                            });
+                            buildEdges([currItem], undefined, edges, field, undefined);
+                          }
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  buildEdges([item], task, edges, field, undefined);
+                }
               }
             });
           } else {
@@ -250,7 +387,7 @@ export function convertFlowModelToWorkflow(
   pluginGroupsCache: Record<string, any[]> = {},
   flowLayout?: string,
 ): Workflow {
-  const tasks = flowModel.tasks || [];
+  const tasks = flattenTransparentContainers(flowModel.tasks || []);
 
   const allTasks = extractAllTasks(tasks);
 
@@ -491,18 +628,26 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
           const mode = port?.connectionMode || 'sequential';
 
           if (mode === 'parallel') {
-            // Parallel: each item is independent, no chain collection
-            if (Array.isArray(configValue)) {
-              task[key] = configValue.map((item: any) => {
-                if (item.nodeId) {
-                  const converted = convertSingleNode(item.nodeId);
-                  if (converted) return converted;
-                }
-                const cleaned: any = { ...item };
-                delete cleaned.nodeId;
-                delete cleaned.label;
-                return cleaned;
-              }).filter((t: any) => t !== null);
+            // Parallel: 优先委托给策略的 serializeTaskFieldItems 方法
+            const strategy = flowControlNodeRegistry.get(node.data.type);
+            if (strategy?.serializeTaskFieldItems && Array.isArray(configValue)) {
+              task[key] = strategy.serializeTaskFieldItems(key, configValue, {
+                collectChain: collectChain,
+              });
+            } else {
+              // 默认行为：直接转换（保持向后兼容）
+              if (Array.isArray(configValue)) {
+                task[key] = configValue.map((item: any) => {
+                  if (item.nodeId) {
+                    const converted = convertSingleNode(item.nodeId);
+                    if (converted) return converted;
+                  }
+                  const cleaned: any = { ...item };
+                  delete cleaned.nodeId;
+                  delete cleaned.label;
+                  return cleaned;
+                }).filter((t: any) => t !== null);
+              }
             }
           } else {
             // Sequential: collect chain via edges

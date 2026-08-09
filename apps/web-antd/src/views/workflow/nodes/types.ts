@@ -29,6 +29,12 @@ export interface FlowControlNodeConfig {
     output?: WorkflowNodePort[];
   };
   taskFields?: string[];
+  /**
+   * 透明容器标志：标记为 true 的容器节点在反序列化时会被展开为子任务，
+   * 在序列化时由策略的 serializeTaskFieldItems 方法决定如何包装。
+   * 用于实现 Sequential 等序列化层概念的节点，对画布层完全透明。
+   */
+  transparentContainer?: boolean;
 }
 
 export interface NodeOutputDef {
@@ -67,6 +73,18 @@ export interface FlowControlNodeStrategy {
    * 动态插件节点不经过此方法，由 schema outputs 解析。
    */
   getOutputs?(config: Record<string, any>): NodeOutputDef[];
+  /**
+   * 序列化 task field items（保存时调用）
+   * 允许策略自定义如何将 task field items 转换为 Kestra YAML 结构
+   * 用于实现透明容器（如 Sequential）的自动包装逻辑
+   */
+  serializeTaskFieldItems?(
+    field: string,
+    items: any[],
+    helpers: {
+      collectChain: (nodeId: string) => any[];
+    },
+  ): any[];
 }
 
 /**
