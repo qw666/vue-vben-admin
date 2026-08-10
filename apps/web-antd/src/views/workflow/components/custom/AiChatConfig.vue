@@ -3,7 +3,7 @@ import { ref, watch } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, InputNumber, Select, Tooltip } from 'ant-design-vue';
+import { Button, Collapse, Input, InputNumber, Select, Tooltip } from 'ant-design-vue';
 
 import VarInserter from '../fields/VarInserter.vue';
 import VarPicker from '../fields/VarPicker.vue';
@@ -64,7 +64,7 @@ function onEngineChange(value: string) {
 
 // ==================== 高级参数 ====================
 
-const advancedExpanded = ref(false);
+const activeKeys = ref<string[]>(['advanced']);
 
 // ==================== 初始化默认值 ====================
 
@@ -213,12 +213,8 @@ watch(
     </div>
 
     <!-- 高级参数 -->
-    <div class="advanced-section">
-      <div class="advanced-header" @click="advancedExpanded = !advancedExpanded">
-        <span class="expand-icon">{{ advancedExpanded ? '▼' : '▶' }}</span>
-        <span class="advanced-title">高级参数</span>
-      </div>
-      <div v-show="advancedExpanded" class="advanced-content">
+    <Collapse v-model:activeKey="activeKeys" :bordered="false" class="advanced-collapse">
+      <Collapse.Panel key="advanced" header="高级参数">
         <div class="form-row">
           <label class="form-label">温度 (Temperature)</label>
           <div class="slider-wrap">
@@ -260,8 +256,8 @@ watch(
             class="form-input"
           />
         </div>
-      </div>
-    </div>
+      </Collapse.Panel>
+    </Collapse>
   </div>
 </template>
 
@@ -275,9 +271,7 @@ watch(
 }
 
 .config-section {
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
+  padding: 0;
 }
 
 .section-header {
@@ -352,41 +346,17 @@ watch(
   justify-content: center;
 }
 
-.advanced-section {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
+.advanced-collapse {
+  margin-top: 4px;
 }
 
-.advanced-header {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  font-size: 14px;
+.advanced-collapse :deep(.ant-collapse-header) {
   font-weight: 500;
   color: #374151;
-  cursor: pointer;
-  user-select: none;
-  background: #f9fafb;
 }
 
-.advanced-header:hover {
-  background: #f3f4f6;
-}
-
-.expand-icon {
-  margin-right: 8px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.advanced-title {
-  flex: 1;
-}
-
-.advanced-content {
-  padding: 12px;
-  background: #fff;
+.advanced-collapse :deep(.ant-collapse-content-box) {
+  padding: 12px 0;
 }
 
 .slider-wrap {

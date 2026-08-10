@@ -24,7 +24,7 @@ function flushConfig(
   let config: Record<string, any> = { ...nodeConfigForm };
 
   // 2. 序列化（前端表单 → Kestra 配置）
-  if (strategy.serializeConfig) {
+  if (strategy?.serializeConfig) {
     config = strategy.serializeConfig(config);
   }
 
@@ -170,7 +170,7 @@ export function useNodeConfig(
     // 关键：先初始化 nodeConfigForm，再设置 selectedNode
     // 这样 ConfigPanel 渲染时就能读到正确的值
     const strategy = flowControlNodeRegistry.get(nodeType);
-    const newConfig = strategy.initConfig(savedConfig);
+    const newConfig = strategy?.initConfig(savedConfig) || savedConfig;
 
     clearForm();
     Object.assign(nodeConfigForm, newConfig);
@@ -191,7 +191,7 @@ export function useNodeConfig(
   const requiredFields = computed(() => {
     if (!selectedNode.value) return [];
     const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
-    if (strategy.getRequiredFields) {
+    if (strategy?.getRequiredFields) {
       return strategy.getRequiredFields(nodeConfigForm) || [];
     }
     return [];
@@ -200,7 +200,7 @@ export function useNodeConfig(
   const optionalFields = computed(() => {
     if (!selectedNode.value) return [];
     const strategy = flowControlNodeRegistry.get(selectedNode.value.data.type);
-    if (strategy.getOptionalFields) {
+    if (strategy?.getOptionalFields) {
       return strategy.getOptionalFields(nodeConfigForm) || [];
     }
     return [];
@@ -228,7 +228,7 @@ export function useNodeConfig(
     const config = flushConfig(nodeConfigForm, nodeType);
 
     // 2. 完整保存时校验
-    if (showMessage && strategy.validateConfig) {
+    if (showMessage && strategy?.validateConfig) {
       const error = strategy.validateConfig(config);
       if (error) {
         message.error(error);
@@ -240,7 +240,7 @@ export function useNodeConfig(
     selectedNode.value.data.config = config;
 
     // 4. 特殊保存逻辑（如 Start 节点的 inputs/triggers 需写入 store.currentWorkflow）
-    if (strategy.saveConfig) {
+    if (strategy?.saveConfig) {
       strategy.saveConfig(config, store);
     }
 

@@ -44,7 +44,7 @@ class FlowControlNodeRegistry {
     await this.schemaLoader.ensureLoaded(nodeType, loadMeta);
   }
 
-  get(nodeType: string): FlowControlNodeStrategy {
+  get(nodeType: string): FlowControlNodeStrategy | null {
     // 1. 优先返回硬编码策略
     const hardcoded = this.strategies.get(nodeType);
     if (hardcoded) return hardcoded;
@@ -53,8 +53,8 @@ class FlowControlNodeRegistry {
     const schemaStrategy = this.schemaLoader.getStrategy(nodeType);
     if (schemaStrategy) return schemaStrategy;
 
-    // 3. 返回默认策略
-    return this.defaultStrategy!;
+    // 3. 返回默认策略（可能为 null，由调用方处理）
+    return this.defaultStrategy;
   }
 
   getAll(): FlowControlNodeStrategy[] {
@@ -69,6 +69,7 @@ class FlowControlNodeRegistry {
    */
   isFlowControlContainer(nodeType: string): boolean {
     const strategy = this.get(nodeType);
+    if (!strategy) return false;
     const taskFields = strategy.config.taskFields || [];
     return taskFields.length > 0;
   }
@@ -79,6 +80,7 @@ class FlowControlNodeRegistry {
    */
   hasNodeOutputs(nodeType: string): boolean {
     const strategy = this.get(nodeType);
+    if (!strategy) return false;
     return !!strategy.getOutputs;
   }
 
@@ -88,6 +90,7 @@ class FlowControlNodeRegistry {
    */
   getCategory(nodeType: string): string | undefined {
     const strategy = this.get(nodeType);
+    if (!strategy) return undefined;
     return strategy.config.category;
   }
 
@@ -127,6 +130,7 @@ class FlowControlNodeRegistry {
    */
   getNodeDescription(nodeType: string): { title?: string; description?: string } {
     const strategy = this.get(nodeType);
+    if (!strategy) return { title: '未知节点' };
     const desc = strategy.getNodeDescription?.();
     if (desc) return desc;
     return {
@@ -141,6 +145,7 @@ class FlowControlNodeRegistry {
    */
   getShowBasicInfo(nodeType: string): boolean {
     const strategy = this.get(nodeType);
+    if (!strategy) return true;
     // 如果策略显式设置了 showBasicInfo，使用策略的值
     if (strategy.showBasicInfo !== undefined) {
       return strategy.showBasicInfo;
@@ -161,7 +166,7 @@ class FlowControlNodeRegistry {
   getConfigComponent(nodeType: string): any | null {
     // 1. 优先从策略获取
     const strategy = this.get(nodeType);
-    if (strategy.getConfigComponent) {
+    if (strategy?.getConfigComponent) {
       const component = strategy.getConfigComponent();
       if (component) return component;
     }
@@ -176,7 +181,7 @@ class FlowControlNodeRegistry {
    */
   validateBeforeSave(nodeType: string, config: Record<string, any>): string | null {
     const strategy = this.get(nodeType);
-    if (strategy.validateBeforeSave) {
+    if (strategy?.validateBeforeSave) {
       return strategy.validateBeforeSave(config);
     }
     return null;
@@ -187,7 +192,7 @@ class FlowControlNodeRegistry {
    */
   getRequiredFieldLabels(nodeType: string): string[] {
     const strategy = this.get(nodeType);
-    const fields = strategy.getRequiredFields?.() || [];
+    const fields = strategy?.getRequiredFields?.() || [];
     return fields
       .filter(f => f.props?.label)
       .map(f => f.props.label);
@@ -276,11 +281,11 @@ class FlowControlNodeRegistry {
   }
 
   getConfig(nodeType: string): FlowControlNodeConfig {
-    return this.get(nodeType).config;
+    return this.get(nodeType)?.config || {} as FlowControlNodeConfig;
   }
 
   getTaskFields(nodeType: string): string[] {
-    return this.get(nodeType).config.taskFields || [];
+    return this.get(nodeType)?.config.taskFields || [];
   }
 
   serializeConfig(nodeType: string, config: Record<string, any>): Record<string, any> {

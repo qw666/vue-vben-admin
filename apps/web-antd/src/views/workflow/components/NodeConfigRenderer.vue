@@ -35,6 +35,7 @@ function handleUpdateConfig() {
 </script>
 
 <template>
+  <div>
   <!-- 专用组件渲染 -->
   <component
     v-if="configComponent"
@@ -46,7 +47,7 @@ function handleUpdateConfig() {
   <!-- 通用 FieldRenderer 回退渲染 -->
   <template v-else>
     <!-- 必填项 -->
-    <div v-if="requiredFields.length > 0" class="mt-4 mb-6">
+    <div v-if="requiredFields.length > 0" class="mb-6">
       <div class="flex items-center gap-2 mb-3">
         <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
         <span class="text-sm font-semibold text-gray-700">必填项</span>
@@ -99,4 +100,5 @@ function handleUpdateConfig() {
       该节点暂无配置项
     </div>
   </template>
+  </div>
 </template>

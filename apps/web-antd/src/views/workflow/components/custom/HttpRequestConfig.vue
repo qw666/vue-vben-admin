@@ -7,6 +7,7 @@ import {
   Button,
   Checkbox,
   CheckboxGroup,
+  Collapse,
   Input,
   InputNumber,
   Select,
@@ -23,8 +24,7 @@ const props = defineProps<{
 }>();
 
 const activeTabKey = ref('body');
-const authExpanded = ref(true);
-const settingsExpanded = ref(false);
+const activeKeys = ref<string[]>(['auth']);
 
 const methodOptions = [
   { value: 'GET', label: 'GET' },
@@ -562,194 +562,176 @@ watch(
       </Tabs.TabPane>
     </Tabs>
 
-    <div class="custom-collapse">
-      <div class="custom-collapse-item">
-        <div
-          class="custom-collapse-header"
-          @click="authExpanded = !authExpanded"
-        >
-          <span class="expand-icon">{{ authExpanded ? '▼' : '▶' }}</span>
-          <span class="header-text">认证方式</span>
-        </div>
-        <div v-show="authExpanded" class="custom-collapse-content">
-          <div class="auth-content">
+    <Collapse v-model:activeKey="activeKeys" :bordered="false" class="custom-collapse">
+      <Collapse.Panel key="auth" header="认证方式">
+        <div class="auth-content">
+          <div class="form-group">
+            <Select
+              :value="nodeConfigForm.options.auth?.type"
+              :options="authTypeOptions"
+              placeholder="选择认证类型"
+              style="width: 100%"
+              @change="setAuthType"
+            />
+          </div>
+          <div
+            v-if="
+              nodeConfigForm.options.auth?.type === 'BASIC' ||
+              nodeConfigForm.options.auth?.type === 'DIGEST'
+            "
+            class="auth-fields"
+          >
             <div class="form-group">
-              <Select
-                :value="nodeConfigForm.options.auth?.type"
-                :options="authTypeOptions"
-                placeholder="选择认证类型"
-                style="width: 100%"
-                @change="setAuthType"
+              <label class="form-label">用户名</label>
+              <Input
+                v-model:value="nodeConfigForm.options.auth.username"
+                placeholder="请输入用户名"
               />
             </div>
-            <div
-              v-if="
-                nodeConfigForm.options.auth?.type === 'BASIC' ||
-                nodeConfigForm.options.auth?.type === 'DIGEST'
-              "
-              class="auth-fields"
-            >
-              <div class="form-group">
-                <label class="form-label">用户名</label>
+            <div class="form-group">
+              <label class="form-label">密码</label>
+              <div class="password-input-wrap">
                 <Input
-                  v-model:value="nodeConfigForm.options.auth.username"
-                  placeholder="请输入用户名"
+                  v-model:value="nodeConfigForm.options.auth.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="请输入密码"
                 />
+                <Button
+                  type="text"
+                  @click="showPassword = !showPassword"
+                  class="password-toggle-btn"
+                >
+                  <IconifyIcon :icon="showPassword ? 'mdi:eye-off' : 'mdi:eye'" :size="16" />
+                </Button>
               </div>
-              <div class="form-group">
-                <label class="form-label">密码</label>
-                <div class="password-input-wrap">
-                  <Input
-                    v-model:value="nodeConfigForm.options.auth.password"
-                    :type="showPassword ? 'text' : 'password'"
-                    placeholder="请输入密码"
-                  />
-                  <Button
-                    type="text"
-                    @click="showPassword = !showPassword"
-                    class="password-toggle-btn"
-                  >
-                    <IconifyIcon :icon="showPassword ? 'mdi:eye-off' : 'mdi:eye'" :size="16" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="nodeConfigForm.options.auth?.type === 'BEARER'"
-              class="auth-fields"
-            >
-              <div class="form-group">
-                <label class="form-label">Bearer Token</label>
-                <div class="password-input-wrap">
-                  <Input
-                    v-model:value="nodeConfigForm.options.auth.token"
-                    :type="showToken ? 'text' : 'password'"
-                    placeholder="请输入令牌"
-                  />
-                  <Button
-                    type="text"
-                    @click="showToken = !showToken"
-                    class="password-toggle-btn"
-                  >
-                    <IconifyIcon :icon="showToken ? 'mdi:eye-off' : 'mdi:eye'" :size="16" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div v-if="!nodeConfigForm.options.auth?.type" class="empty-tip">
-              未选择认证类型
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="custom-collapse-item">
-        <div
-          class="custom-collapse-header"
-          @click="settingsExpanded = !settingsExpanded"
-        >
-          <span class="expand-icon">{{ settingsExpanded ? '▼' : '▶' }}</span>
-          <span class="header-text">高级设置</span>
-        </div>
-        <div v-show="settingsExpanded" class="custom-collapse-content">
-          <div class="settings-content">
+          <div
+            v-if="nodeConfigForm.options.auth?.type === 'BEARER'"
+            class="auth-fields"
+          >
             <div class="form-group">
-              <label class="form-label">超时配置</label>
-              <div class="timeout-fields">
-                <div class="timeout-row">
-                  <span class="timeout-label">连接超时</span>
-                  <InputNumber
-                    v-model:value="connectTimeoutValue"
-                    :min="1"
-                    :max="300"
-                    size="small"
-                    class="timeout-input"
-                  />
-                  <Select
-                    v-model:value="connectTimeoutUnit"
-                    :options="[
-                      { value: '秒', label: '秒' },
-                      { value: '分钟', label: '分钟' },
-                      { value: '小时', label: '小时' },
-                    ]"
-                    size="small"
-                    class="timeout-unit"
-                  />
-                </div>
-                <div class="timeout-row">
-                  <span class="timeout-label">读取超时</span>
-                  <InputNumber
-                    v-model:value="readTimeoutValue"
-                    :min="1"
-                    :max="300"
-                    size="small"
-                    class="timeout-input"
-                  />
-                  <Select
-                    v-model:value="readTimeoutUnit"
-                    :options="[
-                      { value: '秒', label: '秒' },
-                      { value: '分钟', label: '分钟' },
-                      { value: '小时', label: '小时' },
-                    ]"
-                    size="small"
-                    class="timeout-unit"
-                  />
-                </div>
+              <label class="form-label">Bearer Token</label>
+              <div class="password-input-wrap">
+                <Input
+                  v-model:value="nodeConfigForm.options.auth.token"
+                  :type="showToken ? 'text' : 'password'"
+                  placeholder="请输入令牌"
+                />
+                <Button
+                  type="text"
+                  @click="showToken = !showToken"
+                  class="password-toggle-btn"
+                >
+                  <IconifyIcon :icon="showToken ? 'mdi:eye-off' : 'mdi:eye'" :size="16" />
+                </Button>
               </div>
             </div>
+          </div>
+          <div v-if="!nodeConfigForm.options.auth?.type" class="empty-tip">
+            未选择认证类型
+          </div>
+        </div>
+      </Collapse.Panel>
 
-            <div class="form-group">
-              <label class="form-label">SSL配置</label>
-              <div class="ssl-row">
-                <div class="ssl-title-wrap">
-                  <span class="ssl-title">是否关闭远端SSL证书校验</span>
-                  <Tooltip
-                    title="仅未配置信任证书库时生效，生产环境请配置证书信任库"
-                  >
-                    <span class="help-icon">?</span>
-                  </Tooltip>
-                </div>
-                <Switch
-                  :checked="
-                    nodeConfigForm.options.ssl.insecureTrustAllCertificates
-                  "
-                  @change="
-                    (val: boolean) => {
-                      nodeConfigForm.options.ssl.insecureTrustAllCertificates =
-                        val;
-                    }
-                  "
+      <Collapse.Panel key="settings" header="高级设置">
+        <div class="settings-content">
+          <div class="form-group">
+            <label class="form-label">超时配置</label>
+            <div class="timeout-fields">
+              <div class="timeout-row">
+                <span class="timeout-label">连接超时</span>
+                <InputNumber
+                  v-model:value="connectTimeoutValue"
+                  :min="1"
+                  :max="300"
+                  size="small"
+                  class="timeout-input"
+                />
+                <Select
+                  v-model:value="connectTimeoutUnit"
+                  :options="[
+                    { value: '秒', label: '秒' },
+                    { value: '分钟', label: '分钟' },
+                    { value: '小时', label: '小时' },
+                  ]"
+                  size="small"
+                  class="timeout-unit"
+                />
+              </div>
+              <div class="timeout-row">
+                <span class="timeout-label">读取超时</span>
+                <InputNumber
+                  v-model:value="readTimeoutValue"
+                  :min="1"
+                  :max="300"
+                  size="small"
+                  class="timeout-input"
+                />
+                <Select
+                  v-model:value="readTimeoutUnit"
+                  :options="[
+                    { value: '秒', label: '秒' },
+                    { value: '分钟', label: '分钟' },
+                    { value: '小时', label: '小时' },
+                  ]"
+                  size="small"
+                  class="timeout-unit"
                 />
               </div>
             </div>
+          </div>
 
-            <div class="form-group">
-              <label class="form-label">开启的日志类型</label>
-              <div class="logs-checkboxes">
-                <CheckboxGroup v-model:value="nodeConfigForm.options.logs">
-                  <Checkbox
-                    v-for="opt in logOptions"
-                    :key="opt.value"
-                    :value="opt.value"
-                  >
-                    {{ opt.label }}
-                  </Checkbox>
-                </CheckboxGroup>
+          <div class="form-group">
+            <label class="form-label">SSL配置</label>
+            <div class="ssl-row">
+              <div class="ssl-title-wrap">
+                <span class="ssl-title">是否关闭远端SSL证书校验</span>
+                <Tooltip
+                  title="仅未配置信任证书库时生效，生产环境请配置证书信任库"
+                >
+                  <span class="help-icon">?</span>
+                </Tooltip>
               </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">默认字符集</label>
-              <Select
-                v-model:value="nodeConfigForm.options.defaultCharset"
-                :options="charsetOptions"
+              <Switch
+                :checked="
+                  nodeConfigForm.options.ssl.insecureTrustAllCertificates
+                "
+                @change="
+                  (val: boolean) => {
+                    nodeConfigForm.options.ssl.insecureTrustAllCertificates =
+                      val;
+                  }
+                "
               />
             </div>
           </div>
+
+          <div class="form-group">
+            <label class="form-label">开启的日志类型</label>
+            <div class="logs-checkboxes">
+              <CheckboxGroup v-model:value="nodeConfigForm.options.logs">
+                <Checkbox
+                  v-for="opt in logOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </Checkbox>
+              </CheckboxGroup>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">默认字符集</label>
+            <Select
+              v-model:value="nodeConfigForm.options.defaultCharset"
+              :options="charsetOptions"
+            />
+          </div>
         </div>
-      </div>
-    </div>
+      </Collapse.Panel>
+    </Collapse>
   </div>
 </template>
 
@@ -763,9 +745,8 @@ watch(
 }
 
 .config-section {
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
+  padding: 0;
+  background: transparent;
 }
 
 .section-header {
@@ -782,7 +763,7 @@ watch(
 }
 
 .method-select {
-  width: 110px !important;
+  width: 90px !important;
 }
 
 .url-input {
@@ -1017,43 +998,15 @@ watch(
 
 .custom-collapse {
   width: 100%;
+  margin-top: 0;
 }
 
-.custom-collapse-item {
-  margin-bottom: 8px;
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-
-.custom-collapse-header {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  font-size: 14px;
+.custom-collapse :deep(.ant-collapse-header) {
   font-weight: 500;
   color: #374151;
-  cursor: pointer;
-  user-select: none;
-  background: #f9fafb;
 }
 
-.custom-collapse-header:hover {
-  background: #f3f4f6;
-}
-
-.expand-icon {
-  margin-right: 8px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.header-text {
-  flex: 1;
-}
-
-.custom-collapse-content {
-  padding: 12px;
-  background: #fff;
+.custom-collapse :deep(.ant-collapse-content-box) {
+  padding: 12px 0;
 }
 </style>

@@ -407,7 +407,7 @@ export function validateNodeConfigs(workflow: Workflow): ValidationError[] {
     const strategy = flowControlNodeRegistry.get(nodeType);
     const config = node.data.config || {};
 
-    const requiredFields = strategy.getRequiredFields?.() || [];
+    const requiredFields = strategy?.getRequiredFields?.() || [];
 
     requiredFields.forEach(field => {
       if (field.props) {
@@ -432,7 +432,7 @@ export function validateNodeConfigs(workflow: Workflow): ValidationError[] {
       }
     });
 
-    if (strategy.validateConfig) {
+    if (strategy?.validateConfig) {
       const error = strategy.validateConfig(config);
       if (error) {
         errors.push({

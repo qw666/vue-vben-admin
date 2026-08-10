@@ -99,7 +99,7 @@ function handleSaveConfig() {
           <IconifyIcon icon="mdi:close" :size="14" />
         </Button>
       </div>
-      <div class="flex-1 overflow-y-auto p-2 space-y-2.5">
+      <div class="flex-1 overflow-y-auto p-2">
         <div v-if="isMetaLoading" class="flex items-center justify-center py-8">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
         </div>
@@ -117,6 +117,7 @@ function handleSaveConfig() {
 
           <!-- 配置区：由 NodeConfigRenderer 负责，自动选择专用组件或回退到 FieldRenderer -->
           <NodeConfigRenderer
+            class="mt-4"
             :node-type="currentNodeType"
             :node-config-form="nodeConfigForm"
             :required-fields="requiredFields"

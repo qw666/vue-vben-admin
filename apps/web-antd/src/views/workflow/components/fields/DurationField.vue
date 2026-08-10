@@ -124,13 +124,11 @@ function clearDuration() {
         :min="0"
         placeholder="输入数值"
         style="flex: 1"
-        size="small"
       />
       <Select
         :value="displayUnit"
         @change="onUnitChange"
         style="width: 90px"
-        size="small"
       >
         <Select.Option
           v-for="u in unitOptions"
@@ -143,7 +141,6 @@ function clearDuration() {
       <Button
         v-if="displayValue"
         type="text"
-        size="small"
         @click="clearDuration"
         style="flex-shrink: 0"
       >
