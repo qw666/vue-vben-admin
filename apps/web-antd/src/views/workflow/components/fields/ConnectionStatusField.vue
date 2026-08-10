@@ -100,7 +100,7 @@ function getConnectionCount() {
         <span v-if="field.props.required" style="color: #ef4444; margin-left: 4px;">*</span>
       </label>
       <div style="display: flex; align-items: center; gap: 8px;">
-        <span v-if="field.props.fieldType" style="font-size: 12px; padding: 2px 8px; background: #f3f4f6; color: #4b5563; border-radius: 4px;">{{ field.props.fieldType }}</span>
+        <span v-if="field.props.fieldType" style="font-size: 12px; color: #9ca3af;">{{ field.props.fieldType }}</span>
         <Tooltip v-if="field.props.tooltip" :title="field.props.tooltip">
           <span class="help-icon-wrapper">
             <IconifyIcon icon="mdi:help-circle" :size="14" style="color: #6b7280; pointer-events: none;" />
