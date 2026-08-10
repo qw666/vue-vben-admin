@@ -21,6 +21,13 @@ const emit = defineEmits<{
       />
     </div>
     <div>
+      <div class="text-sm text-gray-500 mb-1">节点类型</div>
+      <Input
+        :value="nodeTypeDisplayName"
+        :disabled="true"
+      />
+    </div>
+    <div>
       <div class="text-sm text-gray-500 flex items-center gap-1 mb-1">
         <span>节点名称</span>
         <span class="text-red-500">*</span>
@@ -32,13 +39,6 @@ const emit = defineEmits<{
           placeholder="请输入节点名称"
         />
       </div>
-    </div>
-    <div>
-      <div class="text-sm text-gray-500 mb-1">节点类型</div>
-      <Input
-        :value="nodeTypeDisplayName"
-        :disabled="true"
-      />
     </div>
   </div>
 </template>

@@ -378,18 +378,15 @@ watch(
               <Input
                 v-model:value="item.key"
                 placeholder="Key"
-                size="small"
                 class="key-input"
               />
               <VarPicker
                 v-model:value="item.value"
                 placeholder="Value"
-                size="small"
                 class="value-input"
               />
               <Button
                 type="text"
-                size="small"
                 danger
                 @click="removeKeyValueRow(paramsArray, index)"
                 class="remove-btn"
@@ -432,18 +429,15 @@ watch(
               <Input
                 v-model:value="item.key"
                 placeholder="Key"
-                size="small"
                 class="key-input"
               />
               <VarPicker
                 v-model:value="item.value"
                 placeholder="Value"
-                size="small"
                 class="value-input"
               />
               <Button
                 type="text"
-                size="small"
                 danger
                 @click="removeKeyValueRow(headersArray, index)"
                 class="remove-btn"
@@ -515,18 +509,15 @@ watch(
                 <Input
                   v-model:value="item.key"
                   placeholder="Key"
-                  size="small"
                   class="key-input"
                 />
                 <VarPicker
                   v-model:value="item.value"
                   placeholder="Value"
-                  size="small"
                   class="value-input"
                 />
                 <Button
                   type="text"
-                  size="small"
                   danger
                   @click="removeKeyValueRow(formDataArray, index)"
                   class="remove-btn"
@@ -829,10 +820,7 @@ watch(
   display: flex;
   gap: 6px;
   align-items: center;
-  padding: 4px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
+  padding: 4px 0;
   transition: all 0.2s;
 }
 
@@ -854,7 +842,16 @@ watch(
 
 .remove-btn {
   flex-shrink: 0;
-  padding: 4px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px !important;
+  height: 28px;
+  color: #ff4d4f !important;
+}
+
+.remove-btn:hover {
+  background: #fff1f0 !important;
 }
 
 .empty-tip {
