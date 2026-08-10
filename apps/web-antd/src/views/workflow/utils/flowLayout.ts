@@ -1,8 +1,13 @@
 import type { FlowTask } from '#/api/core/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 
+import { UI_CONFIG } from '../config/ui-config';
 import { getFlowControlConfig } from '../config/workflow-node-config';
 import { forEachTaskField } from '../nodes/taskFieldUtils';
+
+const NODE_WIDTH = UI_CONFIG.node.width;
+const NODE_HEIGHT = UI_CONFIG.node.height;
+const GROUP_PADDING = UI_CONFIG.group.padding;
 
 /**
  * 获取节点默认输出端口的 field 名称
@@ -25,8 +30,6 @@ interface NodePosition {
 }
 
 function calculateLayout(tasks: FlowTask[], nodesMap: Map<string, NodePosition>): { height: number; width: number } {
-  const NODE_WIDTH = 144;
-  const NODE_HEIGHT = 48;
   const VERTICAL_SPACING = 40;
   const BRANCH_SPACING = 150;
 
@@ -132,17 +135,17 @@ export function computeLayout(
           const pos = layoutNodes[task.id];
           if (pos) {
             nodesMap.set(task.id, pos);
-            maxX = Math.max(maxX, pos.x + 176);
-            maxY = Math.max(maxY, pos.y + 68);
+            maxX = Math.max(maxX, pos.x + NODE_WIDTH + GROUP_PADDING * 2);
+            maxY = Math.max(maxY, pos.y + NODE_HEIGHT + GROUP_PADDING * 2);
           }
         }
         if (layoutNodes['start']) {
-          maxX = Math.max(maxX, layoutNodes['start'].x + 176);
-          maxY = Math.max(maxY, layoutNodes['start'].y + 68);
+          maxX = Math.max(maxX, layoutNodes['start'].x + NODE_WIDTH + GROUP_PADDING * 2);
+          maxY = Math.max(maxY, layoutNodes['start'].y + NODE_HEIGHT + GROUP_PADDING * 2);
         }
         if (layoutNodes['end']) {
-          maxX = Math.max(maxX, layoutNodes['end'].x + 176);
-          maxY = Math.max(maxY, layoutNodes['end'].y + 68);
+          maxX = Math.max(maxX, layoutNodes['end'].x + NODE_WIDTH + GROUP_PADDING * 2);
+          maxY = Math.max(maxY, layoutNodes['end'].y + NODE_HEIGHT + GROUP_PADDING * 2);
         }
         if (nodesMap.size > 0) {
           layoutWidth = maxX;

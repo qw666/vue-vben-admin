@@ -6,7 +6,7 @@ export const UI_CONFIG = {
   },
   node: {
     width: 144,
-    height: 48,
+    height: 42,
   },
   group: {
     padding: 12,

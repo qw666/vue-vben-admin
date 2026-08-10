@@ -166,8 +166,8 @@ function centerCanvas() {
     for (const node of props.nodes) {
       const x = node.position.x || 0;
       const y = node.position.y || 0;
-      const width = node.data.width || 144;
-      const height = node.data.height || 48;
+      const width = node.data.width || NODE_WIDTH;
+      const height = node.data.height || NODE_HEIGHT;
 
       minX = Math.min(minX, x);
       minY = Math.min(minY, y);
@@ -458,20 +458,21 @@ onMounted(() => {
           @contextmenu.prevent="(e) => emit('nodeContextMenu', e, node.id)"
         >
           <div
-            class="flex flex-col items-center justify-center px-2 py-1 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative w-36 h-12"
+            class="flex flex-col items-center justify-center px-2 py-0.5 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative"
+            :style="{ width: `${NODE_WIDTH}px`, height: `${NODE_HEIGHT}px` }"
             :class="{
               'border-blue-500 ring-2 ring-blue-200':
                 selectedNodeId === node.id,
             }"
           >
-            <div class="flex items-center gap-1.5 mb-0.5">
+            <div class="flex items-center gap-1.5">
               <div
-                class="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground"
+                class="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground flex-shrink-0"
                 :class="getCategoryColor()"
               >
                 <IconifyIcon :icon="resolveNodeIcon(node.data.icon)" :size="14" />
               </div>
-              <span class="font-medium text-xs text-card-foreground">{{
+              <span class="font-medium text-xs text-card-foreground truncate block overflow-hidden text-ellipsis whitespace-nowrap max-w-[100px]">{{
                 node.data.label
               }}</span>
             </div>

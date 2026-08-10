@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
+import { UI_CONFIG } from '../config/ui-config';
 import { getFlowControlConfig } from '../config/workflow-node-config';
 import type { Connection, NodeConfigForm, NodeConnectedCallback } from '../types/workflow';
 import { getElementCanvasPosition, getMouseCanvasPosition } from '../utils/coordinateUtils';
@@ -235,8 +236,8 @@ export function useCanvasConnections(
       .map(e => store.currentWorkflow?.nodes.find(n => n.id === e.target))
       .filter(Boolean) as WorkflowNode[];
 
-    const nodeWidth = 176;
-    const nodeHeight = 72;
+    const nodeWidth = UI_CONFIG.node.width;
+    const nodeHeight = UI_CONFIG.node.height;
     const padding = 16;
     const spacing = 20;
 
