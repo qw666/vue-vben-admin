@@ -32,7 +32,7 @@ const emit = defineEmits<{
         </Tooltip>
       </div>
     </div>
-    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+    <div style="padding: 0;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ nodeConfigForm[fieldKey]?.length || 0 }})</span>
         <Button type="text" size="small" @click="emit('addNumberArrayItem', fieldKey)">
@@ -45,11 +45,10 @@ const emit = defineEmits<{
             v-model:value="nodeConfigForm[fieldKey][index as number]"
             :placeholder="'请输入'"
             style="flex: 1;"
-            size="small"
             :controls="true"
             :controls-position="'both'"
           />
-          <Button type="text" size="small" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
+          <Button type="text" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
             <IconifyIcon icon="mdi:close" :size="14" />
           </Button>
         </div>

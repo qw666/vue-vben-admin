@@ -34,30 +34,28 @@ const emit = defineEmits<{
         </Tooltip>
       </div>
     </div>
-    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+    <div style="padding: 0;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ nodeConfigForm[fieldKey]?.length || 0 }})</span>
         <Button type="text" size="small" @click="emit('openNodeSelectModal', fieldKey)">
           <IconifyIcon icon="mdi:plus" :size="14" /> 添加节点
         </Button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div v-for="(item, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-node-' + (index as number)" style="background: white; border-radius: 8px; padding: 12px; border: 1px solid #e5e7eb;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 12px; font-weight: 500; color: #4b5563;">第 {{ (index as number) + 1 }} 项</span>
-              <span style="font-size: 14px; color: #2563eb;">
-                {{ pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
-              </span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <Button type="text" size="small" @click="emit('editChildNode', fieldKey, index as number)">
-                <IconifyIcon icon="mdi:pencil" :size="14" />
-              </Button>
-              <Button type="text" size="small" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
-                <IconifyIcon icon="mdi:close" :size="14" />
-              </Button>
-            </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div v-for="(item, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-node-' + (index as number)" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; font-weight: 500; color: #4b5563;">第 {{ (index as number) + 1 }} 项</span>
+            <span style="font-size: 14px; color: #2563eb;">
+              {{ pluginGroups.flatMap((g: any) => g.pluginList).find((p: any) => p.type === item.type)?.nodeName || item.type }}
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <Button type="text" @click="emit('editChildNode', fieldKey, index as number)">
+              <IconifyIcon icon="mdi:pencil" :size="14" />
+            </Button>
+            <Button type="text" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
+              <IconifyIcon icon="mdi:close" :size="14" />
+            </Button>
           </div>
         </div>
       </div>

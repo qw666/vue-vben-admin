@@ -42,7 +42,7 @@ const emit = defineEmits<{
         </Tooltip>
       </div>
     </div>
-    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+    <div style="padding: 0;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ arrayLength }})</span>
         <Button type="text" size="small" @click="emit('addStringArrayItem', fieldKey)">
@@ -57,9 +57,8 @@ const emit = defineEmits<{
             @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, '', val)"
             :placeholder="'输入 / 选择变量'"
             style="flex: 1;"
-            size="small"
           />
-          <Button type="text" size="small" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
+          <Button type="text" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
             <IconifyIcon icon="mdi:close" :size="14" />
           </Button>
         </div>

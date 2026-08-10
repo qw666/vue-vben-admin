@@ -35,7 +35,7 @@ const emit = defineEmits<{
         </Tooltip>
       </div>
     </div>
-    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+    <div style="padding: 0;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
         <span style="font-size: 12px; color: #6b7280;">{{ field.props.label }} ({{ nodeConfigForm[fieldKey]?.length || 0 }})</span>
         <Button type="text" size="small" @click="emit('addArrayItem', fieldKey, field.props.itemsSchema)">
@@ -43,10 +43,10 @@ const emit = defineEmits<{
         </Button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div v-for="(_, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-array-' + (index as number)" style="background: white; border-radius: 8px; padding: 12px; border: 1px solid #e5e7eb;">
+        <div v-for="(_, index) in (nodeConfigForm[fieldKey] || [])" :key="fieldKey + '-array-' + (index as number)" style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <span style="font-size: 12px; font-weight: 500; color: #4b5563;">第 {{ (index as number) + 1 }} 项</span>
-            <Button type="text" size="small" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
+            <Button type="text" @click="emit('removeArrayItem', fieldKey, index as number)" danger>
               <IconifyIcon icon="mdi:close" :size="14" />
             </Button>
           </div>
@@ -60,7 +60,6 @@ const emit = defineEmits<{
                 @update:value="(val: string) => emit('updateArrayItemValue', fieldKey, index as number, propKey as string, val)"
                 :placeholder="prop.description || '输入 / 选择变量'"
                 :disabled="prop.$dynamic === false"
-                size="small"
                 style="width: 100%;"
               />
               <InputNumber
@@ -69,14 +68,12 @@ const emit = defineEmits<{
                 @input="(val: any) => emit('updateArrayItemValue', fieldKey, index as number, propKey as string, val)"
                 :min="prop.minimum"
                 style="width: 100%;"
-                size="small"
               />
               <Select
                 v-else-if="prop.enum"
                 :value="nodeConfigForm[fieldKey][index as number][propKey]"
                 @change="(val: any) => emit('updateArrayItemValue', fieldKey, index as number, propKey as string, val)"
                 style="width: 100%;"
-                size="small"
               >
                 <option v-for="opt in prop.enum" :key="opt" :value="opt">{{ opt }}</option>
               </Select>

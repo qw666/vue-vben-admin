@@ -36,9 +36,9 @@ const emit = defineEmits<{
         </Tooltip>
       </div>
     </div>
-    <div style="background: #f9fafb; border-radius: 8px; padding: 12px;">
+    <div style="padding: 0;">
       <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 8px;">
-        <Button type="text" size="small" @click="emit('addObjectItem', fieldKey)">
+        <Button type="text" @click="emit('addObjectItem', fieldKey)">
           <IconifyIcon icon="mdi:plus" :size="14" /> 添加
         </Button>
       </div>
@@ -48,17 +48,15 @@ const emit = defineEmits<{
             :value="entry.key"
             @input="(e: any) => emit('updateObjectKey', fieldKey, index as number, e.target.value)"
             :placeholder="'Key'"
-            style="width: 80px;"
-            size="small"
+            style="width: 100px;"
           />
           <VarPicker
             :value="entry.value"
             @update:value="(val: string) => emit('updateObjectValue', fieldKey, index as number, val)"
             :placeholder="'输入 / 选择变量'"
             style="flex: 1; min-width: 0;"
-            size="small"
           />
-          <Button type="text" size="small" @click="emit('removeObjectItem', fieldKey, index as number)" danger>
+          <Button type="text" @click="emit('removeObjectItem', fieldKey, index as number)" danger>
             <IconifyIcon icon="mdi:close" :size="14" />
           </Button>
         </div>
