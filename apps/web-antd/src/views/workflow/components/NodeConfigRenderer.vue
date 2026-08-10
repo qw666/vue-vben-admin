@@ -56,7 +56,6 @@ function handleUpdateConfig() {
         <div
           v-for="field in requiredFields"
           :key="field.props.key"
-          class="border-l-2 border-red-400 pl-3"
         >
           <FieldRenderer
             :field="field"
@@ -80,7 +79,6 @@ function handleUpdateConfig() {
         <div
           v-for="field in optionalFields"
           :key="field.props.key"
-          :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
         >
           <FieldRenderer
             :field="field"
