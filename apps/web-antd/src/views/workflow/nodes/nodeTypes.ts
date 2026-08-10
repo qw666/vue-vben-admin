@@ -5,6 +5,7 @@ export type ConnectionMode = 'parallel' | 'sequential';
 export type FrontendNodeGroup =
   | 'flowControl' // 流程控制
   | 'tools' // 工具
+  | 'ai' // AI 能力
   | 'hidden'; // 不在面板显示
 
 /** 节点功能分类，用于 UI 渲染判断 */
@@ -16,6 +17,7 @@ export type NodeCategory =
   | 'flow' // 流程控制节点（Switch/If/ForEach 等）
   | 'output' // 输出节点
   | 'tool' // 通用工具节点
+  | 'ai'; // AI 节点
 
 export interface WorkflowNodePort {
   field: string;

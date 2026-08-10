@@ -64,6 +64,7 @@ export function getFlowControlNodes(): { type: string; nodeName: string; icon: s
 const GROUP_LABEL_MAP: Record<FrontendNodeGroup, string> = {
   flowControl: '流程控制',
   tools: '工具',
+  ai: 'AI 能力',
   hidden: '',
 };
 
