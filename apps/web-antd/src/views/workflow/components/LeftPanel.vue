@@ -118,7 +118,7 @@ const mergedGroups = computed(() => {
       </div>
     </div>
     <div class="h-px bg-gray-100" />
-    <div class="flex-1 overflow-y-auto p-4 space-y-6">
+    <div class="flex-1 overflow-y-auto p-4">
       <div v-if="activeTab === 'template'" class="text-center text-gray-500 py-12">
         暂无模板
       </div>
@@ -128,12 +128,13 @@ const mergedGroups = computed(() => {
         </div>
         <div v-else>
           <div
-            v-for="group in mergedGroups"
+            v-for="(group, index) in mergedGroups"
             :key="group.groupKey"
-            class="group-section"
+            class="group-section pb-4 mb-4"
+            :class="{ 'border-b border-gray-100': index < mergedGroups.length - 1 }"
           >
-            <h3 class="text-xs font-medium text-gray-500 mb-3 flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-primary" />
+            <h3 class="text-xs font-semibold text-gray-600 mb-3 flex items-center gap-2">
+              <span class="w-1 h-3.5 rounded-sm bg-primary" />
               {{ group.groupName }}
             </h3>
             <div class="space-y-2">
