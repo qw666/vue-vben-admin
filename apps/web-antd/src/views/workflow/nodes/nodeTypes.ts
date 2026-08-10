@@ -97,6 +97,22 @@ export interface FlowControlNodeStrategy {
       collectChain: (nodeId: string) => any[];
     },
   ): any[];
+  /**
+   * 是否显示基本信息区（节点ID/名称/类型），默认 true
+   * Start/End 节点等可设置为 false 隐藏基本信息
+   */
+  showBasicInfo?: boolean;
+  /**
+   * 专用配置组件（可选）
+   * 如果节点需要复杂的自定义 UI，返回对应 Vue 组件
+   * 如果返回 null 或未实现，ConfigPanel 会自动回退到通用 FieldRenderer
+   */
+  getConfigComponent?(): any | null;
+  /**
+   * 保存前校验（替代 ConfigPanel 中的 ref 校验）
+   * 返回 null 表示校验通过，返回字符串表示错误信息
+   */
+  validateBeforeSave?(config: Record<string, any>): string | null;
 }
 
 /**

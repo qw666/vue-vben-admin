@@ -3,6 +3,7 @@ import { flowControlNodeRegistry } from './types';
 
 export const EndNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_End',
+  showBasicInfo: false,
   config: {
     nodeType: 'idp_core_flow_End',
     nodeName: '输出',

@@ -104,6 +104,30 @@ export const CodeNodeStrategy: FlowControlNodeStrategy = {
   getOptionalFields(): { type: string; props: Record<string, any> }[] {
     return [];
   },
+
+  /**
+   * 声明专用配置组件
+   * 注意：实际组件注册在 nodes/index.ts 中通过 nodeConfigComponentRegistry.register 完成
+   * 这里返回 null 表示没有内置组件，配置组件由外部注册表管理
+   */
+  getConfigComponent(): null {
+    return null;
+  },
+
+  /**
+   * 保存前校验（基础校验，复杂语法校验保留在 CodeConfig 组件内部）
+   * 检查代码是否为空，main(inputs) 函数是否存在
+   */
+  validateBeforeSave(config: Record<string, any>): string | null {
+    const code = config.sourceCode || '';
+    if (!code.trim()) {
+      return '代码不能为空';
+    }
+    if (!/def\s+main\s*\(\s*inputs\s*\)/.test(code)) {
+      return '代码中未找到 main(inputs) 函数';
+    }
+    return null;
+  },
 };
 
 flowControlNodeRegistry.register(CodeNodeStrategy);

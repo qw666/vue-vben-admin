@@ -5,12 +5,14 @@ import type {
   NodeOutputDef,
   SchemaNodeMeta,
 } from './nodeTypes';
+import { nodeConfigComponentRegistry } from './NodeConfigComponentRegistry';
 import { SchemaStrategyLoader } from './SchemaStrategyLoader';
 
 class FlowControlNodeRegistry {
   private strategies: Map<string, FlowControlNodeStrategy> = new Map();
   private defaultStrategy: FlowControlNodeStrategy | null = null;
   private schemaLoader = new SchemaStrategyLoader();
+  private nodeConfigComponentRegistry = nodeConfigComponentRegistry;
 
   register(strategy: FlowControlNodeStrategy): void {
     if (strategy.nodeType === 'default') {
@@ -131,6 +133,53 @@ class FlowControlNodeRegistry {
       title: strategy.config.nodeName,
       description: strategy.config.description,
     };
+  }
+
+  /**
+   * 判断节点是否显示基本信息区（节点ID/名称/类型）
+   * 默认返回 true，Start/End 节点等可设置为 false
+   */
+  getShowBasicInfo(nodeType: string): boolean {
+    const strategy = this.get(nodeType);
+    // 如果策略显式设置了 showBasicInfo，使用策略的值
+    if (strategy.showBasicInfo !== undefined) {
+      return strategy.showBasicInfo;
+    }
+    // 默认：Start/End 节点不显示基本信息
+    const category = strategy.config.category;
+    if (category === 'start' || category === 'end') {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 获取节点的专用配置组件
+   * 查询顺序：1. 节点策略的 getConfigComponent() 2. 配置组件注册表
+   * 未找到返回 null，ConfigPanel 会回退到通用 FieldRenderer
+   */
+  getConfigComponent(nodeType: string): any | null {
+    // 1. 优先从策略获取
+    const strategy = this.get(nodeType);
+    if (strategy.getConfigComponent) {
+      const component = strategy.getConfigComponent();
+      if (component) return component;
+    }
+    // 2. 回退到配置组件注册表
+    return this.nodeConfigComponentRegistry?.get(nodeType) || null;
+  }
+
+  /**
+   * 保存前校验（统一入口）
+   * 如果策略实现了 validateBeforeSave，调用它
+   * 否则返回 null（校验通过）
+   */
+  validateBeforeSave(nodeType: string, config: Record<string, any>): string | null {
+    const strategy = this.get(nodeType);
+    if (strategy.validateBeforeSave) {
+      return strategy.validateBeforeSave(config);
+    }
+    return null;
   }
 
   /**

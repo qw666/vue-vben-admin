@@ -1,13 +1,12 @@
 <script lang="ts" setup>
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, Tooltip, message } from 'ant-design-vue';
+import { Button, Tooltip, message } from 'ant-design-vue';
 
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
-import CodeConfig from './custom/CodeConfig.vue';
-import FieldRenderer from './FieldRenderer.vue';
-import HttpRequestConfig from './custom/HttpRequestConfig.vue';
+import NodeBasicInfo from './NodeBasicInfo.vue';
+import NodeConfigRenderer from './NodeConfigRenderer.vue';
 import { getFlowControlConfig } from '../config/workflow-node-config';
 import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 
@@ -33,25 +32,16 @@ const emit = defineEmits<{
   (e: 'updateNodeId', value: string): void;
 }>();
 
-const codeConfigRef = ref<InstanceType<typeof CodeConfig> | null>(null);
-
-// 使用 registry 的 category 来判断节点类型，避免硬编码字符串匹配
+// 当前节点类型
 const currentNodeType = computed(() => props.selectedNode?.data?.type);
 
-function isHttpRequestNode(nodeType: string): boolean {
-  return flowControlNodeRegistry.isCategory(nodeType, 'http');
-}
+// 是否显示基本信息区（通过策略判断，替代原 isStartOrEndNode 硬编码）
+const showBasicInfo = computed(() => {
+  if (!currentNodeType.value) return false;
+  return flowControlNodeRegistry.getShowBasicInfo(currentNodeType.value);
+});
 
-function isCodeNode(nodeType: string): boolean {
-  return flowControlNodeRegistry.isCategory(nodeType, 'code');
-}
-
-function isStartOrEndNode(nodeType: string): boolean {
-  const category = flowControlNodeRegistry.getCategory(nodeType);
-  return category === 'start' || category === 'end';
-}
-
-// 节点类型显示名称：优先使用左侧节点列表中定义的 nodeName，其次取插件标题，最后回退到原始 type
+// 节点类型显示名称
 const nodeTypeDisplayName = computed(() => {
   const type = props.selectedNode?.data?.type;
   if (!type) return '';
@@ -61,21 +51,21 @@ const nodeTypeDisplayName = computed(() => {
   return type;
 });
 
-function updateConfig(formData: Record<string, any>) {
-  Object.keys(formData).forEach(() => {
-    emit('saveConfig');
-  });
+function updateConfig(_formData: Record<string, any>) {
+  emit('saveConfig');
 }
 
+/**
+ * 保存前统一校验
+ * 通过 flowControlNodeRegistry.validateBeforeSave 调用策略的 validateBeforeSave 方法
+ */
 function handleSaveConfig() {
-  // 如果是代码节点，先校验代码
-  if (isCodeNode(props.selectedNode?.data?.type)) {
-    if (codeConfigRef.value) {
-      const isValid = codeConfigRef.value.validate();
-      if (!isValid) {
-        message.error('代码校验未通过，请修复错误后再保存');
-        return;
-      }
+  const type = currentNodeType.value;
+  if (type) {
+    const error = flowControlNodeRegistry.validateBeforeSave(type, props.nodeConfigForm);
+    if (error) {
+      message.error(error);
+      return;
     }
   }
   emit('saveConfig');
@@ -117,109 +107,24 @@ function handleSaveConfig() {
           请选择一个节点
         </div>
         <div v-else :key="selectedNode?.id">
-          <template v-if="!isStartOrEndNode(selectedNode.data.type)">
-            <div class="p-2.5 bg-gray-50 rounded-lg">
-              <div class="text-sm text-gray-500">节点ID</div>
-              <Input
-                :value="selectedNode.id"
-                class="mt-0.25"
-                :disabled="true"
-              />
-            </div>
-            <div class="p-2.5 bg-gray-50 rounded-lg">
-              <div class="text-sm text-gray-500 flex items-center gap-1">
-                <span>节点名称</span>
-                <span class="text-red-500">*</span>
-              </div>
-              <div class="flex items-center gap-2 mt-0.25">
-                <Input
-                  :value="selectedNode.data.label"
-                  @input="(e: any) => emit('updateNodeLabel', e.target.value)"
-                  placeholder="请输入节点名称"
-                />
-              </div>
-            </div>
-            <div class="p-2.5 bg-gray-50 rounded-lg">
-              <div class="text-sm text-gray-500">节点类型</div>
-              <Input
-                :value="nodeTypeDisplayName"
-                class="mt-0.25"
-                :disabled="true"
-              />
-            </div>
+          <!-- 基本信息区：由 NodeBasicInfo 负责，自动根据策略判断是否显示 -->
+          <NodeBasicInfo
+            v-if="showBasicInfo"
+            :node="selectedNode"
+            :node-type-display-name="nodeTypeDisplayName"
+            @update-node-label="(val) => emit('updateNodeLabel', val)"
+          />
 
-          </template>
-          <template v-if="isHttpRequestNode(selectedNode.data.type)">
-            <HttpRequestConfig
-              :node-config-form="nodeConfigForm"
-              @update:config="updateConfig"
-            />
-          </template>
-          <template v-else-if="isCodeNode(selectedNode.data.type)">
-            <CodeConfig
-              ref="codeConfigRef"
-              :node-config-form="nodeConfigForm"
-            />
-          </template>
-          <template v-else>
-            <div v-if="requiredFields.length > 0" class="mt-4 mb-6">
-              <div class="flex items-center gap-2 mb-3">
-                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                <span class="text-sm font-semibold text-gray-700">必填项</span>
-              </div>
-              <div class="space-y-4">
-                <div v-for="field in requiredFields" :key="field.props.key" class="border-l-2 border-red-400 pl-3">
-                  <FieldRenderer
-                    :field="field"
-                    :node-config-form="nodeConfigForm"
-                    :plugin-groups="pluginGroups"
-                    v-on="fieldRendererEvents"
-                  />
-                </div>
-              </div>
-            </div>
-            <div v-if="optionalFields.length > 0">
-              <template v-if="isStartOrEndNode(selectedNode.data.type)">
-                <div class="space-y-4">
-                  <div
-                    v-for="field in optionalFields"
-                    :key="field.props.key"
-                    :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
-                  >
-                    <FieldRenderer
-                      :field="field"
-                      :node-config-form="nodeConfigForm"
-                      :plugin-groups="pluginGroups"
-                      v-on="fieldRendererEvents"
-                    />
-                  </div>
-                </div>
-              </template>
-              <template v-else>
-                <div class="flex items-center gap-2 mb-3">
-                  <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                  <span class="text-sm font-semibold text-gray-700">选填项</span>
-                </div>
-                <div class="space-y-4">
-                  <div
-                    v-for="field in optionalFields"
-                    :key="field.props.key"
-                    :class="field.type === 'InfoBox' ? '' : 'border-l-2 border-gray-200 pl-3'"
-                  >
-                    <FieldRenderer
-                      :field="field"
-                      :node-config-form="nodeConfigForm"
-                      :plugin-groups="pluginGroups"
-                      v-on="fieldRendererEvents"
-                    />
-                  </div>
-                </div>
-              </template>
-            </div>
-            <div v-if="requiredFields.length === 0 && optionalFields.length === 0" class="text-center text-gray-500 py-4">
-              该节点暂无配置项
-            </div>
-          </template>
+          <!-- 配置区：由 NodeConfigRenderer 负责，自动选择专用组件或回退到 FieldRenderer -->
+          <NodeConfigRenderer
+            :node-type="currentNodeType"
+            :node-config-form="nodeConfigForm"
+            :required-fields="requiredFields"
+            :optional-fields="optionalFields"
+            :plugin-groups="pluginGroups"
+            :field-renderer-events="fieldRendererEvents"
+            @update:config="updateConfig"
+          />
         </div>
       </div>
     </div>

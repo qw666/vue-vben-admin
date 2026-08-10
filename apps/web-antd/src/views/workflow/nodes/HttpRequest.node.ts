@@ -194,6 +194,15 @@ export const HttpRequestNodeStrategy: FlowControlNodeStrategy = {
   getOptionalFields(): { type: string; props: Record<string, any> }[] {
     return [];
   },
+
+  /**
+   * 声明专用配置组件
+   * 注意：实际组件注册在 nodes/index.ts 中通过 nodeConfigComponentRegistry.register 完成
+   * 这里返回 null 表示没有内置组件，配置组件由外部注册表管理
+   */
+  getConfigComponent(): null {
+    return null;
+  },
 };
 
 flowControlNodeRegistry.register(HttpRequestNodeStrategy);

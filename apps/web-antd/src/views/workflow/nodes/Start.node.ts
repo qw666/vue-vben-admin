@@ -3,6 +3,7 @@ import { flowControlNodeRegistry } from './types';
 
 export const StartNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_Start',
+  showBasicInfo: false,
   config: {
     nodeType: 'idp_core_flow_Start',
     nodeName: '开始',
