@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { message } from 'ant-design-vue';
 
@@ -13,6 +13,9 @@ export function useCanvasSelection(
 ) {
   const store = useWorkflowStore();
   const selectedNodeId = ref<string | null>(null);
+  const multiSelectedIds = ref<string[]>([]);
+
+  const isMultiMode = computed(() => multiSelectedIds.value.length > 1);
 
   function isStartOrEndNode(nodeId: string): boolean {
     const node = store.currentWorkflow?.nodes.find(n => n.id === nodeId);
@@ -21,13 +24,38 @@ export function useCanvasSelection(
       || flowControlNodeRegistry.isCategory(node.data.type, 'end');
   }
 
-  function selectNode(nodeId: string) {
+  function selectSingleNode(nodeId: string) {
+    multiSelectedIds.value.splice(0);
     selectedNodeId.value = nodeId;
-    // 同步到 store，供 VarPicker 等组件读取
     store.setSelectedNodeId(nodeId);
   }
 
-  function deleteSelectedNode(nodeId: string) {
+  function toggleMultiNode(nodeId: string) {
+    const index = multiSelectedIds.value.indexOf(nodeId);
+    if (index > -1) {
+      multiSelectedIds.value.splice(index, 1);
+    } else {
+      multiSelectedIds.value.push(nodeId);
+    }
+    selectedNodeId.value = multiSelectedIds.value[0] || null;
+    store.setSelectedNodeId(selectedNodeId.value);
+  }
+
+  function selectNode(nodeId: string, isMulti: boolean = false) {
+    if (isMulti) {
+      toggleMultiNode(nodeId);
+    } else {
+      selectSingleNode(nodeId);
+    }
+  }
+
+  function clearSelection() {
+    selectedNodeId.value = null;
+    multiSelectedIds.value.splice(0);
+    store.setSelectedNodeId(null);
+  }
+
+  function deleteSingleNode(nodeId: string) {
     if (isStartOrEndNode(nodeId)) {
       message.error('开始节点和输出节点不能删除');
       return;
@@ -40,7 +68,39 @@ export function useCanvasSelection(
       selectedNodeId.value = null;
       store.setSelectedNodeId(null);
     }
+    const idx = multiSelectedIds.value.indexOf(nodeId);
+    if (idx > -1) {
+      multiSelectedIds.value.splice(idx, 1);
+      selectedNodeId.value = multiSelectedIds.value[0] || null;
+      store.setSelectedNodeId(selectedNodeId.value);
+    }
     onNodeDeleted?.(nodeId);
+  }
+
+  function deleteSelectedNodes() {
+    const idsToDelete = [...multiSelectedIds.value];
+    if (idsToDelete.length === 0) return;
+
+    let deletedFirstNodeId: string | null = null;
+
+    idsToDelete.forEach(id => {
+      if (isStartOrEndNode(id)) return;
+      const relatedConns = connections.value.filter(c => c.source === id || c.target === id);
+      relatedConns.forEach(c => syncConnectionToNodeConfig(c, false));
+      store.removeNode(id);
+      if (!deletedFirstNodeId) {
+        deletedFirstNodeId = id;
+      }
+    });
+
+    connections.value = connections.value.filter(c =>
+      !idsToDelete.includes(c.source) && !idsToDelete.includes(c.target)
+    );
+
+    clearSelection();
+    if (deletedFirstNodeId) {
+      onNodeDeleted?.(deletedFirstNodeId);
+    }
   }
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -53,27 +113,32 @@ export function useCanvasSelection(
       return;
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (selectedNodeId.value) {
-        const nodeId = selectedNodeId.value;
-        if (isStartOrEndNode(nodeId)) {
-          message.error('开始节点和输出节点不能删除');
-          return;
-        }
-        const relatedConns = connections.value.filter(c => c.source === nodeId || c.target === nodeId);
-        relatedConns.forEach(c => syncConnectionToNodeConfig(c, false));
-        store.removeNode(nodeId);
-        connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
-        selectedNodeId.value = null;
-        store.setSelectedNodeId(null);
-        onNodeDeleted?.(nodeId);
+      if (isMultiMode.value) {
+        deleteSelectedNodes();
+      } else if (selectedNodeId.value) {
+        deleteSingleNode(selectedNodeId.value);
       }
+    }
+  }
+
+  function deleteSelectedNode(nodeId: string) {
+    if (isMultiMode.value) {
+      deleteSelectedNodes();
+    } else {
+      deleteSingleNode(nodeId);
     }
   }
 
   return {
     selectedNodeId,
+    multiSelectedIds,
+    isMultiMode,
     selectNode,
+    selectSingleNode,
+    toggleMultiNode,
+    clearSelection,
     deleteSelectedNode,
+    deleteSelectedNodes,
     handleKeyDown,
   };
 }

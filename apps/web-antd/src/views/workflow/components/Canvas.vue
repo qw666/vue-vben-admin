@@ -33,6 +33,8 @@ const props = defineProps<{
   getTempLinePath: () => string;
   isConnecting: boolean;
   isDraggingNode: boolean;
+  isMultiDragging: boolean;
+  multiSelectedIds: string[];
   nodes: any[];
   panOffset?: { x: number; y: number };
   scale?: number;
@@ -44,8 +46,8 @@ const emit = defineEmits<{
   (e: 'dragOver', event: DragEvent): void;
   (e: 'mouseLeave'): void;
   (e: 'canvasClick'): void;
-  (e: 'startNodeDrag', event: MouseEvent, nodeId: string): void;
-  (e: 'selectNode', nodeId: string): void;
+  (e: 'startDrag', event: MouseEvent, nodeId: string): void;
+  (e: 'selectNode', nodeId: string, isMulti?: boolean): void;
   (e: 'nodeDoubleClick', node: any): void;
   (e: 'nodeContextMenu', event: MouseEvent, nodeId: string): void;
   (
@@ -148,6 +150,10 @@ function stopPan() {
   isPanning.value = false;
   document.removeEventListener('mousemove', onPan);
   document.removeEventListener('mouseup', stopPan);
+}
+
+function handleCanvasClick() {
+  emit('canvasClick');
 }
 
 function centerCanvas() {
@@ -279,7 +285,7 @@ onMounted(() => {
           stopPan();
         }
       "
-      @click="emit('canvasClick')"
+      @click="handleCanvasClick"
       @mousedown="startPan"
       @wheel="handleWheel"
       :style="{ cursor: isPanning ? 'grabbing' : 'default' }"
@@ -445,13 +451,15 @@ onMounted(() => {
           v-for="node in nodes"
           :key="node.id"
           class="absolute cursor-move select-none z-10"
-          :class="{ 'z-30': isDraggingNode && draggingNodeId === node.id }"
+          :class="{
+            'z-30': (isDraggingNode && draggingNodeId === node.id) || (isMultiDragging && multiSelectedIds.includes(node.id)),
+          }"
           :style="{ left: `${node.position.x }px`, top: `${node.position.y }px` }"
-          @mousedown="(e) => { emit('selectNode', node.id); emit('startNodeDrag', e, node.id); }"
-          @click="emit('selectNode', node.id)"
-          @dblclick="
+          @mousedown.stop="(e) => emit('startDrag', e, node.id)"
+          @click.stop="(e) => emit('selectNode', node.id, e.ctrlKey)"
+          @dblclick.stop="
             () => {
-              emit('selectNode', node.id);
+              emit('selectNode', node.id, false);
               emit('nodeDoubleClick', node);
             }
           "
@@ -461,8 +469,8 @@ onMounted(() => {
             class="flex flex-col items-center justify-center px-2 py-0.5 rounded-lg border-2 bg-white shadow-md hover:shadow-lg transition-shadow relative"
             :style="{ width: `${NODE_WIDTH}px`, height: `${NODE_HEIGHT}px` }"
             :class="{
-              'border-blue-500 ring-2 ring-blue-200':
-                selectedNodeId === node.id,
+              'border-blue-500 ring-2 ring-blue-200': selectedNodeId === node.id,
+              'border-purple-500 ring-2 ring-purple-200': multiSelectedIds.includes(node.id) && selectedNodeId !== node.id,
             }"
           >
             <div class="flex items-center gap-1.5">

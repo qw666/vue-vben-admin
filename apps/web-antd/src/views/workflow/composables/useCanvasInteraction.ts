@@ -3,6 +3,7 @@ import { UI_CONFIG } from '../config/ui-config';
 import { getNodePorts, getPortPosition, getConnectionPath, getConnectionColor, getGroupBounds } from './useCanvasPorts';
 import { useCanvasConnections } from './useCanvasConnections';
 import { useCanvasDragging } from './useCanvasDragging';
+import { useMultiNodeDragging } from './useMultiNodeDragging';
 import { useCanvasPanning } from './useCanvasPanning';
 import { useSwitchNode } from './useSwitchNode';
 import { useCanvasSelection } from './useCanvasSelection';
@@ -68,18 +69,31 @@ export function useCanvasInteraction(
     onDragOver,
     onDrop,
     startNodeDrag,
-    cleanup: cleanupDragging,
+    cleanup: cleanupSingleDrag,
   } = useCanvasDragging(pluginGroupsCache, pluginMetaCache, loadPluginMeta, panOffset, scale);
+
+  const {
+    isMultiDragging,
+    multiDragNodeId,
+    multiDragIds,
+    startMultiDrag,
+    cleanup: cleanupMultiDrag,
+  } = useMultiNodeDragging(panOffset, scale);
 
   function cleanup() {
     cleanupConnections();
-    cleanupDragging();
+    cleanupSingleDrag();
+    cleanupMultiDrag();
   }
 
   const {
     selectedNodeId,
+    multiSelectedIds,
+    isMultiMode,
     selectNode,
+    clearSelection,
     deleteSelectedNode,
+    deleteSelectedNodes,
     handleKeyDown,
   } = useCanvasSelection(connections, syncConnectionToNodeConfig, onNodeDeleted);
 
@@ -90,8 +104,41 @@ export function useCanvasInteraction(
     closeContextMenu,
     deleteSelectedConnection,
     deleteSelectedNode: deleteSelectedNodeFromMenu,
-    handleCanvasClick,
+    handleCanvasClick: handleCanvasClickFromContextMenu,
   } = useCanvasContextMenu(deleteSelectedNode, deleteConnection, selectedConnectionId);
+
+  function handleCanvasClick() {
+    handleCanvasClickFromContextMenu();
+    clearSelection();
+  }
+
+  function startDrag(e: MouseEvent, nodeId: string) {
+    // Clean up any stuck drag state from previous interactions
+    if (isDraggingNode.value) {
+      cleanupSingleDrag();
+    }
+    if (isMultiDragging.value) {
+      cleanupMultiDrag();
+    }
+
+    // Ctrl held → skip drag entirely, let @click handle multi-selection toggle
+    if (e.ctrlKey) {
+      return;
+    }
+
+    // Node is part of current multi-selection → preserve it, start multi-drag
+    if (isMultiMode.value && multiSelectedIds.value.includes(nodeId)) {
+      startMultiDrag(e, nodeId, multiSelectedIds.value);
+      return;
+    }
+
+    // Node is NOT part of multi-selection → clear multi-selection, single-select, start single drag
+    if (isMultiMode.value) {
+      clearSelection();
+    }
+    selectNode(nodeId, false);
+    startNodeDrag(e, nodeId);
+  }
 
   const {
     updateSwitchCaseKey,
@@ -126,15 +173,24 @@ export function useCanvasInteraction(
     connections,
     selectedConnectionId,
     selectedNodeId,
+    multiSelectedIds,
+    isMultiMode,
+    isMultiDragging,
+    multiDragNodeId,
+    multiDragIds,
     contextMenu,
     onDragStart,
     onDragOver,
     onDrop,
     startNodeDrag,
+    startMultiDrag,
+    startDrag,
     startConnection,
     deleteConnection,
     selectConnection,
     selectNode,
+    clearSelection,
+    deleteSelectedNodes,
     showConnectionContextMenu,
     showNodeContextMenu,
     closeContextMenu,

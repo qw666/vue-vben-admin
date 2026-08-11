@@ -6,7 +6,7 @@ import { useRoute } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Input, Tag } from 'ant-design-vue';
+import { Button, Input, message } from 'ant-design-vue';
 
 import { useTitle } from '@vueuse/core';
 
@@ -108,17 +108,20 @@ const {
   connections,
   selectedConnectionId,
   selectedNodeId,
+  multiSelectedIds,
+  isMultiDragging,
   contextMenu,
   onDragStart,
   onDragOver,
   onDrop,
-  startNodeDrag,
+  startDrag,
   startConnection,
   selectConnection,
   showConnectionContextMenu,
   showNodeContextMenu,
   deleteSelectedConnection,
   deleteSelectedNode,
+  clearSelection,
   selectNode,
   handleCanvasClick,
   handleKeyDown,
@@ -403,6 +406,8 @@ onUnmounted(() => {
           :nodes="store.currentWorkflow?.nodes || []"
           :is-dragging-node="isDraggingNode"
           :dragging-node-id="draggingNodeId"
+          :is-multi-dragging="isMultiDragging"
+          :multi-selected-ids="multiSelectedIds"
           :is-connecting="isConnecting"
           :connections="connections"
           :selected-connection-id="selectedConnectionId"
@@ -420,7 +425,7 @@ onUnmounted(() => {
           @drag-over="onDragOver"
           @mouse-leave="handleCanvasMouseLeave"
           @canvas-click="handleCanvasClick"
-          @start-node-drag="startNodeDrag"
+          @start-drag="startDrag"
           @select-node="selectNode"
           @node-double-click="handleNodeDoubleClick"
           @node-context-menu="showNodeContextMenu"

@@ -19,7 +19,38 @@ export function useCanvasDragging(
   const isDraggingNode = ref(false);
   const draggingNodeId = ref<null | string>(null);
   const dragOffset = ref({ x: 0, y: 0 });
-  const { addListener, removeAllListeners, removeListener } = useEventCleanup();
+
+  // Separate cleanup for drag listeners (mousemove, mouseup, mouseleave)
+  const { addListener, removeAllListeners: removeAllDragListeners } = useEventCleanup();
+
+  // visibilitychange listener management (separate from drag listeners)
+  let isVisibilityListenerRegistered = false;
+
+  function handleVisibilityChange() {
+    if (isDraggingNode.value) {
+      cleanupDragListeners();
+      isDraggingNode.value = false;
+      draggingNodeId.value = null;
+    }
+  }
+
+  function ensureVisibilityListener() {
+    if (!isVisibilityListenerRegistered) {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      isVisibilityListenerRegistered = true;
+    }
+  }
+
+  function cleanupVisibilityListener() {
+    if (isVisibilityListenerRegistered) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      isVisibilityListenerRegistered = false;
+    }
+  }
+
+  function cleanupDragListeners() {
+    removeAllDragListeners();
+  }
 
   function onDragStart(e: DragEvent, nodeType: string) {
     if (e.dataTransfer) {
@@ -65,7 +96,6 @@ export function useCanvasDragging(
             description: flowControlConfig.description,
           };
         } else {
-          // 先从前端注册的节点中查找（HTTP、Code 等有策略的节点）
           const fcNode = getFlowControlNodes().find((n: any) => n.type === nodeType);
           if (fcNode) {
             template = {
@@ -76,7 +106,6 @@ export function useCanvasDragging(
               description: fcNode.description,
             };
           }
-          // 再从后端动态节点中查找
           if (!template) {
             for (const tabKey of Object.keys(pluginGroupsCache.value)) {
               const groups = pluginGroupsCache.value[tabKey];
@@ -111,8 +140,6 @@ export function useCanvasDragging(
         store.addNode(newNode);
         message.success(`已添加 ${template?.nodeName || nodeType} 节点`);
 
-        // 异步预加载节点元数据（用于VarPicker获取outputs声明）
-        // 不await，避免阻塞拖拽交互；加载完成后pluginMetaCache更新会触发VarPicker重新计算
         if (!pluginMetaCache.value[nodeType]) {
           loadPluginMeta(nodeType);
         }
@@ -125,13 +152,19 @@ export function useCanvasDragging(
   }
 
   function startNodeDrag(e: MouseEvent, nodeId: string) {
-    if (isDraggingNode.value) return;
+    // Clean up any stuck state from previous drag
+    if (isDraggingNode.value || draggingNodeId.value) {
+      cleanupDragListeners();
+      isDraggingNode.value = false;
+      draggingNodeId.value = null;
+    }
 
     const target = e.target as HTMLElement;
     if (target.closest('.node-port')) {
       return;
     }
 
+    ensureVisibilityListener();
     e.preventDefault();
     isDraggingNode.value = true;
     draggingNodeId.value = nodeId;
@@ -156,11 +189,9 @@ export function useCanvasDragging(
     }
 
     function onMouseUp() {
+      cleanupDragListeners();
       isDraggingNode.value = false;
       draggingNodeId.value = null;
-      removeListener(document, 'mousemove', onMouseMove);
-      removeListener(document, 'mouseup', onMouseUp);
-      removeListener(document, 'mouseleave', onMouseLeave);
     }
 
     function onMouseLeave() {
@@ -175,7 +206,8 @@ export function useCanvasDragging(
   }
 
   function cleanup() {
-    removeAllListeners();
+    cleanupDragListeners();
+    cleanupVisibilityListener();
     isDraggingNode.value = false;
     draggingNodeId.value = null;
   }
