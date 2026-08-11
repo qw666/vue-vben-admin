@@ -39,6 +39,8 @@ const editingFolderId = ref<null | number>(null);
 const editingFolderName = ref('');
 const editingParentId = ref<number | undefined>(undefined);
 
+const searchKeyword = ref('');
+
 interface FolderTreeNode {
   key: string;
   title: ReturnType<typeof h>;
@@ -47,8 +49,21 @@ interface FolderTreeNode {
   data: WorkflowFolder;
 }
 
+// 折叠/展开图标 - 向下chevron样式
+const switcherIcon = (props: any) => {
+  const expanded = props.expanded;
+  const hasChildren = props.dataRef.children && props.dataRef.children.length > 0;
+  if (!hasChildren) return h('span', { style: { width: 16, display: 'inline-block' } });
+  return h(IconifyIcon, {
+    icon: expanded ? 'mdi:chevron-down' : 'mdi:chevron-right',
+    size: 14,
+    class: 'text-gray-400 transition-transform duration-200',
+  });
+};
+
 const treeData = computed<FolderTreeNode[]>(() => {
-  return foldersToTree(store.folders);
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  return foldersToTree(store.folders, keyword);
 });
 
 function expandFirstThreeLevels(folders: WorkflowFolder[], level: number = 0): string[] {
@@ -65,21 +80,32 @@ function expandFirstThreeLevels(folders: WorkflowFolder[], level: number = 0): s
   return keys;
 }
 
-function foldersToTree(folders: WorkflowFolder[]): FolderTreeNode[] {
-  return folders.map((folder) => ({
-    key: String(folder.id),
-    title: renderTitle(folder),
-    icon: () =>
-      h(IconifyIcon, {
-        icon: 'mdi:folder',
-        size: 16,
-        class: 'text-yellow-500',
-      }),
-    children: folder.children?.length
-      ? foldersToTree(folder.children)
-      : undefined,
-    data: folder,
-  }));
+function foldersToTree(folders: WorkflowFolder[], keyword = ''): FolderTreeNode[] {
+  const result: FolderTreeNode[] = [];
+  for (const folder of folders) {
+    const children = folder.children?.length
+      ? foldersToTree(folder.children, keyword)
+      : [];
+
+    const nameMatch = !keyword || folder.name.toLowerCase().includes(keyword);
+    const hasMatchingChild = children.length > 0;
+
+    if (nameMatch || hasMatchingChild) {
+      result.push({
+        key: String(folder.id),
+        title: renderTitle(folder),
+        icon: () =>
+          h(IconifyIcon, {
+            icon: 'mdi:folder',
+            size: 16,
+            class: 'text-yellow-500',
+          }),
+        children: children.length ? children : undefined,
+        data: folder,
+      });
+    }
+  }
+  return result;
 }
 
 function renderTitle(folder: WorkflowFolder) {
@@ -112,7 +138,7 @@ function renderTitle(folder: WorkflowFolder) {
     [
       h(
         'span',
-        { class: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap' },
+        { class: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[15px]' },
         folder.name,
       ),
       h(
@@ -200,7 +226,7 @@ function handleEditBlur(folder: WorkflowFolder) {
 }
 
 function onExpand(keys: Key[]) {
-  expandedKeys.value = keys as number[];
+  expandedKeys.value = keys as string[];
 }
 
 function onSelect(keys: Key[]) {
@@ -374,44 +400,92 @@ watch(
       expandedKeys.value = expandFirstThreeLevels(newFolders);
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
+
+// 搜索时自动展开匹配的节点
+watch(searchKeyword, (keyword) => {
+  if (keyword.trim()) {
+    expandedKeys.value = getAllMatchingKeys(store.folders, keyword.trim().toLowerCase());
+  } else {
+    expandedKeys.value = expandFirstThreeLevels(store.folders);
+  }
+});
+
+function getAllMatchingKeys(folders: WorkflowFolder[], keyword: string, keys: string[] = []): string[] {
+  for (const folder of folders) {
+    const nameMatch = folder.name.toLowerCase().includes(keyword);
+    if (nameMatch) {
+      keys.push(String(folder.id));
+    }
+    if (folder.children?.length) {
+      getAllMatchingKeys(folder.children, keyword, keys);
+      const hasMatch = folder.children.some(
+        (c: any) =>
+          c.name.toLowerCase().includes(keyword) ||
+          c.children?.some((cc: any) => cc.name.toLowerCase().includes(keyword)),
+      );
+      if (hasMatch) {
+        keys.push(String(folder.id));
+      }
+    }
+  }
+  return [...new Set(keys)];
+}
 </script>
 
 <template>
   <div
     class="flex flex-col h-full bg-card border border-border text-foreground rounded-lg overflow-hidden"
   >
-    <div class="p-4 border-b border-border flex-1 overflow-y-auto">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-semibold text-foreground">分组</h2>
-        <div class="flex items-center gap-2">
-          <Button
-            type="text"
-            size="small"
-            @click="handleRefresh"
-            title="刷新分组"
-          >
-            <IconifyIcon icon="mdi:refresh" :size="16" />
-          </Button>
-          <Button
-            type="text"
-            size="small"
-            @click="onCreateFolder()"
-            title="新建文件夹"
-          >
-            <IconifyIcon icon="mdi:plus" :size="16" />
-          </Button>
+    <div class="px-3 pt-3 pb-0">
+      <Input
+        v-model:value="searchKeyword"
+        placeholder="搜索分组"
+        allow-clear
+      >
+        <template #prefix>
+          <IconifyIcon icon="mdi:magnify" :size="14" class="text-gray-400" />
+        </template>
+      </Input>
+      <div class="flex items-center justify-between mt-3 mb-3">
+        <h2 class="text-base font-semibold text-foreground">分组</h2>
+        <div class="flex items-center gap-1">
+          <Tooltip title="刷新">
+            <Button
+              type="text"
+              size="small"
+              @click="handleRefresh"
+            >
+              <IconifyIcon icon="mdi:refresh" :size="16" />
+            </Button>
+          </Tooltip>
+          <Tooltip title="新建文件夹">
+            <Button
+              type="text"
+              size="small"
+              @click="onCreateFolder()"
+            >
+              <IconifyIcon icon="mdi:plus" :size="16" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-2 pb-2">
       <Tree
+        v-if="treeData.length > 0"
         :expanded-keys="expandedKeys"
         :selected-keys="selectedKeys"
         :tree-data="treeData"
+        :switcher-icon="switcherIcon"
         block-node
         @expand="onExpand"
         @select="onSelect"
       />
+      <div v-else class="text-center py-8 text-gray-400 text-sm">
+        {{ searchKeyword ? '未找到匹配的分组' : '暂无分组' }}
+      </div>
     </div>
 
     <Modal
@@ -531,3 +605,9 @@ watch(
     </Modal>
   </div>
 </template>
+
+<style scoped>
+:deep(.ant-tree .ant-tree-node-content-wrapper) {
+  font-size: 15px;
+}
+</style>
