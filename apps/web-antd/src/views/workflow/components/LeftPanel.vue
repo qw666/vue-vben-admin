@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { IconifyIcon } from '@vben/icons';
+import { Input } from 'ant-design-vue';
 import {
   getVisibleFrontendNodes,
   getGroupKey,
@@ -18,6 +19,8 @@ const emit = defineEmits<{
   (e: 'switchTab', tab: string): void;
   (e: 'dragStart', event: DragEvent, nodeType: string): void;
 }>();
+
+const searchKeyword = ref('');
 
 /**
  * 合并前端节点到后端分组
@@ -95,11 +98,34 @@ const mergedGroups = computed(() => {
     (a, b) => (a.sort || 0) - (b.sort || 0),
   );
 });
+
+const filteredGroups = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  if (!keyword) return mergedGroups.value;
+
+  return mergedGroups.value
+    .map(group => ({
+      ...group,
+      pluginList: group.pluginList.filter((plugin: any) =>
+        plugin?.nodeName?.toLowerCase().includes(keyword),
+      ),
+    }))
+    .filter(group => group.pluginList.length > 0);
+});
 </script>
 
 <template>
   <div class="w-48 bg-white border-r border-gray-100 flex flex-col overflow-hidden">
-    <div class="flex-shrink-0 px-4 py-3">
+    <div class="flex-shrink-0 px-4 py-3 space-y-3">
+      <Input
+        v-model:value="searchKeyword"
+        placeholder="搜索节点名称"
+        allow-clear
+      >
+        <template #prefix>
+          <IconifyIcon icon="mdi:magnify" :size="16" class="text-gray-400" />
+        </template>
+      </Input>
       <div class="flex gap-2">
         <button
           class="flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all duration-200"
@@ -126,12 +152,15 @@ const mergedGroups = computed(() => {
         <div v-if="isPluginLoading" class="flex items-center justify-center py-8">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
+        <div v-else-if="filteredGroups.length === 0 && searchKeyword" class="text-center text-gray-500 py-8 text-sm">
+          未找到匹配的节点
+        </div>
         <div v-else>
           <div
-            v-for="(group, index) in mergedGroups"
+            v-for="(group, index) in filteredGroups"
             :key="group.groupKey"
             class="group-section pb-4 mb-4"
-            :class="{ 'border-b border-gray-100': index < mergedGroups.length - 1 }"
+            :class="{ 'border-b border-gray-100': index < filteredGroups.length - 1 }"
           >
             <h3 class="text-xs font-semibold text-gray-600 mb-3 flex items-center gap-2">
               <span class="w-1 h-3.5 rounded-sm bg-primary" />
