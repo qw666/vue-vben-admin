@@ -7,6 +7,34 @@
     "forgetPassword": "忘记密码",
     "profile": "个人中心"
   },
+  "home": {
+    "title": "首页",
+    "subtitle": "万象·一站式多模态智能体开发平台",
+    "description": "通过可视化拖拽方式，快速构建、部署和执行复杂的业务流程，集成大模型、代码执行、条件分支等多种节点，让您的业务自动化触手可及。",
+    "features": {
+      "visual": {
+        "title": "可视化编排",
+        "desc": "拖拽式画布，所见即所得"
+      },
+      "ai": {
+        "title": "AI 集成",
+        "desc": "内置大模型节点，智能处理"
+      },
+      "multi": {
+        "title": "多引擎支持",
+        "desc": "支持多种 AI 引擎灵活切换"
+      },
+      "reliable": {
+        "title": "可靠执行",
+        "desc": "日志追踪，异常处理无忧"
+      }
+    },
+    "quickStart": {
+      "title": "快速开始",
+      "create": "创建流程",
+      "view": "查看示例"
+    }
+  },
   "dashboard": {
     "title": "概览",
     "analytics": "分析页",

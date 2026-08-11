@@ -5,8 +5,19 @@ import { $t } from '#/locales';
 const routes: RouteRecordRaw[] = [
   {
     meta: {
-      icon: 'mdi:workflow',
+      affixTab: true,
+      icon: 'mdi:home',
       order: 0,
+      title: $t('page.home.title'),
+    },
+    name: 'Home',
+    path: '/home',
+    component: () => import('#/views/home/index.vue'),
+  },
+  {
+    meta: {
+      icon: 'mdi:workflow',
+      order: 1,
       title: $t('page.execution.title'),
     },
     name: 'Shuzhiliu',

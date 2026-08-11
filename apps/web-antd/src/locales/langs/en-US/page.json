@@ -7,6 +7,34 @@
     "forgetPassword": "Forget Password",
     "profile": "Profile"
   },
+  "home": {
+    "title": "Home",
+    "subtitle": "Wanxiang·One-Stop Multimodal Agent Development Platform",
+    "description": "Build, deploy, and execute complex business flows through visual drag-and-drop. Integrate LLM, code execution, conditional branching, and more to automate your business.",
+    "features": {
+      "visual": {
+        "title": "Visual Orchestration",
+        "desc": "Drag-and-drop canvas, WYSIWYG"
+      },
+      "ai": {
+        "title": "AI Integration",
+        "desc": "Built-in LLM nodes for intelligent processing"
+      },
+      "multi": {
+        "title": "Multi-Engine Support",
+        "desc": "Switch between AI engines flexibly"
+      },
+      "reliable": {
+        "title": "Reliable Execution",
+        "desc": "Log tracking, worry-free exception handling"
+      }
+    },
+    "quickStart": {
+      "title": "Quick Start",
+      "create": "Create Flow",
+      "view": "View Examples"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "analytics": "Analytics",

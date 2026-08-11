@@ -14,6 +14,7 @@ export const overridesPreferences = defineOverridesPreferences({
   app: {
     accessMode: 'backend',
     defaultAvatar: avatarUrl,
+    defaultHomePath: '/home',
     layout: 'sidebar-nav',
     name: import.meta.env.VITE_APP_TITLE,
   },

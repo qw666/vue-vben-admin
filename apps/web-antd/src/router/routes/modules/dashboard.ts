@@ -5,6 +5,7 @@ import { $t } from '#/locales';
 const routes: RouteRecordRaw[] = [
   {
     meta: {
+      hideInMenu: true,
       icon: 'lucide:layout-dashboard',
       order: -1,
       title: $t('page.dashboard.title'),
@@ -17,7 +18,7 @@ const routes: RouteRecordRaw[] = [
         path: 'analytics',
         component: () => import('#/views/dashboard/analytics/index.vue'),
         meta: {
-          affixTab: true,
+          hideInMenu: true,
           icon: 'lucide:area-chart',
           title: $t('page.dashboard.analytics'),
         },

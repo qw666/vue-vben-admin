@@ -6,6 +6,7 @@ const mockMenus = [
     path: '/dashboard',
     component: 'BasicLayout',
     meta: {
+      hideInMenu: true,
       icon: 'lucide:layout-dashboard',
       order: -1,
       title: '概览',
@@ -16,7 +17,7 @@ const mockMenus = [
         path: 'analytics',
         component: '/dashboard/analytics/index',
         meta: {
-          affixTab: true,
+          hideInMenu: true,
           icon: 'lucide:area-chart',
           title: '分析页',
         },
@@ -24,12 +25,23 @@ const mockMenus = [
     ],
   },
   {
+    name: 'Home',
+    path: '/home',
+    component: '/home/index',
+    meta: {
+      affixTab: true,
+      icon: 'mdi:home',
+      order: 0,
+      title: '首页',
+    },
+  },
+  {
     name: 'Shuzhiliu',
     path: '/shuzhiliu',
     component: 'BasicLayout',
     meta: {
       icon: 'lucide:workflow',
-      order: 0,
+      order: 1,
       title: '数智流',
     },
     children: [
