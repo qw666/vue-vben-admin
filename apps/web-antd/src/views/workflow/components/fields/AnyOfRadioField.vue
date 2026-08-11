@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { Tooltip, Button } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import FieldRenderer from '../FieldRenderer.vue';
@@ -16,12 +16,14 @@ const fieldKey = computed(() => props.field.props.key || props.field.key);
 
 // 组件内部管理选项索引状态，不再写入 nodeConfigForm
 const selectedIndex = ref<number | null>(null);
+const isSwitching = ref(false);
 
 // 从 nodeConfigForm 的值推断选项索引
-function initSelectedIndexFromValue(): number {
+function initSelectedIndexFromValue(): number | null {
   const value = props.nodeConfigForm[fieldKey.value];
   const options = props.field.props.options || [];
-  return inferAnyOfOption(options, value);
+  const result = inferAnyOfOption(options, value);
+  return result === -1 ? null : result;
 }
 
 // 监听字段 key 的变化（节点切换时），重新初始化选项索引
@@ -37,10 +39,10 @@ watch(
 watch(
   () => props.nodeConfigForm[fieldKey.value],
   (newVal, oldVal) => {
-    // 只有当值真正变化且不是选项切换导致的才同步
+    if (isSwitching.value) return;
     if (newVal !== oldVal && selectedIndex.value !== null) {
       const newIndex = inferAnyOfOption(props.field.props.options || [], newVal);
-      if (newIndex !== selectedIndex.value) {
+      if (newIndex !== -1 && newIndex !== selectedIndex.value) {
         selectedIndex.value = newIndex;
       }
     }
@@ -62,7 +64,7 @@ const emit = defineEmits<{
 }>();
 
 const selectedAnyOfOption = computed(() => {
-  if (selectedIndex.value === null || selectedIndex.value === undefined) return null;
+  if (selectedIndex.value === null || selectedIndex.value === undefined || selectedIndex.value === -1) return null;
   return props.field.props.options.find((opt: any) => opt.value === selectedIndex.value);
 });
 
@@ -98,18 +100,40 @@ const renderedField = computed(() => {
 });
 
 function clearSelection() {
+  isSwitching.value = true;
   selectedIndex.value = null;
-  // 清除主字段的值
   props.nodeConfigForm[fieldKey.value] = '';
+  nextTick(() => {
+    isSwitching.value = false;
+  });
 }
 
-// 监听选项切换，清除旧数据
+// 监听选项切换，根据选项类型初始化默认值
 watch(selectedIndex, (newIndex, oldIndex) => {
-  // 只有当选项真正切换时才清空（index 变化了）
   if (newIndex === oldIndex) return;
-  
-  // 选项切换时，清除主字段的值
-  props.nodeConfigForm[fieldKey.value] = '';
+
+  isSwitching.value = true;
+
+  const option = props.field.props.options.find(
+    (opt: any) => opt.value === newIndex,
+  );
+  const schemaType = option?.schema?.type;
+
+  if (schemaType === 'array') {
+    props.nodeConfigForm[fieldKey.value] = [];
+  } else if (schemaType === 'number' || schemaType === 'integer') {
+    props.nodeConfigForm[fieldKey.value] = 0;
+  } else if (schemaType === 'boolean') {
+    props.nodeConfigForm[fieldKey.value] = false;
+  } else if (schemaType === 'object') {
+    props.nodeConfigForm[fieldKey.value] = {};
+  } else {
+    props.nodeConfigForm[fieldKey.value] = '';
+  }
+
+  nextTick(() => {
+    isSwitching.value = false;
+  });
 });
 
 function getNestedValue(parentKey: string): Record<string, any> {

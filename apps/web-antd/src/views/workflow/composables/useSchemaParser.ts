@@ -123,10 +123,10 @@ export function serializeFieldValue(schema: SchemaNode, value: any, defs: Record
  * 根据值推断 anyOf 选项索引
  * @param options anyOf 选项数组
  * @param value 当前值
- * @returns 选项索引，未匹配返回 0
+ * @returns 选项索引，未匹配返回 -1
  */
 export function inferAnyOfOption(options: any[], value: any): number {
-  if (value === undefined || value === null || value === '') return 0;
+  if (value === undefined || value === null || value === '') return -1;
 
   for (let i = 0; i < options.length; i++) {
     const option = options[i];
@@ -155,5 +155,5 @@ export function inferAnyOfOption(options: any[], value: any): number {
     }
   }
 
-  return 0;
+  return -1;
 }
