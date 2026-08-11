@@ -64,13 +64,17 @@ export const AiChatNodeStrategy: FlowControlNodeStrategy = {
   },
 
   /**
-   * 输出变量：供下游节点通过 {{ outputs.nodeId.response }} 引用
+   * 输出变量：供下游节点通过 {{ outputs.nodeId.text }} 引用
+   * 对应 Kestra ChatCompletion 的 choices[0].message.content
    */
   getOutputs(): NodeOutputDef[] {
     return [
-      { key: 'response', label: 'AI 响应', type: 'string' },
-      { key: 'tokens', label: 'Token 用量', type: 'object' },
-      { key: 'model', label: '使用的模型', type: 'string' },
+      {
+        key: 'text',
+        label: '处理结果',
+        type: 'string',
+        path: 'choices[0].message.content',
+      },
     ];
   },
 

@@ -58,6 +58,12 @@ export interface NodeOutputDef {
   label?: string;
   /** 类型提示，默认 any */
   type?: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
+  /**
+   * 实际访问路径（可选）
+   * 如果设置，VarPicker 生成表达式时使用 path 而非 key
+   * 用于 key 与实际访问路径不一致的场景（如嵌套路径 choices[0].message.content）
+   */
+  path?: string;
 }
 
 export interface FlowControlNodeStrategy {

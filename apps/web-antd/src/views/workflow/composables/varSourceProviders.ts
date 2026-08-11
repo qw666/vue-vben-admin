@@ -17,6 +17,7 @@ export function getNodeOutputs(
   key: string;
   label?: string;
   type?: any;
+  path?: string;
 }> {
   const nodeType = node.data?.type;
   if (!nodeType) return [];
@@ -45,6 +46,7 @@ export function getNodeOutputs(
           key: o.key,
           label: o.label || o.key,
           type: o.type || 'any',
+          path: o.path,
         }));
     }
   }
@@ -62,6 +64,7 @@ export function getNodeOutputs(
         key: k.key || k.id || '',
         label: k.label || k.key || k.id || '',
         type: k.type,
+        path: k.path,
       };
     }).filter((o) => o.key);
   }
@@ -98,7 +101,7 @@ const upstreamProvider: VarSourceProvider = {
         const children = outputs.map((o) => ({
           key: `upstream-${node.id}-${o.key}`,
           label: o.label || o.key,
-          expression: `{{ outputs.${node.id}.${o.key} }}`,
+          expression: `{{ outputs.${node.id}.${o.path || o.key} }}`,
           type: o.type || 'any',
           group: 'upstream' as const,
         }));
