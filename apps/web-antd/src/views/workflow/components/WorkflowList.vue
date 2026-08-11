@@ -7,6 +7,7 @@ import { IconifyIcon } from '@vben/icons';
 import {
   Button,
   Card,
+  Checkbox,
   DatePicker,
   Input,
   message,
@@ -15,8 +16,14 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
+import { exportFlows } from '#/api/core/workflow';
 import { useWorkflowStore } from '#/store/workflow';
 
+import {
+  downloadBlob,
+  generateExportFilename,
+} from '../utils/flowTransfer';
+import ImportFlowDialog from './ImportFlowDialog.vue';
 import RunInputDialog from './RunInputDialog.vue';
 
 const router = useRouter();
@@ -34,7 +41,114 @@ const inputDialogLoading = ref(false);
 const currentRunWorkflow = ref<any>(null);
 let searchTimer: null | ReturnType<typeof setTimeout> = null;
 
+// 批量模式状态
+const isBatchMode = ref(false);
+const selectedIds = ref<string[]>([]);
+const showImportDialog = ref(false);
+const exportLoading = ref(false);
+
 const workflows = computed(() => store.workflows);
+
+const allSelected = computed(() => {
+  if (workflows.value.length === 0) return false;
+  return selectedIds.value.length === workflows.value.length;
+});
+
+const isIndeterminate = computed(() => {
+  return selectedIds.value.length > 0 && selectedIds.value.length < workflows.value.length;
+});
+
+function toggleBatchMode() {
+  isBatchMode.value = !isBatchMode.value;
+  if (!isBatchMode.value) {
+    selectedIds.value = [];
+  }
+}
+
+function toggleSelect(id: string) {
+  const idx = selectedIds.value.indexOf(id);
+  if (idx === -1) {
+    selectedIds.value.push(id);
+  } else {
+    selectedIds.value.splice(idx, 1);
+  }
+}
+
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selectedIds.value = [];
+  } else {
+    selectedIds.value = workflows.value.map((w) => w.id);
+  }
+}
+
+function handleCardClick(workflow: any, event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (target.closest('button') || target.closest('.workflow-action-btn')) {
+    return;
+  }
+  if (isBatchMode.value) {
+    toggleSelect(workflow.id);
+  }
+}
+
+async function handleExport(workflow: any) {
+  if (!workflow.backendId) {
+    message.warning('流程尚未保存，无法导出');
+    return;
+  }
+  try {
+    exportLoading.value = true;
+    const blob = await exportFlows({
+      projectId: store.projectId,
+      idList: [workflow.backendId],
+    });
+    downloadBlob(blob, generateExportFilename());
+    message.success('导出成功');
+  } catch (error: any) {
+    message.error(`导出失败: ${error?.message || '未知错误'}`);
+  } finally {
+    exportLoading.value = false;
+  }
+}
+
+async function handleBatchExport() {
+  const backendIds = selectedIds.value
+    .map((id) => workflows.value.find((w) => w.id === id)?.backendId)
+    .filter((id): id is number => id !== undefined);
+
+  if (backendIds.length === 0) {
+    message.warning('请先选择要导出的流程');
+    return;
+  }
+  try {
+    exportLoading.value = true;
+    const blob = await exportFlows({
+      projectId: store.projectId,
+      idList: backendIds,
+    });
+    downloadBlob(blob, generateExportFilename());
+    message.success(`已导出 ${backendIds.length} 个流程`);
+  } catch (error: any) {
+    message.error(`导出失败: ${error?.message || '未知错误'}`);
+  } finally {
+    exportLoading.value = false;
+  }
+}
+
+function handleImportSuccess() {
+  showImportDialog.value = false;
+  store.loadWorkflows(store.selectedFolderId || undefined);
+}
+
+function handleImportClick() {
+  if (store.selectedFolderId === null) {
+    message.warning('请先选择左侧文件夹');
+    return;
+  }
+  showImportDialog.value = true;
+}
+
 function handleCreate() {
   if (store.selectedFolderId === null) {
     message.warning('请先选择左侧文件夹');
@@ -285,7 +399,7 @@ watch(searchInput, () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-full gap-4">
+  <div class="workflow-list-container flex flex-col h-full gap-4">
     <Card class="flex-shrink-0 rounded-lg">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -307,10 +421,46 @@ watch(searchInput, () => {
             @change="handleDateChange"
           />
         </div>
-        <Button type="primary" @click="handleCreate">
-          <IconifyIcon icon="mdi:plus" :size="16" />
-          创建流程
-        </Button>
+
+        <!-- 正常模式工具栏 -->
+        <div v-if="!isBatchMode" class="flex items-center gap-2 toolbar-buttons">
+          <Button @click="handleImportClick">
+            导入
+          </Button>
+          <Tooltip title="批量导出">
+            <Button @click="toggleBatchMode">
+              导出
+            </Button>
+          </Tooltip>
+          <Button type="primary" @click="handleCreate">
+            创建流程
+          </Button>
+        </div>
+
+        <!-- 批量模式工具栏 -->
+        <div v-else class="flex items-center gap-2 toolbar-buttons">
+          <Checkbox
+            :checked="allSelected"
+            :indeterminate="isIndeterminate"
+            @change="toggleSelectAll"
+          >
+            全选
+          </Checkbox>
+          <span class="text-sm text-gray-500 mr-2">
+            已选 <span class="font-medium text-primary">{{ selectedIds.length }}</span> 个
+          </span>
+          <Button
+            type="primary"
+            :loading="exportLoading"
+            :disabled="selectedIds.length === 0"
+            @click="handleBatchExport"
+          >
+            批量导出
+          </Button>
+          <Button @click="toggleBatchMode">
+            退出
+          </Button>
+        </div>
       </div>
     </Card>
 
@@ -338,9 +488,26 @@ watch(searchInput, () => {
             v-for="workflow in workflows"
             :key="workflow.id"
             class="workflow-card bg-white border border-gray-200 rounded-lg p-4 transition-all duration-200 shadow-sm relative flex flex-col"
+            :class="{
+              'cursor-pointer': isBatchMode,
+              'border-primary ring-2 ring-primary/20': isBatchMode && selectedIds.includes(workflow.id),
+            }"
+            @click="(e) => handleCardClick(workflow, e)"
           >
+            <!-- 批量模式 checkbox -->
+            <div
+              v-if="isBatchMode"
+              class="absolute top-3 left-3 z-10"
+              @click.stop
+            >
+              <Checkbox
+                :checked="selectedIds.includes(workflow.id)"
+                @click.stop="toggleSelect(workflow.id)"
+              />
+            </div>
+
             <!-- 头部：图标、名称、状态、ID -->
-            <div class="mb-0">
+            <div class="mb-0" :class="{ 'pl-7': isBatchMode }">
               <!-- 第一行：图标 + 名称 + 状态 -->
               <div class="flex items-center gap-3 mb-3">
                 <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-700 flex items-center justify-center text-primary-foreground flex-shrink-0 shadow-md shadow-primary/30 ring-1 ring-primary/10">
@@ -430,6 +597,17 @@ watch(searchInput, () => {
                     @click="handleRun(workflow.id)"
                   >
                     <IconifyIcon icon="mdi:play-circle" :size="16" />
+                  </Button>
+                </Tooltip>
+                <Tooltip title="导出">
+                  <Button
+                    type="text"
+                    size="small"
+                    class="workflow-action-btn"
+                    :loading="exportLoading"
+                    @click="handleExport(workflow)"
+                  >
+                    <IconifyIcon icon="mdi:download" :size="16" />
                   </Button>
                 </Tooltip>
                 <Tooltip title="删除">
@@ -546,8 +724,23 @@ watch(searchInput, () => {
       @update:visible="showInputDialog = $event"
       @confirm="handleRunWithInputs"
     />
+
+    <!-- 导入流程对话框 -->
+    <ImportFlowDialog
+      :visible="showImportDialog"
+      @update:visible="showImportDialog = $event"
+      @success="handleImportSuccess"
+    />
   </div>
 </template>
+
+<style>
+.toolbar-buttons .ant-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+</style>
 
 <style scoped>
 .workflow-card {

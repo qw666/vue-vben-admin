@@ -1,4 +1,5 @@
 import { requestClient } from '../request';
+import { useAccessStore } from '@vben/stores';
 
 const BASE_URL = '/flow/plat';
 
@@ -404,4 +405,68 @@ export async function batchDisableFlow(
       headers: getHeaders(),
     },
   );
+}
+
+export interface FlowExportQuery {
+  projectId: number;
+  idList: number[];
+}
+
+export type FlowImportMode = 'SKIP' | 'OVERWRITE';
+
+export interface FlowImportResultDTO {
+  successCount: number;
+  skipCount: number;
+  failMsgList: string[];
+}
+
+export async function exportFlows(
+  data: FlowExportQuery,
+): Promise<Blob> {
+  const accessStore = useAccessStore();
+  const token = accessStore.accessToken;
+  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}/flow/plat/flow/export`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json;charset=utf-8',
+      ...getHeaders(),
+      Authorization: token ? `Bearer ${token}` : '',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error(`导出失败: HTTP ${response.status}`);
+  }
+  return response.blob();
+}
+
+export async function importFlows(
+  file: File,
+  projectId: number,
+  folderId: number,
+  importMode: FlowImportMode,
+): Promise<FlowImportResultDTO> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('projectId', String(projectId));
+  formData.append('folderId', String(folderId));
+  formData.append('importMode', importMode);
+
+  const accessStore = useAccessStore();
+  const token = accessStore.accessToken;
+  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}/flow/plat/flow/import`, {
+    method: 'POST',
+    headers: {
+      ...getHeaders(),
+      Authorization: token ? `Bearer ${token}` : '',
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`导入失败: HTTP ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.data || result;
 }
