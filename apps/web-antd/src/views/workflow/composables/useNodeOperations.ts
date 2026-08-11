@@ -5,7 +5,7 @@ import type { WorkflowNode } from '#/types/workflow';
 import { rewriteVarReferences } from './useVarSources';
 import { rewriteNodeIdsInConfig } from '../nodes/containerNodeAccessor';
 import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
-import type { Connection, NodeConfigForm } from '../types/workflow';
+import type { NodeConfigForm } from '../types/workflow';
 
 /**
  * 获取容器节点的 taskFields，优先使用 registry 中的配置
@@ -28,7 +28,6 @@ function getContainerTaskFields(nodeType?: string): string[] {
 export function useNodeOperations(
   selectedNode: Ref<WorkflowNode | null>,
   nodeConfigForm: NodeConfigForm,
-  connections: Ref<Connection[]>,
   getParentNodeFieldInfo: (nodeId: string) => { parentId: string; field: string } | null,
 ) {
   const store = useWorkflowStore();
@@ -46,14 +45,9 @@ export function useNodeOperations(
       if (nodeConfigForm[fieldKey]) {
         nodeConfigForm[fieldKey] = { ...node.data.config[fieldKey] };
       }
-      if (removedItem?.nodeId && store.currentWorkflow) {
-        store.currentWorkflow.edges = (store.currentWorkflow.edges || []).filter(
-          (conn) =>
-            !(conn.source === node.id && conn.target === removedItem.nodeId),
-        );
-        connections.value = connections.value.filter(
-          (conn) =>
-            !(conn.source === node.id && conn.target === removedItem.nodeId),
+      if (removedItem?.nodeId) {
+        store.removeEdgesByCondition(
+          (conn) => conn.source === node.id && conn.target === removedItem.nodeId,
         );
         store.removeNode(removedItem.nodeId);
       }

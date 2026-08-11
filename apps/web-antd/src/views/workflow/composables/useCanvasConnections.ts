@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
@@ -21,7 +21,14 @@ export function useCanvasConnections(
   scale?: { value: number }
 ) {
   const store = useWorkflowStore();
-  const connections = ref<Connection[]>([]);
+  const connections = computed<Connection[]>(() => {
+    const edges = store.currentWorkflow?.edges || [];
+    return edges.map(e => ({
+      ...e,
+      sourceHandle: e.sourceHandle || '',
+      targetHandle: e.targetHandle || '',
+    })) as Connection[];
+  });
   const isConnecting = ref(false);
   const connectingFrom = ref<string | null>(null);
   const connectingFromPortId = ref<string | null>(null);
@@ -143,15 +150,12 @@ export function useCanvasConnections(
             const newConnection: Connection = {
               id: `conn-${Date.now()}`,
               source: connectingFrom.value,
-              sourceHandle: connectingFromPortId.value,
+              sourceHandle: connectingFromPortId.value!,
               target: targetNodeId,
               targetHandle: targetPortId
             };
             
-            connections.value.push(newConnection);
-            if (store.currentWorkflow) {
-              store.currentWorkflow.edges = [...store.currentWorkflow.edges, newConnection];
-            }
+            store.addEdge(newConnection);
 
             syncConnectionToNodeConfig(newConnection, true);
 
@@ -283,10 +287,7 @@ export function useCanvasConnections(
     if (conn) {
       syncConnectionToNodeConfig(conn, false);
     }
-    connections.value = connections.value.filter(c => c.id !== connId);
-    if (store.currentWorkflow) {
-      store.currentWorkflow.edges = store.currentWorkflow.edges.filter(c => c.id !== connId);
-    }
+    store.removeEdge(connId);
   }
 
   function selectConnection(connId: string) {

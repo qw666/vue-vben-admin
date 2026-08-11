@@ -5,13 +5,11 @@ import { useWorkflowStore } from '#/store/workflow';
 import { flowControlNodeRegistry } from '../nodes/types';
 import { buildFlowSavePayload } from '../utils/flowModelConverter';
 import { validateAll, formatValidationErrors } from '../utils/validateWorkflow';
-import type { Connection } from '../types/workflow';
 
 export function useWorkflowActions(
   workflowName: Ref<string>,
   isLoading: Ref<boolean>,
   isRunning: Ref<boolean>,
-  connections: Ref<Connection[]>,
 ) {
   const store = useWorkflowStore();
   const router = useRouter();
@@ -115,7 +113,6 @@ export function useWorkflowActions(
     if (store.currentWorkflow) {
       store.currentWorkflow.nodes = [];
       store.currentWorkflow.edges = [];
-      connections.value = [];
     }
     message.info('画布已清空');
   }

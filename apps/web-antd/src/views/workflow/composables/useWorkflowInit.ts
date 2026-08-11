@@ -1,10 +1,7 @@
-import type { Ref } from 'vue';
 import { useWorkflowStore } from '#/store/workflow';
 import { getDefaultOutputPortField } from '../utils/flowModelConverter';
-import type { Connection } from '../types/workflow';
 
 export function useWorkflowInit(
-  connections: Ref<Connection[]>,
   updatePanOffset: (offset: { x: number; y: number }) => void,
 ) {
   const store = useWorkflowStore();
@@ -171,7 +168,6 @@ export function useWorkflowInit(
           targetHandle: `${firstTask.id}-input`,
         };
         store.addEdge(edge);
-        connections.value.push(edge);
 
         const startNode = store.currentWorkflow.nodes.find((n) => n.id === startNodeId);
         if (startNode && startNode.data.config) {
@@ -198,7 +194,6 @@ export function useWorkflowInit(
           targetHandle: `${endNodeId}-input`,
         };
         store.addEdge(edge);
-        connections.value.push(edge);
 
         const lastNode = store.currentWorkflow.nodes.find((n) => n.id === lastTask.id);
         if (lastNode && lastNode.data.config) {

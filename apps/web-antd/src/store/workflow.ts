@@ -142,6 +142,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  function removeEdgesByCondition(
+    condition: (edge: WorkflowEdge) => boolean,
+  ) {
+    if (currentWorkflow.value) {
+      currentWorkflow.value.edges = currentWorkflow.value.edges.filter(
+        (e) => !condition(e),
+      );
+    }
+  }
+
   function createWorkflow(
     name: string,
     folderId?: number,
@@ -580,5 +590,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     updateNode,
     addEdge,
     removeEdge,
+    removeEdgesByCondition,
   };
 });

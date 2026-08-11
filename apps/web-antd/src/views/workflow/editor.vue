@@ -165,7 +165,6 @@ const workflowEnabled = computed(() => {
 
 // ===== 容器访问层 =====
 const { ensureStartAndEndNodes, centerCanvasOnNodes } = useWorkflowInit(
-  connections,
   updatePanOffset,
 );
 
@@ -174,14 +173,12 @@ const { handleSave, handleRun, handleClear, handleBack } = useWorkflowActions(
   workflowName,
   isLoading,
   isRunning,
-  connections,
 );
 
 // ===== 节点操作 =====
 const { removeNodeFromCase, updateNodeLabel, updateNodeId } = useNodeOperations(
   selectedNode,
   nodeConfigForm,
-  connections,
   getParentNodeFieldInfo,
 );
 
@@ -286,8 +283,6 @@ onMounted(async () => {
         restoredWorkflow.backendId = parsedBackendId;
         store.setCurrentWorkflow(restoredWorkflow);
         workflowName.value = restoredWorkflow.name;
-        connections.value = (restoredWorkflow.edges ||
-          []) as unknown as typeof connections.value;
         ensureStartAndEndNodes();
         workflowLoaded.value = true;
 
@@ -304,25 +299,32 @@ onMounted(async () => {
         setTimeout(() => {
           centerCanvasOnNodes();
         }, 200);
-        return;
+        // 注意：不要在这里 return，让后面的 keydown listener 注册执行
+      } else {
+        const workflow = store.findWorkflowById(workflowId);
+        if (workflow) {
+          store.setCurrentWorkflow(workflow);
+          workflowName.value = workflow.name;
+          ensureStartAndEndNodes();
+        } else {
+          const newWorkflow = store.createWorkflow('未命名流程');
+          store.setCurrentWorkflow(newWorkflow);
+        }
       }
-    }
-    const workflow = store.findWorkflowById(workflowId);
-    if (workflow) {
-      store.setCurrentWorkflow(workflow);
-      workflowName.value = workflow.name;
-      connections.value = (workflow.edges ||
-        []) as unknown as typeof connections.value;
-      ensureStartAndEndNodes();
     } else {
-      const newWorkflow = store.createWorkflow('未命名流程');
-      store.setCurrentWorkflow(newWorkflow);
+      const workflow = store.findWorkflowById(workflowId);
+      if (workflow) {
+        store.setCurrentWorkflow(workflow);
+        workflowName.value = workflow.name;
+        ensureStartAndEndNodes();
+      } else {
+        const newWorkflow = store.createWorkflow('未命名流程');
+        store.setCurrentWorkflow(newWorkflow);
+      }
     }
   } else {
     if (store.currentWorkflow && store.currentWorkflow.id) {
       workflowName.value = store.currentWorkflow.name;
-      connections.value = (store.currentWorkflow.edges ||
-        []) as unknown as typeof connections.value;
       ensureStartAndEndNodes();
       workflowLoaded.value = true;
     } else {
@@ -335,15 +337,17 @@ onMounted(async () => {
     }, 200);
   }
 
-  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keydown', handleKeyDown, true);
   setTimeout(() => {
     isPageReady.value = true;
   }, 0);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('keydown', handleKeyDown, true);
   cleanup();
+  store.setCurrentWorkflow(null);
+  store.setSelectedNodeId(null);
 });
 </script>
 

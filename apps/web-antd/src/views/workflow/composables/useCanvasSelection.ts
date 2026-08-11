@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, type ComputedRef, ref } from 'vue';
 
 import { message } from 'ant-design-vue';
 
@@ -7,7 +7,7 @@ import { useWorkflowStore } from '#/store/workflow';
 import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 
 export function useCanvasSelection(
-  connections: { value: { source: string; target: string }[] },
+  connections: ComputedRef<{ source: string; target: string }[]>,
   syncConnectionToNodeConfig: (conn: any, isAdd: boolean) => void,
   onNodeDeleted?: (nodeId: string) => void
 ) {
@@ -63,7 +63,6 @@ export function useCanvasSelection(
     const relatedConns = connections.value.filter(c => c.source === nodeId || c.target === nodeId);
     relatedConns.forEach(c => syncConnectionToNodeConfig(c, false));
     store.removeNode(nodeId);
-    connections.value = connections.value.filter(c => c.source !== nodeId && c.target !== nodeId);
     if (selectedNodeId.value === nodeId) {
       selectedNodeId.value = null;
       store.setSelectedNodeId(null);
@@ -92,10 +91,6 @@ export function useCanvasSelection(
         deletedFirstNodeId = id;
       }
     });
-
-    connections.value = connections.value.filter(c =>
-      !idsToDelete.includes(c.source) && !idsToDelete.includes(c.target)
-    );
 
     clearSelection();
     if (deletedFirstNodeId) {
