@@ -33,6 +33,13 @@ import { useNodeOperations } from './composables/useNodeOperations';
 const route = useRoute();
 const store = useWorkflowStore();
 
+// 从 URL 获取当前画布页绑定的项目ID，独立于全局 Store
+const canvasProjectId = computed(() => {
+  const urlProjectId = route.query.projectId as string;
+  if (urlProjectId) return Number(urlProjectId);
+  return store.projectId;
+});
+
 const {
   isPluginLoading,
   isMetaLoading,
@@ -173,6 +180,7 @@ const { handleSave, handleRun, handleClear, handleBack } = useWorkflowActions(
   workflowName,
   isLoading,
   isRunning,
+  canvasProjectId,
 );
 
 // ===== 节点操作 =====
@@ -207,7 +215,7 @@ watch(
 
 const currentProjectName = computed(() => {
   const project = store.projects.find(
-    (p: ProjectVO) => p.id === store.projectId,
+    (p: ProjectVO) => p.id === canvasProjectId.value,
   );
   return project?.projectName || '';
 });

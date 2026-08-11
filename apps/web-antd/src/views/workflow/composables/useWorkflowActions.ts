@@ -1,4 +1,4 @@
-import type { Ref } from 'vue';
+import type { ComputedRef, Ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 import { useWorkflowStore } from '#/store/workflow';
@@ -10,6 +10,7 @@ export function useWorkflowActions(
   workflowName: Ref<string>,
   isLoading: Ref<boolean>,
   isRunning: Ref<boolean>,
+  projectId: ComputedRef<number | null>,
 ) {
   const store = useWorkflowStore();
   const router = useRouter();
@@ -57,7 +58,7 @@ export function useWorkflowActions(
 
       const payload = buildFlowSavePayload(
         store.currentWorkflow,
-        store.projectId,
+        projectId.value ?? store.projectId,
         workflowName.value,
       );
 

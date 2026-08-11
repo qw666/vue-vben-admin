@@ -209,7 +209,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return workflows.value.find((w) => w.id === id);
   }
 
-  async function loadProjects() {
+  async function loadProjects(force = false) {
+    if (!force && projects.value.length > 0 && projectId.value != null) {
+      return;
+    }
     try {
       const data = await getProjectList();
       if (data && data.length > 0) {

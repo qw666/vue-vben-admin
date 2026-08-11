@@ -159,10 +159,24 @@ function handleCreate() {
     store.selectedFolderId,
   );
   store.setCurrentWorkflow(newWorkflow);
-  router.push('/shuzhiliu/workflow/editor');
+  const query: Record<string, string> = {};
+  if (store.projectId != null) {
+    query.projectId = String(store.projectId);
+  }
+  router.push({
+    path: '/shuzhiliu/workflow/editor',
+    query,
+  });
 }
 function handleEdit(workflowId: string) {
-  router.push(`/shuzhiliu/workflow/editor/${workflowId}`);
+  const query: Record<string, string> = {};
+  if (store.projectId != null) {
+    query.projectId = String(store.projectId);
+  }
+  router.push({
+    path: `/shuzhiliu/workflow/editor/${workflowId}`,
+    query,
+  });
 }
 async function handleRun(workflowId: string) {
   if (runningWorkflowId.value) return;
