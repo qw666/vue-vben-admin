@@ -280,20 +280,14 @@ export const AiChatNodeStrategy: FlowControlNodeStrategy = {
    * 保存前校验
    */
   validateConfig(config: Record<string, any>): null | string {
-    // provider 校验
-    if (!config.provider?.type) {
-      return '请选择 AI 供应商';
+    // 校验前端格式（与 node.data.config 中存储的格式一致）
+    if (!config.providerType) {
+      return '请选择 AI 引擎';
     }
-    if (!config.provider?.modelName || !config.provider.modelName.trim()) {
+    if (!config.modelName || !config.modelName.trim()) {
       return '请填写模型名称';
     }
-
-    // messages 校验
-    if (!config.messages || config.messages.length === 0) {
-      return '请至少添加一条用户提示词';
-    }
-    const userMessage = config.messages.find((m: any) => m.type === 'USER');
-    if (!userMessage || !userMessage.content || !userMessage.content.trim()) {
+    if (!config.userPrompt || !config.userPrompt.trim()) {
       return '请填写用户提示词';
     }
 
