@@ -621,35 +621,33 @@ function handleVisibilityChange() {
 </script>
 
 <template>
-  <Page>
-    <template #title>
-      <div class="flex items-center gap-4">
-        <span>项目</span>
-        <Select
-          v-model:value="localProjectId"
-          class="w-48"
-          placeholder="选择项目"
-          :loading="isLoading || executionStore.isOperationLoading"
-          :disabled="executionStore.isOperationLoading"
-          @change="handleProjectChange"
-          @focus="handleProjectFocus"
-        >
-          <Select.Option
-            v-for="project in workflowStore.projects"
-            :key="project.id"
-            :value="project.id"
-          >
-            {{ project.projectName }}
-          </Select.Option>
-        </Select>
-      </div>
-    </template>
-
+  <Page header-class="py-2">
     <Spin :spinning="executionStore.isOperationLoading">
       <!-- 搜索区域 -->
       <div class="mb-4 bg-card rounded-lg shadow-sm">
         <div class="px-6 py-4">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="flex items-center gap-2">
+              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">项目</label>
+              <Select
+                v-model:value="localProjectId"
+                class="flex-1"
+                placeholder="选择项目"
+                :loading="isLoading || executionStore.isOperationLoading"
+                :disabled="executionStore.isOperationLoading"
+                @change="handleProjectChange"
+                @focus="handleProjectFocus"
+              >
+                <Select.Option
+                  v-for="project in workflowStore.projects"
+                  :key="project.id"
+                  :value="project.id"
+                >
+                  {{ project.projectName }}
+                </Select.Option>
+              </Select>
+            </div>
+
             <div class="flex items-center gap-2">
               <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">流程名称</label>
               <Select

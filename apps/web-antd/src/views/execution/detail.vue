@@ -221,8 +221,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Page>
-    <template #title>执行详情</template>
+  <Page header-class="py-2 !items-center">
+    <template #title>
+      <div class="text-base font-semibold leading-none">执行详情</div>
+    </template>
 
     <template #extra>
       <button class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors" @click="goBack">

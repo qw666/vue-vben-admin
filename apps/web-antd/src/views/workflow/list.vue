@@ -2,7 +2,7 @@
 import { onMounted, watch, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { Select, Spin } from 'ant-design-vue';
+import { Spin } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
 import { useWorkflowStore } from '#/store/workflow';
@@ -46,25 +46,6 @@ watch(() => store.selectedFolderId, async (newId) => {
 
 <template>
   <Page content-class="flex h-full">
-    <template #title>
-      <div class="flex items-center gap-4">
-        <span>项目</span>
-        <Select
-          v-model:value="store.projectId"
-          class="w-48"
-          placeholder="选择项目"
-          :loading="isLoading"
-        >
-          <Select.Option
-            v-for="project in store.projects"
-            :key="project.id"
-            :value="project.id"
-          >
-            {{ project.projectName }}
-          </Select.Option>
-        </Select>
-      </div>
-    </template>
     <div v-if="isLoading" class="flex-1 flex items-center justify-center">
       <Spin size="large" tip="加载中...">
         <IconifyIcon icon="mdi:loading" :size="32" class="text-blue-500 animate-spin" />

@@ -389,6 +389,7 @@ watch(
   () => {
     if (!showModal.value) {
       selectedKeys.value = [];
+      store.setSelectedFolderId(null);
     }
   },
 );
@@ -439,37 +440,50 @@ function getAllMatchingKeys(folders: WorkflowFolder[], keyword: string, keys: st
     class="flex flex-col h-full bg-card border border-border text-foreground rounded-lg overflow-hidden"
   >
     <div class="px-3 pt-3 pb-0">
-      <Input
-        v-model:value="searchKeyword"
-        placeholder="搜索分组"
-        allow-clear
-      >
-        <template #prefix>
-          <IconifyIcon icon="mdi:magnify" :size="14" class="text-gray-400" />
-        </template>
-      </Input>
-      <div class="flex items-center justify-between mt-3 mb-3">
-        <h2 class="text-base font-semibold text-foreground">分组</h2>
-        <div class="flex items-center gap-1">
-          <Tooltip title="刷新">
-            <Button
-              type="text"
-              size="small"
-              @click="handleRefresh"
-            >
-              <IconifyIcon icon="mdi:refresh" :size="16" />
-            </Button>
-          </Tooltip>
-          <Tooltip title="新建文件夹">
-            <Button
-              type="text"
-              size="small"
-              @click="onCreateFolder()"
-            >
-              <IconifyIcon icon="mdi:plus" :size="16" />
-            </Button>
-          </Tooltip>
-        </div>
+      <div class="mb-4">
+        <Select
+          v-model:value="store.projectId"
+          class="w-full"
+          placeholder="选择项目"
+        >
+          <Select.Option
+            v-for="project in store.projects"
+            :key="project.id"
+            :value="project.id"
+          >
+            {{ project.projectName }}
+          </Select.Option>
+        </Select>
+      </div>
+      <div class="flex items-center gap-2 mb-4">
+        <Input
+          v-model:value="searchKeyword"
+          placeholder="搜索分组"
+          allow-clear
+          class="flex-1"
+        >
+          <template #prefix>
+            <IconifyIcon icon="mdi:magnify" :size="14" class="text-gray-400" />
+          </template>
+        </Input>
+        <Tooltip title="刷新">
+          <Button
+            type="text"
+            size="small"
+            @click="handleRefresh"
+          >
+            <IconifyIcon icon="mdi:refresh" :size="16" />
+          </Button>
+        </Tooltip>
+        <Tooltip title="新建文件夹">
+          <Button
+            type="text"
+            size="small"
+            @click="onCreateFolder()"
+          >
+            <IconifyIcon icon="mdi:plus" :size="16" />
+          </Button>
+        </Tooltip>
       </div>
     </div>
     <div class="flex-1 overflow-y-auto px-2 pb-2">
