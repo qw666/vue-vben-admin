@@ -14,6 +14,9 @@
  */
 
 import { forEachTaskField, findTaskField } from './taskFieldUtils';
+import { flowControlNodeRegistry } from './types';
+import { getFlowControlConfig } from '../config/workflow-node-config';
+import type { Workflow } from '#/types/workflow';
 
 // ============== 类型定义 ==============
 
@@ -353,4 +356,129 @@ export function getExcludeFields(
     });
   }
   return exclude.filter((f) => taskFields.includes(f));
+}
+
+// ============== 祖先容器查找 ==============
+
+/**
+ * 查找节点的所有祖先容器ID（递归向上查找）
+ * 用于：连接验证、权限检查等需要判断节点是否在任意容器内的场景
+ *
+ * @param workflow 工作流数据
+ * @param nodeId 节点ID
+ * @returns 所有祖先容器ID数组（从直接父容器到最外层）
+ */
+export function findAncestorContainerIds(
+  workflow: Workflow,
+  nodeId: string,
+): string[] {
+  const result: string[] = [];
+  const nodes = workflow.nodes || [];
+
+  // 构建快速查询索引：nodeId → 直接父容器ID
+  const childToParentMap = new Map<string, string>();
+
+  for (const node of nodes) {
+    if (!flowControlNodeRegistry.isFlowControlContainer(node.data.type)) continue;
+
+    const config = node.data.config || {};
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    const taskFields = flowControlConfig.taskFields || [];
+    const excludeFields = getExcludeFields(taskFields, flowControlConfig.ports?.output);
+
+    // 只遍历非排除字段（排除 next 等字段）
+    const activeFields = taskFields.filter(f => !excludeFields.includes(f));
+
+    // 遍历所有 activeFields，建立子节点→父容器的映射
+    for (const field of activeFields) {
+      forEachTaskField(config[field], (item) => {
+        if (item?.nodeId) {
+          childToParentMap.set(item.nodeId, node.id);
+        }
+      });
+    }
+  }
+
+  // 递归向上查找所有祖先容器
+  let currentId: string | undefined = nodeId;
+  const visited = new Set<string>();
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const parentId = childToParentMap.get(currentId);
+    if (parentId) {
+      result.push(parentId);
+      currentId = parentId;
+    } else {
+      break;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 节点在容器中的位置信息
+ */
+export interface ContainerLocation {
+  containerId: string;
+  field: string; // 所在字段名（如 'tasks', 'cases', 'errors', 'finally'）
+  caseKey?: string; // 仅对象字段（cases）有
+}
+
+/**
+ * 查找节点在哪个容器的哪个字段下（递归向上查找）
+ * 用于判断节点是否在特殊字段（如 finally、errors）下
+ *
+ * @param workflow 工作流数据
+ * @param nodeId 节点ID
+ * @returns 节点所在的容器位置信息数组（从直接父容器到最外层）
+ */
+export function findAncestorContainerLocations(
+  workflow: Workflow,
+  nodeId: string,
+): ContainerLocation[] {
+  const result: ContainerLocation[] = [];
+  const nodes = workflow.nodes || [];
+
+  // 构建快速查询索引：nodeId → 容器位置信息
+  const childToLocationMap = new Map<string, ContainerLocation>();
+
+  for (const node of nodes) {
+    if (!flowControlNodeRegistry.isFlowControlContainer(node.data.type)) continue;
+
+    const config = node.data.config || {};
+    const flowControlConfig = getFlowControlConfig(node.data.type);
+    const taskFields = flowControlConfig.taskFields || [];
+
+    // 遍历所有 taskFields（包括 finally、errors 等特殊字段）
+    for (const field of taskFields) {
+      forEachTaskField(config[field], (item, caseKey) => {
+        if (item?.nodeId) {
+          childToLocationMap.set(item.nodeId, {
+            containerId: node.id,
+            field,
+            caseKey,
+          });
+        }
+      });
+    }
+  }
+
+  // 递归向上查找所有祖先容器位置
+  let currentId: string | undefined = nodeId;
+  const visited = new Set<string>();
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const location = childToLocationMap.get(currentId);
+    if (location) {
+      result.push(location);
+      currentId = location.containerId;
+    } else {
+      break;
+    }
+  }
+
+  return result;
 }

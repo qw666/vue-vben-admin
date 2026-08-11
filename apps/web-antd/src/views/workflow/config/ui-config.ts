@@ -5,7 +5,7 @@ export const UI_CONFIG = {
     maxWidth: 600,
   },
   node: {
-    width: 140,
+    width: 144,
     height:40,
   },
   group: {

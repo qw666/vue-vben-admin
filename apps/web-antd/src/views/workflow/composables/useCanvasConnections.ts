@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { message } from 'ant-design-vue';
 import { useWorkflowStore } from '#/store/workflow';
 import type { WorkflowNode } from '#/types/workflow';
 import { UI_CONFIG } from '../config/ui-config';
@@ -10,6 +11,7 @@ import { flowControlNodeRegistry } from '../nodes/types';
 import { useFlowControlNode } from './useFlowControlNode';
 import { getGroupBounds } from './useCanvasPorts';
 import { findChildLocation } from '../nodes/containerNodeAccessor';
+import { validateConnection } from '../utils/connectionValidator';
 
 export function useCanvasConnections(
   nodeConfigForm?: NodeConfigForm,
@@ -86,6 +88,26 @@ export function useCanvasConnections(
           );
           
           if (!existingConnection) {
+            // 连接验证：检查业务规则
+            const workflow = store.currentWorkflow;
+            if (workflow) {
+              const validation = validateConnection(
+                workflow,
+                connectingFrom.value!,
+                targetNodeId,
+                connectingFromPortId.value || undefined,
+              );
+              if (!validation.valid) {
+                message.warning(validation.reason);
+                connectingFrom.value = null;
+                connectingFromPortId.value = null;
+                removeListener(document, 'mousemove', onMouseMove);
+                removeListener(document, 'mouseup', onMouseUp);
+                removeListener(document, 'mouseleave', onMouseLeave);
+                return;
+              }
+            }
+            
             const sourceNode = store.currentWorkflow?.nodes.find(n => n.id === connectingFrom.value);
             const isPortAllowMultipleConnections = (portId: string, node: any): boolean => {
               if (!node) return false;
