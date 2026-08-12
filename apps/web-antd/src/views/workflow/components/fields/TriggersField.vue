@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { SelectValue } from 'ant-design-vue/es/select';
 
-import { computed, ref, watch, onMounted, markRaw } from 'vue';
+import { computed, ref, watch, onMounted, nextTick, markRaw } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -78,15 +78,37 @@ const triggerOptions = computed(() => {
 
 const loadingMeta = ref<Record<string, boolean>>({});
 const triggerMetaCache = ref<Record<string, any>>({});
-const expandedTriggers = ref<Set<number>>(new Set());
+
+let keyCounter = 0;
+const triggerKeyMap = ref<Map<number, string>>(new Map());
+
+function getKeyForIndex(index: number): string {
+  if (!triggerKeyMap.value.has(index)) {
+    triggerKeyMap.value.set(index, `tk-${keyCounter++}`);
+  }
+  return triggerKeyMap.value.get(index)!;
+}
+
+const expandedTriggers = ref<Set<string>>(new Set());
+const manuallyCollapsed = ref<Set<string>>(new Set());
+
+function isExpanded(index: number): boolean {
+  return expandedTriggers.value.has(getKeyForIndex(index));
+}
 
 function toggleExpand(index: number) {
-  if (expandedTriggers.value.has(index)) {
-    expandedTriggers.value.delete(index);
+  const key = getKeyForIndex(index);
+  const newSet = new Set(expandedTriggers.value);
+  const newCollapsed = new Set(manuallyCollapsed.value);
+  if (newSet.has(key)) {
+    newSet.delete(key);
+    newCollapsed.add(key);
   } else {
-    expandedTriggers.value.add(index);
+    newSet.add(key);
+    newCollapsed.delete(key);
   }
-  expandedTriggers.value = new Set(expandedTriggers.value);
+  expandedTriggers.value = newSet;
+  manuallyCollapsed.value = newCollapsed;
 }
 
 async function loadTriggerMeta(triggerType: string) {
@@ -114,11 +136,18 @@ async function loadTriggerMeta(triggerType: string) {
 
 watch(() => props.nodeConfigForm[fieldKey.value], (triggers) => {
   if (triggers && Array.isArray(triggers)) {
-    for (const trigger of triggers) {
+    const newExpanded = new Set(expandedTriggers.value);
+    for (let i = 0; i < triggers.length; i++) {
+      const trigger = triggers[i];
+      const keyStr = getKeyForIndex(i);
+      if (trigger.type && !manuallyCollapsed.value.has(keyStr)) {
+        newExpanded.add(keyStr);
+      }
       if (trigger.type && !isFrontendTrigger(trigger.type) && !triggerMetaCache.value[trigger.type]) {
         loadTriggerMeta(trigger.type);
       }
     }
+    expandedTriggers.value = newExpanded;
   }
 }, { immediate: true });
 
@@ -130,13 +159,25 @@ onMounted(() => {
 
 function addTriggersItem() {
   emit('addTriggersItem', fieldKey.value);
+  nextTick(() => {
+    const triggers = props.nodeConfigForm[fieldKey.value] || [];
+    if (triggers.length > 0) {
+      const lastIndex = triggers.length - 1;
+      const keyStr = getKeyForIndex(lastIndex);
+      const newSet = new Set(expandedTriggers.value);
+      newSet.add(keyStr);
+      expandedTriggers.value = newSet;
+      const newCollapsed = new Set(manuallyCollapsed.value);
+      newCollapsed.delete(keyStr);
+      manuallyCollapsed.value = newCollapsed;
+    }
+  });
 }
 
 function updateField(index: number, key: string, value: any) {
   emit('updateTriggersField', fieldKey.value, index, key, value);
   if (key === 'type' && value) {
     loadTriggerMeta(value);
-    // Schedule 触发器自动添加 withSeconds: false
     if (value === 'idp_core_trigger_Schedule') {
       emit('updateTriggersField', fieldKey.value, index, 'withSeconds', false);
     }
@@ -145,6 +186,26 @@ function updateField(index: number, key: string, value: any) {
 
 function removeField(index: number) {
   emit('removeTriggersItem', fieldKey.value, index);
+  const newMap = new Map<number, string>();
+  const newExpanded = new Set(expandedTriggers.value);
+  const newCollapsed = new Set(manuallyCollapsed.value);
+  // Remove the deleted trigger's key from tracking sets
+  const removedKey = triggerKeyMap.value.get(index);
+  if (removedKey) {
+    newExpanded.delete(removedKey);
+    newCollapsed.delete(removedKey);
+  }
+  // Rebuild the index-to-key mapping (shift indices down)
+  for (const [idx, key] of triggerKeyMap.value) {
+    if (idx < index) {
+      newMap.set(idx, key);
+    } else if (idx > index) {
+      newMap.set(idx - 1, key);
+    }
+  }
+  triggerKeyMap.value = newMap;
+  expandedTriggers.value = newExpanded;
+  manuallyCollapsed.value = newCollapsed;
 }
 
 function getConfigComponent(type: string) {
@@ -206,7 +267,7 @@ function getConfigComponent(type: string) {
       <div style="display: flex; flex-direction: column; gap: 14px;">
         <div
           v-for="(trigger, index) in nodeConfigForm[fieldKey] || []"
-          :key="`${fieldKey }-trigger-${ index}`"
+          :key="`${fieldKey}-trigger-${getKeyForIndex(index)}`"
           style="
             display: flex;
             flex-direction: column;
@@ -219,7 +280,7 @@ function getConfigComponent(type: string) {
         >
           <div style="display: flex; gap: 8px; align-items: center; cursor: pointer;" @click="toggleExpand(index as number)">
             <IconifyIcon
-              :icon="expandedTriggers.has(index as number) ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+              :icon="isExpanded(index as number) ? 'mdi:chevron-down' : 'mdi:chevron-right'"
               :size="12"
               style="color: #9ca3af"
             />
@@ -241,7 +302,7 @@ function getConfigComponent(type: string) {
             </div>
           </div>
           <div
-            v-show="expandedTriggers.has(index as number)"
+            v-show="isExpanded(index as number)"
             style="display: flex; flex-direction: column; gap: 10px;"
           >
             <div style="display: flex; gap: 8px; align-items: center;">
@@ -291,7 +352,7 @@ function getConfigComponent(type: string) {
                 </Select.Option>
               </Select>
             </div>
-            <template v-if="trigger.type">
+            <div v-if="trigger.type" style="min-height: 60px;">
               <Spin v-if="!isFrontendTrigger(trigger.type) && loadingMeta[trigger.type]" tip="加载中..." style="display: block; margin: 16px auto;">
               </Spin>
               <component
@@ -301,8 +362,8 @@ function getConfigComponent(type: string) {
                 :schema="triggerMetaCache[trigger.type]?.formProperties"
                 @update-field="(key: string, value: any) => updateField(index as number, key, value)"
               />
-            </template>
-            <div v-else style="padding: 10px; color: #9ca3af; font-size: 12px;">
+            </div>
+            <div v-else style="padding: 10px; color: #9ca3af; font-size: 12px; min-height: 40px;">
               选择触发器类型以加载配置表单
             </div>
           </div>

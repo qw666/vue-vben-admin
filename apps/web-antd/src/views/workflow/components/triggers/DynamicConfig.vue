@@ -116,8 +116,8 @@ function renderField(key: string, prop: any) {
 }
 
 const visibleFields = computed(() => {
-  if (!props.schema?.properties) return [];
-  return Object.entries(props.schema.properties)
+  if (!props.schema) return [];
+  return Object.entries(props.schema)
     .filter(([key]) => !['conditions', 'inputs', 'pluginDefaultsRef'].includes(key))
     .map(([key, prop]) => ({
       key,

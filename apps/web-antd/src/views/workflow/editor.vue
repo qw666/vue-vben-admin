@@ -454,7 +454,6 @@ onUnmounted(() => {
           :is-open="isConfigPanelOpen"
           :width="configPanelWidth"
           :is-resizing="isResizing"
-          :is-meta-loading="isMetaLoading"
           :selected-node="selectedNode"
           :node-config-form="nodeConfigForm"
           :plugin-groups="pluginGroups"

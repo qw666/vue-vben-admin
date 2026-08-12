@@ -13,7 +13,6 @@ import { flowControlNodeRegistry } from '../nodes/FlowControlNodeRegistry';
 const props = defineProps<{
   currentNodeMeta: any;
   fieldRendererEvents: Record<string, any>;
-  isMetaLoading: boolean;
   isOpen: boolean;
   isResizing: boolean;
   nodeConfigForm: Record<string, any>;
@@ -100,10 +99,7 @@ function handleSaveConfig() {
         </Button>
       </div>
       <div class="flex-1 overflow-y-auto p-2">
-        <div v-if="isMetaLoading" class="flex items-center justify-center py-8">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-        <div v-else-if="!selectedNode" class="text-center text-gray-500 py-12">
+        <div v-if="!selectedNode" class="text-center text-gray-500 py-12">
           请选择一个节点
         </div>
         <div v-else :key="selectedNode?.id">
