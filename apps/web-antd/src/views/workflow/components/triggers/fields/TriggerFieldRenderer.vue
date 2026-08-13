@@ -14,6 +14,7 @@ import TriggerDateTimeField from './TriggerDateTimeField.vue';
 import TriggerTimeField from './TriggerTimeField.vue';
 import TriggerDateField from './TriggerDateField.vue';
 import TriggerMultiSelectField from './TriggerMultiSelectField.vue';
+import TriggerDurationField from './TriggerDurationField.vue';
 
 const props = defineProps<{
   field: any;
@@ -35,6 +36,7 @@ const componentMap: Record<string, any> = {
   TimePicker: TriggerTimeField,
   DatePicker: TriggerDateField,
   MultiSelect: TriggerMultiSelectField,
+  Duration: TriggerDurationField,
 };
 
 const fieldComponent = computed(() => {

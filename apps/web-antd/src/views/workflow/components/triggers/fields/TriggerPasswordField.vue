@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, inject, ref } from 'vue';
+import { computed, inject } from 'vue';
 
 import { Input, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
@@ -17,8 +17,6 @@ const value = computed({
   get: () => context.getValue(fieldKey.value),
   set: (val) => context.setValue(fieldKey.value, val),
 });
-
-const visible = ref(false);
 </script>
 
 <template>
@@ -35,7 +33,6 @@ const visible = ref(false);
     <Input.Password
       :value="value"
       :placeholder="field.props.placeholder || ''"
-      :visibility-toggle="false"
       @update:value="(val: any) => value = val"
     />
     <div v-if="field.props?.description" style="margin-top: 4px; font-size: 12px; color: #9ca3af;">

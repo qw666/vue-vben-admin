@@ -56,7 +56,8 @@ function resolveTriggerStringField(
       },
     };
   }
-  if (fieldSchema.$secret === true) {
+  // $secret 字段渲染为密码组件，但 username 除外（明文显示）
+  if (fieldSchema.$secret === true && fieldKey !== 'username') {
     return {
       type: 'Password',
       props: {
@@ -89,6 +90,15 @@ function resolveTriggerStringField(
       props: {
         ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
         placeholder: fieldSchema.description || '选择日期',
+      },
+    };
+  }
+  if (fieldSchema.format === 'duration') {
+    return {
+      type: 'Duration',
+      props: {
+        ...createFieldProps(fieldKey, fieldSchema, isRequired, value, onUpdate),
+        placeholder: fieldSchema.description || '设置时长',
       },
     };
   }
