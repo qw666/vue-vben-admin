@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { SelectValue } from 'ant-design-vue/es/select';
 
-import { computed, ref } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -36,6 +36,51 @@ const emit = defineEmits<{
 }>();
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
+
+let keyCounter = 0;
+const inputKeyMap = ref<Map<number, string>>(new Map());
+
+function getKeyForIndex(index: number): string {
+  if (!inputKeyMap.value.has(index)) {
+    inputKeyMap.value.set(index, `ik-${keyCounter++}`);
+  }
+  return inputKeyMap.value.get(index)!;
+}
+
+const expandedInputs = ref<Set<string>>(new Set());
+const manuallyCollapsed = ref<Set<string>>(new Set());
+
+function isExpanded(index: number): boolean {
+  return expandedInputs.value.has(getKeyForIndex(index));
+}
+
+function toggleExpand(index: number) {
+  const key = getKeyForIndex(index);
+  const newSet = new Set(expandedInputs.value);
+  const newCollapsed = new Set(manuallyCollapsed.value);
+  if (newSet.has(key)) {
+    newSet.delete(key);
+    newCollapsed.add(key);
+  } else {
+    newSet.add(key);
+    newCollapsed.delete(key);
+  }
+  expandedInputs.value = newSet;
+  manuallyCollapsed.value = newCollapsed;
+}
+
+watch(() => props.nodeConfigForm[fieldKey.value], (items) => {
+  if (items && Array.isArray(items)) {
+    const newExpanded = new Set(expandedInputs.value);
+    for (let i = 0; i < items.length; i++) {
+      const keyStr = getKeyForIndex(i);
+      if (!manuallyCollapsed.value.has(keyStr)) {
+        newExpanded.add(keyStr);
+      }
+    }
+    expandedInputs.value = newExpanded;
+  }
+}, { immediate: true });
 
 const inputTypes = [
   { value: 'STRING', label: 'STRING' },
@@ -82,6 +127,19 @@ const fieldLabels: Record<string, { label: string; tooltip: string }> = {
 
 function addInputsItem() {
   emit('addInputsItem', fieldKey.value);
+  nextTick(() => {
+    const items = props.nodeConfigForm[fieldKey.value] || [];
+    if (items.length > 0) {
+      const lastIndex = items.length - 1;
+      const keyStr = getKeyForIndex(lastIndex);
+      const newSet = new Set(expandedInputs.value);
+      newSet.add(keyStr);
+      expandedInputs.value = newSet;
+      const newCollapsed = new Set(manuallyCollapsed.value);
+      newCollapsed.delete(keyStr);
+      manuallyCollapsed.value = newCollapsed;
+    }
+  });
 }
 
 function updateField(index: number, key: string, value: any) {
@@ -90,6 +148,24 @@ function updateField(index: number, key: string, value: any) {
 
 function removeField(index: number) {
   emit('removeInputsItem', fieldKey.value, index);
+  const newMap = new Map<number, string>();
+  const newExpanded = new Set(expandedInputs.value);
+  const newCollapsed = new Set(manuallyCollapsed.value);
+  const removedKey = inputKeyMap.value.get(index);
+  if (removedKey) {
+    newExpanded.delete(removedKey);
+    newCollapsed.delete(removedKey);
+  }
+  for (const [idx, key] of inputKeyMap.value) {
+    if (idx < index) {
+      newMap.set(idx, key);
+    } else if (idx > index) {
+      newMap.set(idx - 1, key);
+    }
+  }
+  inputKeyMap.value = newMap;
+  expandedInputs.value = newExpanded;
+  manuallyCollapsed.value = newCollapsed;
 }
 
 function getControlType(type: string): string {
@@ -274,7 +350,7 @@ function getJsonValidationTip(value: string): string {
       <div style="display: flex; flex-direction: column; gap: 14px;">
         <div
           v-for="(item, index) in nodeConfigForm[fieldKey] || []"
-          :key="`${fieldKey}-inputs-${index}`"
+          :key="`${fieldKey}-inputs-${getKeyForIndex(index)}`"
           style="
             display: flex;
             flex-direction: column;
@@ -285,31 +361,37 @@ function getJsonValidationTip(value: string): string {
             border-radius: 6px;
           "
         >
-          <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="display: flex; gap: 8px; align-items: center; cursor: pointer;" @click="toggleExpand(index as number)">
+            <IconifyIcon
+              :icon="isExpanded(index as number) ? 'mdi:chevron-down' : 'mdi:chevron-right'"
+              :size="12"
+              style="color: #9ca3af"
+            />
             <span style="font-size: 12px; font-weight: 500; color: #6b7280;">字段 {{ (index as number) + 1 }}</span>
             <Tag v-if="item.type" :color="item.type === 'ARRAY' ? 'purple' : item.type === 'JSON' ? 'cyan' : item.type === 'BOOLEAN' ? 'green' : item.type === 'INT' || item.type === 'FLOAT' ? 'blue' : 'default'" style="margin: 0;">
               {{ item.type }}
             </Tag>
             <div style="flex: 1"></div>
             <Switch
-              v-model:checked="item.required"
+              :checked="item.required"
               @change="
                 (val: any) => updateField(index as number, 'required', val)
               "
               checked-children="必填"
               un-checked-children="选填"
+              size="small"
             />
             <Button
               type="text"
               size="small"
-              @click="removeField(index as number)"
+              @click.stop="removeField(index as number)"
               danger
             >
               <IconifyIcon icon="mdi:close" :size="12" />
             </Button>
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div v-show="isExpanded(index as number)" style="display: flex; flex-direction: column; gap: 10px;">
             <!-- ID -->
             <div style="display: flex; gap: 8px; align-items: center;">
               <div style="display: flex; align-items: center; width: 80px;">
