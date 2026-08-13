@@ -368,6 +368,12 @@ function getJsonValidationTip(value: string): string {
                     updateField(index as number, 'type', val);
                     // 切换类型时重置默认值
                     updateField(index as number, 'defaults', val === 'BOOLEAN' ? false : val === 'ARRAY' ? [] : '');
+                    // ARRAY 类型默认设置 itemType 为 STRING
+                    if (val === 'ARRAY') {
+                      updateField(index as number, 'itemType', 'STRING');
+                    } else {
+                      updateField(index as number, 'itemType', undefined);
+                    }
                   }
                 "
                 style="flex: 1"

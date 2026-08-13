@@ -8,7 +8,9 @@ import { IconifyIcon } from '@vben/icons';
 import {
   Button,
   Input,
+  InputNumber,
   Select,
+  Switch,
   Tooltip,
 } from 'ant-design-vue';
 
@@ -28,11 +30,10 @@ const emit = defineEmits<{
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
 const outputTypes = [
-  { value: 'ARRAY', label: 'ARRAY' },
-  { value: 'BOOLEAN', label: 'BOOLEAN' },
-  { value: 'FLOAT', label: 'FLOAT' },
-  { value: 'INT', label: 'INT' },
   { value: 'STRING', label: 'STRING' },
+  { value: 'INT', label: 'INT' },
+  { value: 'FLOAT', label: 'FLOAT' },
+  { value: 'BOOLEAN', label: 'BOOLEAN' },
   { value: 'JSON', label: 'JSON' },
 ];
 
@@ -51,12 +52,19 @@ const fieldLabels: Record<string, { label: string; tooltip: string }> = {
   },
 };
 
+function getControlType(type: string): string {
+  if (['INT', 'FLOAT'].includes(type)) return 'number';
+  if (type === 'BOOLEAN') return 'switch';
+  if (type === 'JSON') return 'json';
+  return 'input';
+}
+
 function addOutputItem() {
   const itemsSchema = {
     type: 'object',
     properties: {
       id: { type: 'string', title: '输出ID', description: '输出属性的名称', $required: true },
-      type: { type: 'string', title: '输出类型', description: '输出值的类型', enum: ['ARRAY', 'BOOLEAN', 'FLOAT', 'INT', 'STRING', 'JSON'], default: 'STRING', $required: true },
+      type: { type: 'string', title: '输出类型', description: '输出值的类型', enum: ['BOOLEAN', 'FLOAT', 'INT', 'STRING', 'JSON'], default: 'STRING', $required: true },
       value: { type: 'string', title: '输出值', description: '输出值', $required: true },
     },
   };
@@ -69,6 +77,27 @@ function updateField(index: number, key: string, value: any) {
 
 function removeField(index: number) {
   emit('removeArrayItem', fieldKey.value, index);
+}
+
+function handleTypeChange(index: number, val: SelectValue) {
+  emit('updateArrayItemValue', fieldKey.value, index, 'type', val);
+  emit('updateArrayItemValue', fieldKey.value, index, 'value', '');
+}
+
+// JSON 校验
+function validateJson(value: string): boolean {
+  if (!value || !value.trim()) return true;
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getJsonValidationTip(value: string): string {
+  if (!value || !value.trim()) return '';
+  return validateJson(value) ? 'JSON 格式正确' : 'JSON 格式不正确';
 }
 </script>
 
@@ -170,8 +199,7 @@ function removeField(index: number) {
               <Select
                 :value="item.type"
                 @change="
-                  (val: SelectValue) =>
-                    updateField(index as number, 'type', val)
+                  (val: SelectValue) => handleTypeChange(index as number, val)
                 "
                 style="flex: 1"
               >
@@ -193,12 +221,56 @@ function removeField(index: number) {
                   </span>
                 </Tooltip>
               </div>
-              <VarPicker
-                :value="item.value"
-                placeholder="例如: {{ outputs.mytask.value }}"
-                style="flex: 1"
-                @update:value="(val: string) => updateField(index as number, 'value', val)"
-              />
+              <template v-if="getControlType(item.type) === 'switch'">
+                <Switch
+                  :checked="!!item.value"
+                  @change="(val: any) => updateField(index as number, 'value', val)"
+                  checked-children="true"
+                  un-checked-children="false"
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'number'">
+                <InputNumber
+                  :value="item.value"
+                  @change="(val: any) => updateField(index as number, 'value', val)"
+                  placeholder="请输入数值"
+                  style="flex: 1"
+                  :step="item.type === 'FLOAT' ? 0.1 : 1"
+                />
+              </template>
+              <template v-else-if="getControlType(item.type) === 'json'">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+                  <Input.TextArea
+                    :value="item.value"
+                    @input="(e: any) => updateField(index as number, 'value', e.target.value)"
+                    placeholder='输入 JSON，如 {"key": "value"}'
+                    style="min-height: 60px"
+                    :auto-size="{ minRows: 2, maxRows: 4 }"
+                  />
+                  <div 
+                    v-if="item.value && !validateJson(item.value)" 
+                    style="font-size: 12px; color: #ef4444;"
+                  >
+                    <IconifyIcon icon="mdi:alert-circle" :size="12" style="margin-right: 4px; vertical-align: middle;" />
+                    JSON 格式不正确，请检查语法
+                  </div>
+                  <div 
+                    v-else-if="item.value && validateJson(item.value) && item.value.trim()" 
+                    style="font-size: 12px; color: #10b981;"
+                  >
+                    <IconifyIcon icon="mdi:check-circle" :size="12" style="margin-right: 4px; vertical-align: middle;" />
+                    {{ getJsonValidationTip(item.value) }}
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <VarPicker
+                  :value="item.value"
+                  placeholder="例如: {{ outputs.mytask.value }}"
+                  style="flex: 1"
+                  @update:value="(val: string) => updateField(index as number, 'value', val)"
+                />
+              </template>
             </div>
           </div>
         </div>
