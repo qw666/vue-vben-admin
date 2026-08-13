@@ -41,7 +41,7 @@ const emit = defineEmits<{
   (e: 'removeTriggersItem', fieldKey: string, index: number): void;
 }>();
 
-const { pluginGroupsCache, loadPlugins, loadPluginMeta } = usePluginMeta();
+const { pluginGroupsCache, loadPlugins, loadPluginMeta, pluginMetaCache } = usePluginMeta();
 
 const fieldKey = computed(() => props.field.props.key || props.field.key);
 
@@ -122,6 +122,8 @@ async function loadTriggerMeta(triggerType: string) {
     const meta = await loadPluginMeta(triggerType);
     if (meta) {
       triggerMetaCache.value[triggerType] = meta;
+      // 同时同步到全局 pluginMetaCache，确保 Start.node.ts 等能获取到
+      pluginMetaCache.value = { ...pluginMetaCache.value, [triggerType]: meta };
       return meta;
     }
   }
@@ -357,9 +359,10 @@ function getConfigComponent(type: string) {
               </Spin>
               <component
                 v-else
+                :key="`config-${getKeyForIndex(index as number)}`"
                 :is="getConfigComponent(trigger.type)"
                 :trigger="trigger"
-                :schema="triggerMetaCache[trigger.type]?.formProperties"
+                :meta="triggerMetaCache[trigger.type]"
                 @update-field="(key: string, value: any) => updateField(index as number, key, value)"
               />
             </div>

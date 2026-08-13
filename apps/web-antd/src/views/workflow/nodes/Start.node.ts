@@ -1,5 +1,36 @@
 import type { FlowControlNodeStrategy } from './types';
 import { flowControlNodeRegistry } from './types';
+import { usePluginMeta } from '../composables/usePluginMeta';
+
+/**
+ * 前端触发器的合法顶层属性（不在 schema 中但需要保留）
+ */
+const FRONTEND_TRIGGER_FIELDS = ['id', 'type', 'disabled', 'name', 'description'];
+
+/**
+ * 根据 schema 过滤 trigger 的顶层属性
+ * 有 meta 时使用白名单模式，没有 meta 时不过滤
+ */
+function filterTriggerBySchema(trigger: any): any {
+  const { pluginMetaCache } = usePluginMeta();
+  const meta = pluginMetaCache.value[trigger.type];
+  
+  // 没有 meta 时不过滤，返回原样
+  if (!meta?.formProperties) {
+    return { ...trigger };
+  }
+  
+  // 有 meta 时使用白名单模式
+  const validFields = new Set([...FRONTEND_TRIGGER_FIELDS, ...Object.keys(meta.formProperties)]);
+  const filtered: any = {};
+  for (const key of Object.keys(trigger)) {
+    if (validFields.has(key)) {
+      filtered[key] = trigger[key];
+    }
+  }
+  
+  return filtered;
+}
 
 export const StartNodeStrategy: FlowControlNodeStrategy = {
   nodeType: 'idp_core_flow_Start',
@@ -33,11 +64,29 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
   },
 
   deserializeConfig(config: Record<string, any>): Record<string, any> {
+    // 基于 schema 正确处理数据结构
+    const cleanedTriggers = Array.isArray(config.triggers) 
+      ? config.triggers.map((trigger: any) => {
+          // 1. 移除所有包含 '.' 的扁平键
+          let cleaned = {} as any;
+          Object.keys(trigger).forEach(key => {
+            if (!key.includes('.')) {
+              cleaned[key] = trigger[key];
+            }
+          });
+          
+          // 2. 基于 schema 过滤非法顶层属性
+          cleaned = filterTriggerBySchema(cleaned);
+          
+          return cleaned;
+        })
+      : [];
+      
     return {
       ...config,
       next: Array.isArray(config.next) ? [...config.next] : [],
       inputs: Array.isArray(config.inputs) ? [...config.inputs] : [],
-      triggers: Array.isArray(config.triggers) ? [...config.triggers] : [],
+      triggers: cleanedTriggers,
     };
   },
 
@@ -124,6 +173,31 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
 
   saveConfig(config: Record<string, any>, store: any): void {
     if (!store.currentWorkflow) return;
+    
+    // 基于 schema 过滤触发器属性，确保只有合法的顶层属性被保存
+    const cleanedTriggers = (config.triggers || []).map((trigger: any) => {
+      // 先清理扁平键（包含 '.' 的键）
+      let cleaned = {} as any;
+      Object.keys(trigger).forEach(key => {
+        if (!key.includes('.')) {
+          cleaned[key] = trigger[key];
+        }
+      });
+      
+      // 再基于 schema 过滤非法顶层属性
+      cleaned = filterTriggerBySchema(cleaned);
+      
+      // Schedule 触发器自动添加 withSeconds: false
+      if (cleaned.type === 'idp_core_trigger_Schedule') {
+        cleaned.withSeconds = false;
+      }
+      
+      return cleaned;
+    });
+    
+    store.currentWorkflow.triggers = cleanedTriggers;
+
+    // 处理 inputs
     const processedInputs = (config.inputs || [])
       .filter((input: any) => input.id && input.type)
       .map((input: any) => {
@@ -172,18 +246,6 @@ export const StartNodeStrategy: FlowControlNodeStrategy = {
         return result;
       });
     store.currentWorkflow.inputs = processedInputs;
-
-    // 处理 triggers：Schedule 触发器自动添加 withSeconds: false
-    const processedTriggers = (config.triggers || []).map((trigger: any) => {
-      if (trigger.type === 'idp_core_trigger_Schedule') {
-        return {
-          ...trigger,
-          withSeconds: false,
-        };
-      }
-      return trigger;
-    });
-    store.currentWorkflow.triggers = processedTriggers;
   },
 };
 

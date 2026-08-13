@@ -15,6 +15,9 @@ export interface SchemaNode {
   step?: number;
   $dynamic?: boolean;
   $required?: boolean;
+  $secret?: boolean;
+  $group?: string;
+  format?: string;
   const?: any;
   default?: any;
   additionalProperties?: SchemaNode;
@@ -58,7 +61,7 @@ export function initFormFieldValue(schema: SchemaNode, defs: Record<string, Sche
     case 'boolean':
       return false;
     case 'object':
-      return [];
+      return {};
     case 'array':
       return [];
     case 'string':
@@ -69,6 +72,56 @@ export function initFormFieldValue(schema: SchemaNode, defs: Record<string, Sche
     default:
       return undefined;
   }
+}
+
+/**
+ * 触发器专用的表单字段值初始化函数
+ * 与 initFormFieldValue 的区别：
+ * - type 检查优先于 anyOf 检查
+ * - 这是因为触发器的 anyOf 通常用于数组字段的子项类型选择
+ *   （如 Or 条件的 conditions 字段: { type: 'array', items: { anyOf: [...] } }）
+ *   此时应该根据 type 返回空数组，而不是根据 anyOf 返回 null
+ */
+export function initTriggerFieldValue(schema: SchemaNode, defs: Record<string, SchemaNode> = {}): any {
+  if (schema.$ref) {
+    const refSchema = internalResolveRef(schema.$ref, defs);
+    if (refSchema) {
+      return initTriggerFieldValue(refSchema, { ...defs, ...(refSchema.$defs || {}) });
+    }
+    return {};
+  }
+
+  // 触发器专用：type 检查优先于 anyOf 检查
+  if (schema.type) {
+    // 如果有 default 值，优先使用 default
+    if (schema.default !== undefined) {
+      return schema.default;
+    }
+    switch (schema.type) {
+      case 'boolean':
+        return false;
+      case 'object':
+        return {};
+      case 'array':
+        return [];
+      case 'string':
+        return '';
+      case 'number':
+      case 'integer':
+        return undefined;
+    }
+  }
+
+  // 只有当 schema 没有明确类型时，才检查 anyOf
+  if (schema.anyOf) {
+    return null;
+  }
+
+  if (schema.default !== undefined) {
+    return schema.default;
+  }
+
+  return undefined;
 }
 
 export function serializeFieldValue(schema: SchemaNode, value: any, defs: Record<string, SchemaNode> = {}): any {
