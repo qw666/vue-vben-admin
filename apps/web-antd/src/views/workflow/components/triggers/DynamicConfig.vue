@@ -60,7 +60,7 @@ provide('triggerFieldContext', context);
 
 <template>
   <div style="margin-top: 4px;">
-    <div v-if="renderedFields.length > 0" style="padding: 12px; background: #f9fafb; border-radius: 4px;">
+    <div v-if="renderedFields.length > 0" style="padding: 12px 0;">
       <div style="font-size: 12px; font-weight: 500; color: #6b7280; margin-bottom: 12px;">
         触发器配置
       </div>

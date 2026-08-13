@@ -226,7 +226,7 @@ function getConfigComponent(type: string) {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
       "
     >
       <label style="font-size: 14px; font-weight: 500; color: #374151">
@@ -323,7 +323,6 @@ function getConfigComponent(type: string) {
                 "
                 placeholder="触发器标识"
                 style="flex: 1"
-                size="small"
               />
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
@@ -342,7 +341,6 @@ function getConfigComponent(type: string) {
                     updateField(index as number, 'type', val)
                 "
                 style="flex: 1"
-                size="small"
               >
                 <Select.Option
                   v-for="option in triggerOptions"

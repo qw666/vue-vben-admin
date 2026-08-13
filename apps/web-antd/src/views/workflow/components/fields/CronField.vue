@@ -190,7 +190,6 @@ function handleDayOfWeekChange(val: string) {
         :value="scheduleType"
         @change="handleScheduleTypeChange"
         style="flex: 1"
-        size="small"
       >
         <Select.Option v-for="opt in scheduleTypeOptions" :key="opt.value" :value="opt.value">
           {{ opt.label }}
@@ -225,7 +224,6 @@ function handleDayOfWeekChange(val: string) {
         :value="dayOfWeek"
         @change="handleDayOfWeekChange"
         style="flex: 1"
-        size="small"
       >
         <Select.Option v-for="opt in weekOptions" :key="opt.value" :value="opt.value">
           {{ opt.label }}

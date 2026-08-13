@@ -113,7 +113,7 @@ function handleSaveConfig() {
 
           <!-- 配置区：由 NodeConfigRenderer 负责，自动选择专用组件或回退到 FieldRenderer -->
           <NodeConfigRenderer
-            class="mt-4"
+            class="mt-1"
             :node-type="currentNodeType"
             :node-config-form="nodeConfigForm"
             :required-fields="requiredFields"

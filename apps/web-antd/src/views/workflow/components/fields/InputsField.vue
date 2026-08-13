@@ -236,7 +236,7 @@ function getJsonValidationTip(value: string): string {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
       "
     >
       <label style="font-size: 14px; font-weight: 500; color: #374151">
@@ -298,7 +298,6 @@ function getJsonValidationTip(value: string): string {
               "
               checked-children="必填"
               un-checked-children="选填"
-              size="small"
             />
             <Button
               type="text"
@@ -328,7 +327,6 @@ function getJsonValidationTip(value: string): string {
                 "
                 placeholder="字段标识"
                 style="flex: 1"
-                size="small"
               />
             </div>
 
@@ -350,7 +348,6 @@ function getJsonValidationTip(value: string): string {
                 "
                 placeholder="显示名称"
                 style="flex: 1"
-                size="small"
               />
             </div>
 
@@ -374,7 +371,6 @@ function getJsonValidationTip(value: string): string {
                   }
                 "
                 style="flex: 1"
-                size="small"
               >
                 <Select.Option
                   v-for="t in inputTypes"
@@ -406,7 +402,6 @@ function getJsonValidationTip(value: string): string {
                   }
                 "
                 style="flex: 1"
-                size="small"
               >
                 <Select.Option
                   v-for="t in itemTypeOptions"
@@ -437,7 +432,6 @@ function getJsonValidationTip(value: string): string {
                     "
                     checked-children="是"
                     un-checked-children="否"
-                    size="small"
                   />
                 </template>
                 <template v-else-if="getControlType(item.type) === 'number'">
@@ -448,7 +442,6 @@ function getJsonValidationTip(value: string): string {
                     "
                     placeholder="请输入数值"
                     style="flex: 1"
-                    size="small"
                     :step="item.type === 'FLOAT' ? 0.1 : 1"
                   />
                 </template>
@@ -461,7 +454,6 @@ function getJsonValidationTip(value: string): string {
                     "
                     placeholder='输入 JSON，如 {"key": "value"}'
                     style="flex: 1; min-height: 80px"
-                    size="small"
                     :status="getJsonValidationStatus(item.defaults)"
                     :auto-size="{ minRows: 2, maxRows: 4 }"
                   />
@@ -478,7 +470,6 @@ function getJsonValidationTip(value: string): string {
                         :value="arrItem"
                         @input="(e: any) => updateArrayItemValue(index as number, arrIndex, e.target.value)"
                         :placeholder="`元素 ${arrIndex + 1}`"
-                        size="small"
                         style="flex: 1"
                       />
                       <InputNumber
@@ -487,7 +478,6 @@ function getJsonValidationTip(value: string): string {
                         @change="(val: any) => updateArrayItemValue(index as number, arrIndex, val)"
                         :step="getArrayItemInputType(item) === 'FLOAT' ? 0.1 : 1"
                         placeholder="数值"
-                        size="small"
                         style="flex: 1"
                       />
                       <Switch
@@ -496,7 +486,6 @@ function getJsonValidationTip(value: string): string {
                         @change="(val: any) => updateArrayItemValue(index as number, arrIndex, val)"
                         checked-children="true"
                         un-checked-children="false"
-                        size="small"
                       />
                       <Button
                         type="text"
@@ -521,7 +510,6 @@ function getJsonValidationTip(value: string): string {
                   <VarPicker
                     :value="item.defaults"
                     :placeholder="'默认值或选择变量'"
-                    size="small"
                     style="flex: 1"
                     @update:value="(val: string) => updateField(index as number, 'defaults', val)"
                   />

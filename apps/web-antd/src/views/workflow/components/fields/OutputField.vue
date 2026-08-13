@@ -156,7 +156,6 @@ function removeField(index: number) {
                 "
                 placeholder="字段标识"
                 style="flex: 1"
-                size="small"
               />
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
@@ -175,7 +174,6 @@ function removeField(index: number) {
                     updateField(index as number, 'type', val)
                 "
                 style="flex: 1"
-                size="small"
               >
                 <Select.Option
                   v-for="t in outputTypes"
@@ -198,7 +196,6 @@ function removeField(index: number) {
               <VarPicker
                 :value="item.value"
                 placeholder="例如: {{ outputs.mytask.value }}"
-                size="small"
                 style="flex: 1"
                 @update:value="(val: string) => updateField(index as number, 'value', val)"
               />

@@ -12,7 +12,7 @@ const emit = defineEmits<{
 
 <template>
   <div style="margin-top: 4px;">
-    <div style="padding: 12px; background: #f9fafb; border-radius: 4px;">
+    <div style="padding: 12px 0;">
       <div style="font-size: 12px; font-weight: 500; color: #6b7280; margin-bottom: 10px;">
         定时调度配置
       </div>

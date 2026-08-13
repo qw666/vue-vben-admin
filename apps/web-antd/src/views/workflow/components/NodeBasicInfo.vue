@@ -12,23 +12,23 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="space-y-3">
+  <div class="space-y-1">
     <div>
-      <div class="text-sm text-gray-500 mb-1">节点ID</div>
+      <div class="text-xs text-gray-500 mb-0.5">节点ID</div>
       <Input
         :value="props.node.id"
         :disabled="true"
       />
     </div>
     <div>
-      <div class="text-sm text-gray-500 mb-1">节点类型</div>
+      <div class="text-xs text-gray-500 mb-0.5">节点类型</div>
       <Input
         :value="nodeTypeDisplayName"
         :disabled="true"
       />
     </div>
     <div>
-      <div class="text-sm text-gray-500 flex items-center gap-1 mb-1">
+      <div class="text-xs text-gray-500 flex items-center gap-1 mb-0.5">
         <span>节点名称</span>
         <span class="text-red-500">*</span>
       </div>
