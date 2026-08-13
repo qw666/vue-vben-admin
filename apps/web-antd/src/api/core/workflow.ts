@@ -1,5 +1,5 @@
 import { requestClient } from '../request';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
 const BASE_URL = '/flow/plat';
 
@@ -179,16 +179,9 @@ export interface PluginOutputDef {
   condition?: string;
 }
 
-function getHeaders() {
-  return {
-    tenantId: 'tenant001',
-    loginUser: 'admin',
-  };
-}
-
 export async function addFolder(data: FolderAddRequest): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/folder/add`, data, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -196,7 +189,7 @@ export async function updateFolder(
   data: FolderUpdateRequest,
 ): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/folder/update`, data, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -208,7 +201,7 @@ export async function deleteFolder(
     `${BASE_URL}/folder/delete?id=${id}&projectId=${projectId}`,
     {},
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -220,7 +213,7 @@ export async function getFolderTree(
     `${BASE_URL}/folder/tree?projectId=${projectId}`,
     {},
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -230,7 +223,7 @@ export async function getProjectList(): Promise<ProjectVO[]> {
     `${BASE_URL}/project/list`,
     {},
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -242,14 +235,14 @@ export async function getFlowPage(
     `${BASE_URL}/flow/page`,
     data,
     {
-      headers: getHeaders(),
+      
     },
   );
 }
 
 export async function addFlow(data: FlowSaveDTO): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/flow/add`, data, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -258,7 +251,7 @@ export async function updateFlow(
   data: FlowSaveDTO,
 ): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/flow/update?id=${id}`, data, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -267,7 +260,7 @@ export async function deleteFlow(id: number): Promise<ApiResponse> {
     `${BASE_URL}/flow/delete?id=${id}`,
     {},
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -277,7 +270,7 @@ export async function getFlowDetail(id: number): Promise<FlowSaveDTO> {
     `${BASE_URL}/flow/detail?id=${id}`,
     {},
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -290,7 +283,7 @@ export async function getPluginTree(
     `${BASE_URL}/plugin/tree${params}`,
     {},
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -299,7 +292,7 @@ export async function getPluginMetaBatch(
   nodeTypes: string[],
 ): Promise<Record<string, PluginMetaDetailDTO>> {
   return requestClient.post(`${BASE_URL}/plugin/batch/meta`, nodeTypes, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -307,31 +300,19 @@ export async function requestToggleTrigger(
   flowId: number,
   triggerId: string,
   enabled: boolean,
-): Promise<boolean> {
-  try {
-    const result = await requestClient.post(
-      `${BASE_URL}/flow/trigger/toggle`,
-      {
-        flowId,
-        triggerId,
-        enabled,
-      },
-      {
-        headers: getHeaders(),
-      },
-    );
-    return result && result.code === 200;
-  } catch (error) {
-    console.error('Failed to toggle trigger:', error);
-    return false;
-  }
+): Promise<ApiResponse> {
+  return requestClient.post(`${BASE_URL}/flow/trigger/toggle`, {
+    flowId,
+    triggerId,
+    enabled,
+  });
 }
 
 export async function validateFlow(
   data: FlowSaveDTO,
 ): Promise<FlowValidateResultVO> {
   return requestClient.post(`${BASE_URL}/flow/validate`, data, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -353,7 +334,7 @@ export interface ExecutionBriefDTO {
 
 export async function runFlow(data: ExecutionTriggerRequest): Promise<ApiResponse> {
   return requestClient.post(`${BASE_URL}/execution/trigger`, data, {
-    headers: getHeaders(),
+    
   });
 }
 
@@ -371,7 +352,7 @@ export async function getFlowSelectList(
   if (keyword) params.keyword = keyword;
   return requestClient.get(`${BASE_URL}/flow/select`, {
     params,
-    headers: getHeaders(),
+    
   });
 }
 
@@ -386,7 +367,7 @@ export async function batchEnableFlow(
     `${BASE_URL}/flow/batch/enable?projectId=${projectId}`,
     flowIdList,
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -402,7 +383,7 @@ export async function batchDisableFlow(
     `${BASE_URL}/flow/batch/disable?projectId=${projectId}`,
     flowIdList,
     {
-      headers: getHeaders(),
+      
     },
   );
 }
@@ -420,23 +401,32 @@ export interface FlowImportResultDTO {
   failMsgList: string[];
 }
 
+async function requestRaw(url: string, options: RequestInit = {}): Promise<Response> {
+  const accessStore = useAccessStore();
+  const userStore = useUserStore();
+  const token = accessStore.accessToken;
+  const headers: Record<string, string> = {};
+  if (userStore.userInfo?.tenantId) headers['tenantId'] = userStore.userInfo.tenantId;
+  if (userStore.userInfo?.userId) headers['loginUser'] = userStore.userInfo.userId;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (options.headers) Object.assign(headers, options.headers);
+
+  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}${url}`, {
+    ...options,
+    headers,
+  });
+  if (!response.ok) throw new Error(`请求失败: HTTP ${response.status}`);
+  return response;
+}
+
 export async function exportFlows(
   data: FlowExportQuery,
 ): Promise<Blob> {
-  const accessStore = useAccessStore();
-  const token = accessStore.accessToken;
-  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}/flow/plat/flow/export`, {
+  const response = await requestRaw(`${BASE_URL}/flow/export`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json;charset=utf-8',
-      ...getHeaders(),
-      Authorization: token ? `Bearer ${token}` : '',
-    },
+    headers: { 'Content-Type': 'application/json;charset=utf-8' },
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    throw new Error(`导出失败: HTTP ${response.status}`);
-  }
   return response.blob();
 }
 
@@ -452,20 +442,10 @@ export async function importFlows(
   formData.append('folderId', String(folderId));
   formData.append('importMode', importMode);
 
-  const accessStore = useAccessStore();
-  const token = accessStore.accessToken;
-  const response = await fetch(`${import.meta.env.VITE_GLOB_API_URL}/flow/plat/flow/import`, {
+  const response = await requestRaw(`${BASE_URL}/flow/import`, {
     method: 'POST',
-    headers: {
-      ...getHeaders(),
-      Authorization: token ? `Bearer ${token}` : '',
-    },
     body: formData,
   });
-
-  if (!response.ok) {
-    throw new Error(`导入失败: HTTP ${response.status}`);
-  }
 
   const result = await response.json();
   return result.data || result;

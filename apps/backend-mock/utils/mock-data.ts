@@ -5,6 +5,8 @@ export interface UserInfo {
   roles: string[];
   username: string;
   homePath?: string;
+  userId?: string;
+  tenantId?: string;
 }
 
 export interface TimezoneOption {
@@ -18,6 +20,8 @@ export const MOCK_USERS: UserInfo[] = [
     password: '123456',
     realName: 'Vben',
     roles: ['super'],
+    userId: '1000',
+    tenantId: 'tenant001',
     username: 'vben',
   },
   {
@@ -25,6 +29,8 @@ export const MOCK_USERS: UserInfo[] = [
     password: '123456',
     realName: 'Admin',
     roles: ['admin'],
+    userId: '1001',
+    tenantId: 'tenant001',
     username: 'admin',
     homePath: '/dashboard/workspace',
   },
@@ -33,6 +39,8 @@ export const MOCK_USERS: UserInfo[] = [
     password: '123456',
     realName: 'Jack',
     roles: ['user'],
+    userId: '1002',
+    tenantId: 'tenant001',
     username: 'jack',
     homePath: '/dashboard/analytics',
   },

@@ -28,29 +28,6 @@ import {
 } from '#/api';
 import { generateFlowId } from '#/views/workflow/utils/idGenerator';
 
-const MOCK_PROJECTS: ProjectVO[] = [
-  {
-    id: 1,
-    projectName: '测试项目A1',
-    namespace: 'test-a1',
-    description: '测试项目A1',
-    createBy: 'admin',
-    createTime: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    projectName: '测试项目B2',
-    namespace: 'test-b2',
-    description: '测试项目B2',
-    createBy: 'admin',
-    createTime: new Date().toISOString(),
-  },
-];
-
-const MOCK_FOLDERS: WorkflowFolder[] = [
-  { id: 1, name: '默认文件夹', parentId: 0, sort: 1, children: [] },
-];
-
 export const useWorkflowStore = defineStore('workflow', () => {
   const workflows = ref<Workflow[]>([]);
   const folders = ref<WorkflowFolder[]>([]);
@@ -213,22 +190,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
     if (!force && projects.value.length > 0 && projectId.value != null) {
       return;
     }
-    try {
-      const data = await getProjectList();
-      if (data && data.length > 0) {
-        projects.value = data;
-        const found = projects.value.find((p) => p.id === projectId.value);
-        if (!found && projects.value[0]) {
-          projectId.value = projects.value[0].id;
-        }
-      } else {
-        projects.value = [...MOCK_PROJECTS];
-        projectId.value = projects.value[0]?.id ?? 1;
+    const data = await getProjectList();
+    if (data && data.length > 0) {
+      projects.value = data;
+      const found = projects.value.find((p) => p.id === projectId.value);
+      if (!found && projects.value[0]) {
+        projectId.value = projects.value[0].id;
       }
-    } catch (error) {
-      console.error('Failed to load projects:', error);
-      projects.value = [...MOCK_PROJECTS];
-      projectId.value = projects.value[0]?.id ?? 1;
     }
   }
 
@@ -263,16 +231,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
   }
 
   async function loadFolders() {
-    try {
-      const data = await getFolderTree(projectId.value);
-      folders.value =
-        data && data.length > 0
-          ? data.map((item: any) => transformFolder(item))
-          : [...MOCK_FOLDERS];
-    } catch (error) {
-      console.error('Failed to load folders:', error);
-      folders.value = [...MOCK_FOLDERS];
-    }
+    const data = await getFolderTree(projectId.value);
+    folders.value =
+      data && data.length > 0
+        ? data.map((item: any) => transformFolder(item))
+        : [];
   }
 
   async function createFolder(
@@ -519,23 +482,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  async function loadWorkflowDetail(id: string): Promise<any | null> {
-    try {
-      const numericId = Number.parseInt(id.replace('workflow-', ''));
-      if (!Number.isNaN(numericId)) {
-        const result = await getFlowDetail(numericId);
-        if (result && typeof result === 'object') {
-          if ('data' in result && result.data) {
-            return result.data;
-          }
-        }
-        return result;
-      }
-      return null;
-    } catch (error) {
-      console.error('Failed to load workflow detail:', error);
-      return null;
-    }
+  async function loadWorkflowDetail(id: string): Promise<FlowSaveDTO | null> {
+    const numericId = Number.parseInt(id.replace('workflow-', ''));
+    if (Number.isNaN(numericId)) return null;
+    return getFlowDetail(numericId);
   }
 
   function selectFolder(id: null | number) {

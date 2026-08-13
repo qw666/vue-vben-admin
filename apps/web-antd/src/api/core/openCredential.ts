@@ -1,12 +1,5 @@
 import { requestClient } from '#/api/request';
 
-function getHeaders() {
-  return {
-    tenantId: 'tenant001',
-    loginUser: 'admin',
-  };
-}
-
 /** 生成密钥请求 */
 export interface CreateCredentialReq {
   /** 项目ID */
@@ -42,7 +35,6 @@ export function createOrUpdateCredential(req: CreateCredentialReq) {
   return requestClient.post<ApiKeyOnlyResp>(
     '/flow/plat/open-credential/createOrUpdate',
     req,
-    { headers: getHeaders() },
   );
 }
 
@@ -52,6 +44,6 @@ export function createOrUpdateCredential(req: CreateCredentialReq) {
 export function getCredentialByFlow(projectId: number, flowId?: string) {
   return requestClient.get<CredentialResp>(
     '/flow/plat/open-credential/getByFlow',
-    { params: { projectId, flowId }, headers: getHeaders() },
+    { params: { projectId, flowId } },
   );
 }
