@@ -7,7 +7,7 @@ import { generateAccessible } from '@vben/access';
 import { preferences } from '@vben/preferences';
 
 import { BasicLayout, IFrameView } from '#/layouts';
-import { mockMenus } from '#/api/core/mockMenu';
+import { getAllMenusApi } from '#/api/core/menu';
 
 const forbiddenComponent = () => import('#/views/_core/fallback/forbidden.vue');
 
@@ -22,7 +22,7 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
   return await generateAccessible(preferences.app.accessMode, {
     ...options,
     fetchMenuListAsync: async () => {
-      return mockMenus;
+      return await getAllMenusApi();
     },
     // 可以指定没有权限跳转403页面
     forbiddenComponent,

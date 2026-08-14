@@ -12,7 +12,7 @@ import {
  */
 export const overridesPreferences = defineOverridesPreferences({
   app: {
-    accessMode: 'backend',
+    accessMode: 'mixed',
     defaultAvatar: avatarUrl,
     defaultHomePath: '/home',
     layout: 'sidebar-nav',

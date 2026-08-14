@@ -39,6 +39,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/workflow/editor.vue'),
         meta: {
           hideInMenu: true,
+          ignoreAccess: true,
           title: $t('page.execution.editor'),
         },
       },
@@ -57,6 +58,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/execution/detail.vue'),
         meta: {
           hideInMenu: true,
+          ignoreAccess: true,
           title: $t('page.execution.detail'),
         },
       },

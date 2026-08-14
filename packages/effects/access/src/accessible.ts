@@ -196,6 +196,11 @@ function mergeRoutesByName(
       const existingChildren = existing.children ?? [];
       const routeChildren = route.children ?? [];
 
+      // 收集需要保留的 ignoreAccess 子路由
+      const ignoreAccessChildren = (route.children || []).filter(
+        (child) => child.meta?.ignoreAccess,
+      );
+
       const merged = {
         ...route,
         ...existing, // keep backend as base
@@ -207,6 +212,15 @@ function mergeRoutesByName(
 
       if (existingChildren.length > 0 || routeChildren.length > 0) {
         merged.children = mergeRoutesByName(existingChildren, routeChildren);
+        // 确保 ignoreAccess 子路由始终存在
+        for (const ignoreChild of ignoreAccessChildren) {
+          const exists = merged.children?.some(
+            (c) => c.name === ignoreChild.name,
+          );
+          if (!exists) {
+            merged.children = [...(merged.children || []), ignoreChild];
+          }
+        }
       }
 
       Object.assign(existing, merged);

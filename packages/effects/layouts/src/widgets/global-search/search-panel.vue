@@ -214,9 +214,12 @@ watch(
 
 onMounted(() => {
   searchItems.value = mapTree(props.menus, (item) => {
+    const rawName = item?.name;
     return {
       ...item,
-      name: $t(item?.name),
+      name: typeof rawName === 'string' && rawName
+        ? $t(rawName)
+        : (rawName ?? ''),
     };
   });
   if (searchHistory.value.length > 0) {

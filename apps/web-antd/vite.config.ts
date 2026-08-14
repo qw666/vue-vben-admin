@@ -6,6 +6,7 @@ export default defineConfig(async () => {
     vite: {
       server: {
         proxy: {
+          // 流程编排相关接口（保持原路径）
           '/api/flow/plat': {
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/api\/flow\/plat/, '/flow/plat'),
@@ -21,6 +22,13 @@ export default defineConfig(async () => {
                 }
               });
             },
+          },
+          // 管理后台接口（新增 manager 前缀）
+          '/api/flow/plat/manager': {
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/api\/flow\/plat\/manager/, '/flow/plat/manager'),
+            target: 'http://localhost:8189',
+            ws: true,
           },
           '/api': {
             changeOrigin: true,
