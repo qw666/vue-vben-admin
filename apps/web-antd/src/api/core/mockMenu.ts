@@ -84,6 +84,16 @@ const mockMenus = [
     ],
   },
   {
+    name: 'ProjectManage',
+    path: '/project',
+    component: '/project/index',
+    meta: {
+      icon: 'mdi:folder-multiple-image',
+      order: 3,
+      title: '项目管理',
+    },
+  },
+  {
     name: 'Profile',
     path: '/profile',
     component: '/_core/profile/index',

@@ -20,7 +20,7 @@ import {
   getFlowDetail,
   getFlowPage,
   getFolderTree,
-  getProjectList,
+  listMyProjects,
   runFlow,
   updateFlow,
   updateFolder,
@@ -190,13 +190,20 @@ export const useWorkflowStore = defineStore('workflow', () => {
     if (!force && projects.value.length > 0 && projectId.value != null) {
       return;
     }
-    const data = await getProjectList();
-    if (data && data.length > 0) {
-      projects.value = data;
-      const found = projects.value.find((p) => p.id === projectId.value);
-      if (!found && projects.value[0]) {
-        projectId.value = projects.value[0].id;
+    try {
+      const data = await listMyProjects();
+      if (data && data.length > 0) {
+        projects.value = data as ProjectVO[];
+        const found = projects.value.find((p) => p.id === projectId.value);
+        if (!found && projects.value[0]) {
+          projectId.value = projects.value[0].id;
+        }
+      } else {
+        projects.value = [];
       }
+    } catch (e) {
+      console.error('Failed to load projects:', e);
+      projects.value = [];
     }
   }
 

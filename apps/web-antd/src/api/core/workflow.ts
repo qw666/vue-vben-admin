@@ -29,10 +29,11 @@ export interface FolderResponse {
 export interface ProjectVO {
   id: number;
   projectName: string;
-  namespace: string;
-  description: string;
-  createBy: string;
-  createTime: string;
+  namespace?: string;
+  description?: string;
+  createBy?: string;
+  createTime?: string;
+  userCount?: number;
 }
 
 export interface FlowVO {

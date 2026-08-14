@@ -17,8 +17,6 @@ import { message } from 'ant-design-vue';
 
 import { useAuthStore } from '#/store';
 
-import { refreshTokenApi } from './core';
-
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
@@ -50,7 +48,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
    */
   async function doRefreshToken() {
     const accessStore = useAccessStore();
-    const resp = await refreshTokenApi();
+    const resp = await baseRequestClient.post<{ data: string }>(
+      '/flow/plat/manager/auth/refresh',
+      { withCredentials: true },
+    );
     const newToken = resp.data;
     accessStore.setAccessToken(newToken);
     return newToken;
