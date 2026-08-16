@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -26,14 +26,35 @@ import {
 import ImportFlowDialog from './ImportFlowDialog.vue';
 import RunInputDialog from './RunInputDialog.vue';
 
+const route = useRoute();
 const router = useRouter();
 const store = useWorkflowStore();
-const searchInput = ref('');
-const startTime = ref<string | undefined>();
-const endTime = ref<string | undefined>();
-const currentPage = ref(1);
-const pageSize = ref(10);
+
+const searchInput = ref((route.query.keyword as string) || '');
+const startTime = ref<string | undefined>((route.query.startTime as string) || undefined);
+const endTime = ref<string | undefined>((route.query.endTime as string) || undefined);
+const currentPage = ref(Number(route.query.page) || 1);
+const pageSize = ref(Number(route.query.pageSize) || 10);
 const runningWorkflowId = ref<string | null>(null);
+
+function syncQueryToUrl() {
+  const query: Record<string, string> = { ...route.query };
+  if (searchInput.value) query.keyword = searchInput.value;
+  else delete query.keyword;
+  if (startTime.value) query.startTime = startTime.value;
+  else delete query.startTime;
+  if (endTime.value) query.endTime = endTime.value;
+  else delete query.endTime;
+  if (currentPage.value > 1) query.page = String(currentPage.value);
+  else delete query.page;
+  if (pageSize.value !== 10) query.pageSize = String(pageSize.value);
+  else delete query.pageSize;
+  router.replace({ path: route.path, query });
+}
+
+watch([searchInput, startTime, endTime, currentPage, pageSize], () => {
+  syncQueryToUrl();
+}, { flush: 'post' });
 
 // 输入对话框状态
 const showInputDialog = ref(false);
@@ -173,6 +194,11 @@ function handleEdit(workflowId: string) {
   if (store.projectId != null) {
     query.projectId = String(store.projectId);
   }
+  if (searchInput.value) query.keyword = searchInput.value;
+  if (startTime.value) query.startTime = startTime.value;
+  if (endTime.value) query.endTime = endTime.value;
+  if (currentPage.value > 1) query.page = String(currentPage.value);
+  if (pageSize.value !== 10) query.pageSize = String(pageSize.value);
   router.push({
     path: `/shuzhiliu/workflow/editor/${workflowId}`,
     query,

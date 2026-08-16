@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useWorkflowStore } from '#/store/workflow';
 import { flowControlNodeRegistry } from '../nodes/types';
 import { buildFlowSavePayload } from '../utils/flowModelConverter';
@@ -14,6 +14,7 @@ export function useWorkflowActions(
 ) {
   const store = useWorkflowStore();
   const router = useRouter();
+  const route = useRoute();
 
   async function handleSave() {
     isLoading.value = true;
@@ -120,7 +121,16 @@ export function useWorkflowActions(
 
   function handleBack() {
     store.setCurrentWorkflow(null);
-    router.push('/shuzhiliu/workflow/list');
+    const query: Record<string, string> = {};
+    const keys = ['projectId', 'keyword', 'startTime', 'endTime', 'page', 'pageSize'];
+    for (const key of keys) {
+      const val = route.query[key];
+      if (val) query[key] = String(val);
+    }
+    router.push({
+      path: '/shuzhiliu/workflow/list',
+      query: Object.keys(query).length > 0 ? query : undefined,
+    });
   }
 
   return {
