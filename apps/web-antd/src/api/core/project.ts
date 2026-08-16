@@ -57,7 +57,7 @@ export async function getProject(id: number) {
 }
 
 export async function listMyProjects() {
-  return requestClient.get<ProjectListItem[]>(`${BASE_URL}/project/my-list`);
+  return requestClient.post<ProjectListItem[]>(`${BASE_URL}/project/list`, {});
 }
 
 // ============ 项目-用户关联 ============

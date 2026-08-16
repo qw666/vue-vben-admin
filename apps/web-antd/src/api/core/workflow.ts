@@ -26,16 +26,6 @@ export interface FolderResponse {
   children?: FolderResponse[];
 }
 
-export interface ProjectVO {
-  id: number;
-  projectName: string;
-  namespace?: string;
-  description?: string;
-  createBy?: string;
-  createTime?: string;
-  userCount?: number;
-}
-
 export interface FlowVO {
   id: number;
   projectId: number;
@@ -212,16 +202,6 @@ export async function getFolderTree(
 ): Promise<FolderResponse[]> {
   return requestClient.post(
     `${BASE_URL}/folder/tree?projectId=${projectId}`,
-    {},
-    {
-      
-    },
-  );
-}
-
-export async function getProjectList(): Promise<ProjectVO[]> {
-  return requestClient.post(
-    `${BASE_URL}/project/list`,
     {},
     {
       
