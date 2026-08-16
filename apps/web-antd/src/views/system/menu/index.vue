@@ -61,6 +61,10 @@ watch(
 );
 
 // 根据 path 和 type 推断 component
+// 统一规则：component = 去掉父路径 + /index
+// - catalog: BasicLayout
+// - 一级菜单: /home -> /home/index
+// - 二级菜单: /system/user -> /user/index
 function inferComponent(path: string, type: string): string {
   if (!path) return '';
   if (type === 'catalog') {
@@ -68,7 +72,10 @@ function inferComponent(path: string, type: string): string {
   }
   if (type === 'menu') {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    return `${normalizedPath}/index`;
+    const segments = normalizedPath.split('/').filter(Boolean);
+    // 去掉第一段父路径，剩余部分 + /index
+    const childParts = segments.length > 1 ? segments.slice(1) : segments;
+    return `/${childParts.join('/')}/index`;
   }
   return '';
 }

@@ -127,11 +127,23 @@ function useMixedMenu() {
    * @param path 路由路径
    */
   function calcSideMenus(path: string = route.path) {
-    let { rootMenu } = findRootMenuByPath(menus.value, path);
-    if (!rootMenu) {
-      rootMenu = menus.value.find((item) => item.path === path);
+    const currentPath = route?.meta?.activePath ?? route?.meta?.link ?? path;
+    const menusData = menus.value;
+
+    // 如果菜单数据为空，重置状态
+    if (!menusData || menusData.length === 0) {
+      rootMenuPath.value = '';
+      splitSideMenus.value = [];
+      mixedRootMenuPath.value = '';
+      mixExtraMenus.value = [];
+      return;
     }
-    const result = findRootMenuByPath(rootMenu?.children || [], path, 1);
+
+    let { rootMenu } = findRootMenuByPath(menusData, currentPath);
+    if (!rootMenu) {
+      rootMenu = menusData.find((item) => item.path === currentPath);
+    }
+    const result = findRootMenuByPath(rootMenu?.children || [], currentPath, 1);
     mixedRootMenuPath.value = result.rootMenuPath ?? '';
     mixExtraMenus.value = result.rootMenu?.children ?? [];
     rootMenuPath.value = rootMenu?.path ?? '';
@@ -150,6 +162,17 @@ function useMixedMenu() {
         defaultSubMap.set(rootMenuPath.value, currentPath);
     },
     { immediate: true },
+  );
+
+  // 监听菜单数据变化，确保登录后菜单更新时能正确计算侧边菜单
+  watch(
+    () => accessStore.accessMenus,
+    (newMenus) => {
+      if (newMenus && newMenus.length > 0) {
+        calcSideMenus(route.meta?.activePath || route.path);
+      }
+    },
+    { deep: true },
   );
 
   // 初始化计算侧边菜单

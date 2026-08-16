@@ -87,6 +87,22 @@ function setupAccessGuard(router: Router) {
 
     // 是否已经生成过动态路由
     if (accessStore.isAccessChecked) {
+      // 检查目标路径是否在已注册的路由中
+      // 使用 router.resolve 检查路由是否能被正确解析
+      const resolvedRoute = router.resolve(to.fullPath);
+      const is404Route = resolvedRoute.matched.some(
+        (record) => record.name === 'FallbackNotFound',
+      );
+
+      // 如果路由解析为404兜底路由，跳转到首页
+      if (
+        is404Route &&
+        to.path !== '/404' &&
+        to.path !== preferences.app.defaultHomePath
+      ) {
+        return preferences.app.defaultHomePath;
+      }
+
       return true;
     }
 

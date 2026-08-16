@@ -63,34 +63,51 @@ function convertRoutes(
   routes: RouteRecordStringComponent[],
   layoutMap: ComponentRecordType,
   pageMap: ComponentRecordType,
+  parent: any = null,
 ): RouteRecordRaw[] {
-  return mapTree(routes, (node) => {
-    const route = node as unknown as RouteRecordRaw;
-    const { component, name } = node;
+  return mapTree(
+    routes,
+    (node, currentParent) => {
+      const route = node as unknown as RouteRecordRaw & {
+        parent?: string;
+        parents?: string[];
+      };
+      const { component, name } = node;
 
-    if (!name) {
-      console.error('route name is required', route);
-    }
-
-    // layout转换
-    if (component && layoutMap[component]) {
-      route.component = layoutMap[component];
-      // 页面组件转换
-    } else if (component) {
-      const normalizePath = normalizeViewPath(component);
-      const pageKey = normalizePath.endsWith('.vue')
-        ? normalizePath
-        : `${normalizePath}.vue`;
-      if (pageMap[pageKey]) {
-        route.component = pageMap[pageKey];
-      } else {
-        console.error(`route component is invalid: ${pageKey}`, route);
-        route.component = pageMap['/_core/fallback/not-found.vue'];
+      if (!name) {
+        console.error('route name is required', route);
       }
-    }
 
-    return route;
-  });
+      // 设置 parents 属性，用于菜单查找根路径
+      if (currentParent) {
+        const parentPath = currentParent.path || '';
+        route.parents = [...(currentParent.parents ?? []), parentPath];
+        route.parent = parentPath;
+      } else {
+        route.parents = [];
+        route.parent = '';
+      }
+
+      // layout转换
+      if (component && layoutMap[component]) {
+        route.component = layoutMap[component];
+        // 页面组件转换
+      } else if (component) {
+        const pageKey = normalizeViewPath(component);
+        const withExt = pageKey.endsWith('.vue') ? pageKey : `${pageKey}.vue`;
+        if (pageMap[withExt]) {
+          route.component = pageMap[withExt];
+        } else {
+          console.error(`route component is invalid: ${withExt}`, route);
+          route.component = pageMap['/_core/fallback/not-found.vue'];
+        }
+      }
+
+      return route;
+    },
+    undefined,
+    parent,
+  );
 }
 
 function normalizeViewPath(path: string): string {
@@ -105,4 +122,5 @@ function normalizeViewPath(path: string): string {
   // 这里耦合了vben-admin的目录结构
   return viewPath.replace(/^\/views/, '');
 }
+
 export { generateRoutesByBackend };

@@ -1,18 +1,29 @@
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue';
-import dayjs from 'dayjs';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
-import { Table, Select, DatePicker, Button, Tag, Spin, Tooltip, Modal, Radio, Dropdown } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
-import { useRouter } from 'vue-router';
 import { usePreferences } from '@vben/preferences';
 
-import LogModal from './components/LogModal.vue';
+import {
+  Button,
+  DatePicker,
+  Dropdown,
+  Modal,
+  Radio,
+  Select,
+  Spin,
+  Table,
+  Tooltip,
+} from 'ant-design-vue';
+import dayjs from 'dayjs';
 
+import { getFlowSelectList } from '#/api/core/workflow';
 import { useExecutionStore } from '#/store/execution';
 import { useWorkflowStore } from '#/store/workflow';
-import { getFlowSelectList } from '#/api/core/workflow';
+
+import LogModal from '../components/LogModal.vue';
 
 const router = useRouter();
 const executionStore = useExecutionStore();
@@ -27,10 +38,10 @@ const dateRange = ref<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
 const startDate = ref<dayjs.Dayjs | null>(null);
 const endDate = ref<dayjs.Dayjs | null>(null);
 const isLoading = ref(true);
-const localProjectId = ref<number | null>(null);
+const localProjectId = ref<null | number>(null);
 
 // 流程名称远程搜索
-const flowOptions = ref<{ flowId: string; description: string }[]>([]);
+const flowOptions = ref<{ description: string; flowId: string; }[]>([]);
 const flowSearchLoading = ref(false);
 let flowSearchTimer: null | ReturnType<typeof setTimeout> = null;
 
@@ -91,41 +102,41 @@ const columnVisibilityOptions = [
 const visibleColumns = computed(() => {
   const cols = [...columns];
   if (!columnVisibility.value.id) {
-    const idx = cols.findIndex(c => c.dataIndex === 'id');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.dataIndex === 'id');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.flowName) {
-    const idx = cols.findIndex(c => c.dataIndex === 'flowName');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.dataIndex === 'flowName');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.trigger) {
-    const idx = cols.findIndex(c => c.dataIndex === 'trigger');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.dataIndex === 'trigger');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.state) {
-    const idx = cols.findIndex(c => c.dataIndex === 'state');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.dataIndex === 'state');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   // 注意：开始时间、结束时间、耗时使用相同的dataIndex 'state'，需要用title区分
   if (!columnVisibility.value.startTime) {
-    const idx = cols.findIndex(c => c.title === '开始时间');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.title === '开始时间');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.endTime) {
-    const idx = cols.findIndex(c => c.title === '结束时间');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.title === '结束时间');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.duration) {
-    const idx = cols.findIndex(c => c.title === '耗时');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.title === '耗时');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.log) {
-    const idx = cols.findIndex(c => c.dataIndex === 'log');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.dataIndex === 'log');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   if (!columnVisibility.value.action) {
-    const idx = cols.findIndex(c => c.dataIndex === 'action');
-    if (idx > -1) cols.splice(idx, 1);
+    const idx = cols.findIndex((c) => c.dataIndex === 'action');
+    if (idx !== -1) cols.splice(idx, 1);
   }
   return cols;
 });
@@ -158,7 +169,7 @@ const logExecutionId = ref('');
 const logFlowId = ref('');
 const logState = ref('');
 
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let refreshTimer: null | ReturnType<typeof setInterval> = null;
 
 const stateOptions = [
   { value: 'RUNNING', label: '运行中' },
@@ -244,11 +255,11 @@ function formatDuration(duration: string | undefined): string {
   if (!duration) return '-';
   const match = duration.match(/PT((\d+)H)?((\d+)M)?((\d+\.\d+)?S)?/);
   if (!match) return duration;
-  
-  const hours = parseInt(match[2] || '0');
-  const minutes = parseInt(match[4] || '0');
-  const seconds = parseFloat(match[6] || '0');
-  
+
+  const hours = Number.parseInt(match[2] || '0');
+  const minutes = Number.parseInt(match[4] || '0');
+  const seconds = Number.parseFloat(match[6] || '0');
+
   if (hours > 0) {
     const totalSeconds = minutes * 60 + seconds;
     const displayMinutes = Math.floor(totalSeconds / 60);
@@ -262,7 +273,7 @@ function formatDuration(duration: string | undefined): string {
     }
     return `${hours}h`;
   }
-  
+
   if (minutes > 0) {
     const secs = Math.round(seconds);
     if (secs > 0) {
@@ -270,20 +281,20 @@ function formatDuration(duration: string | undefined): string {
     }
     return `${minutes}m`;
   }
-  
+
   if (seconds < 1) {
     return `${Math.round(seconds * 1000)}ms`;
   }
-  
+
   return `${Math.round(seconds)}s`;
 }
 
 function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return '-';
   let normalizedDateStr = dateStr;
-  const lastPart = dateStr.slice(-6);
-  if (!dateStr.endsWith('Z') && !lastPart.includes('+') && !lastPart.includes('-')) {
-    normalizedDateStr = dateStr + 'Z';
+  const lastPart = new Set(dateStr.slice(-6));
+  if (!dateStr.endsWith('Z') && !lastPart.has('+') && !lastPart.has('-')) {
+    normalizedDateStr = `${dateStr}Z`;
   }
   const date = new Date(normalizedDateStr);
   return date.toLocaleString('zh-CN', {
@@ -343,7 +354,11 @@ function getStateLabel(state: string): string {
   return labelMap[state] || state;
 }
 
-function getActionButtonClass(enabled: boolean, color: string, _gray: string): string {
+function getActionButtonClass(
+  enabled: boolean,
+  color: string,
+  _gray: string,
+): string {
   if (!enabled) {
     return '!text-gray-300 !bg-transparent cursor-not-allowed rounded-full w-6 h-6 flex items-center justify-center';
   }
@@ -385,18 +400,27 @@ async function loadData(isAutoRefresh = false) {
   const pid = localProjectId.value ?? workflowStore.projectId;
   const start = dateRange.value ? dateRange.value[0] : null;
   const end = dateRange.value ? dateRange.value[1] : null;
-  await executionStore.loadExecutions({
-    page: currentPage.value,
-    size: pageSize.value,
-    projectId: pid,
-    flowId: selectedFlowId.value || undefined,
-    startDate: start ? dayjs(start).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
-    endDate: end ? dayjs(end).utc().format('YYYY-MM-DDTHH:mm:ss[Z]') : undefined,
-    state: selectedStates.value.length > 0 ? selectedStates.value : undefined,
-  }, isAutoRefresh);
-  
+  await executionStore.loadExecutions(
+    {
+      page: currentPage.value,
+      size: pageSize.value,
+      projectId: pid,
+      flowId: selectedFlowId.value || undefined,
+      startDate: start
+        ? dayjs(start).utc().format('YYYY-MM-DDTHH:mm:ss[Z]')
+        : undefined,
+      endDate: end
+        ? dayjs(end).utc().format('YYYY-MM-DDTHH:mm:ss[Z]')
+        : undefined,
+      state: selectedStates.value.length > 0 ? selectedStates.value : undefined,
+    },
+    isAutoRefresh,
+  );
+
   if (executionStore.executions && executionStore.executions.length > 0) {
-    const hasRunning = executionStore.executions.some(e => e && e.state && e.state.current === 'RUNNING');
+    const hasRunning = executionStore.executions.some(
+      (e) => e && e.state && e.state.current === 'RUNNING',
+    );
     toggleAutoRefresh(hasRunning);
   } else {
     toggleAutoRefresh(false);
@@ -424,7 +448,7 @@ const pageList = computed(() => {
   const total = totalPages.value;
   const current = currentPage.value;
   const pages: (number | string)[] = [];
-  
+
   if (total <= 7) {
     for (let i = 1; i <= total; i++) {
       pages.push(i);
@@ -444,7 +468,7 @@ const pageList = computed(() => {
     }
     pages.push(total);
   }
-  
+
   return pages;
 });
 
@@ -527,7 +551,7 @@ async function handleResume(executionId: string) {
   await loadData();
 }
 
-function handleDateChange(date: any, type: 'start' | 'end') {
+function handleDateChange(date: any, type: 'end' | 'start') {
   if (date) {
     if (type === 'start') {
       startDate.value = dayjs(date);
@@ -565,26 +589,26 @@ onMounted(async () => {
       await workflowStore.loadProjects();
     }
     localProjectId.value = workflowStore.projectId;
-    await Promise.all([
-      searchFlows(''),
-      loadData(),
-    ]);
+    await Promise.all([searchFlows(''), loadData()]);
   } finally {
     isLoading.value = false;
   }
   document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
-watch(() => workflowStore.projectId, (newVal) => {
-  if (localProjectId.value !== newVal) {
-    localProjectId.value = newVal;
-    currentPage.value = 1;
-    selectedFlowId.value = '';
-    flowOptions.value = [];
-    searchFlows('');
-    loadData();
-  }
-});
+watch(
+  () => workflowStore.projectId,
+  (newVal) => {
+    if (localProjectId.value !== newVal) {
+      localProjectId.value = newVal;
+      currentPage.value = 1;
+      selectedFlowId.value = '';
+      flowOptions.value = [];
+      searchFlows('');
+      loadData();
+    }
+  },
+);
 
 onUnmounted(() => {
   if (refreshTimer) {
@@ -612,7 +636,9 @@ function handleVisibilityChange() {
       refreshTimer = null;
     }
   } else {
-    const hasRunning = executionStore.executions.some(e => e && e.state && e.state.current === 'RUNNING');
+    const hasRunning = executionStore.executions.some(
+      (e) => e && e.state && e.state.current === 'RUNNING',
+    );
     if (hasRunning) {
       toggleAutoRefresh(true);
     }
@@ -628,7 +654,11 @@ function handleVisibilityChange() {
         <div class="px-6 py-4">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div class="flex items-center gap-2">
-              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">项目</label>
+              <label
+                class="text-sm whitespace-nowrap w-16 text-right" :class="[
+                  isDark ? 'text-white/80' : 'text-gray-600',
+                ]"
+                >项目</label>
               <Select
                 v-model:value="localProjectId"
                 class="flex-1"
@@ -649,13 +679,17 @@ function handleVisibilityChange() {
             </div>
 
             <div class="flex items-center gap-2">
-              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">流程名称</label>
+              <label
+                class="text-sm whitespace-nowrap w-16 text-right" :class="[
+                  isDark ? 'text-white/80' : 'text-gray-600',
+                ]"
+                >流程名称</label>
               <Select
                 v-model:value="selectedFlowId"
                 show-search
                 placeholder="请输入流程名称搜索"
                 class="flex-1"
-                allowClear
+                allow-clear
                 :filter-option="false"
                 :loading="flowSearchLoading"
                 :disabled="executionStore.isOperationLoading"
@@ -672,13 +706,17 @@ function handleVisibilityChange() {
             </div>
 
             <div class="flex items-center gap-2">
-              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">状态</label>
+              <label
+                class="text-sm whitespace-nowrap w-16 text-right" :class="[
+                  isDark ? 'text-white/80' : 'text-gray-600',
+                ]"
+                >状态</label>
               <Select
                 v-model:value="selectedStates"
                 placeholder="请选择"
                 class="flex-1"
                 mode="multiple"
-                allowClear
+                allow-clear
                 :disabled="executionStore.isOperationLoading"
               >
                 <Select.Option
@@ -692,7 +730,11 @@ function handleVisibilityChange() {
             </div>
 
             <div class="flex items-center gap-2 lg:col-span-2">
-              <label :class="['text-sm whitespace-nowrap w-16 text-right', isDark ? 'text-white/80' : 'text-gray-600']">启动时间</label>
+              <label
+                class="text-sm whitespace-nowrap w-16 text-right" :class="[
+                  isDark ? 'text-white/80' : 'text-gray-600',
+                ]"
+                >启动时间</label>
               <DatePicker.RangePicker
                 v-model:value="dateRange"
                 class="flex-1"
@@ -701,10 +743,17 @@ function handleVisibilityChange() {
                 :placeholder="['开始时间', '结束时间']"
                 :disabled="executionStore.isOperationLoading"
               />
-              <Button type="primary" @click="loadData" :disabled="executionStore.isOperationLoading">
+              <Button
+                type="primary"
+                @click="loadData"
+                :disabled="executionStore.isOperationLoading"
+              >
                 搜索
               </Button>
-              <Button @click="resetSearch" :disabled="executionStore.isOperationLoading">
+              <Button
+                @click="resetSearch"
+                :disabled="executionStore.isOperationLoading"
+              >
                 重置
               </Button>
             </div>
@@ -714,8 +763,15 @@ function handleVisibilityChange() {
 
       <!-- 表格区域 -->
       <div class="bg-card rounded-lg shadow-sm">
-        <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100">
-          <div class="text-base font-semibold" :class="isDark ? 'text-white' : 'text-gray-800'">执行记录</div>
+        <div
+          class="px-6 py-4 flex items-center justify-between border-b border-gray-100"
+        >
+          <div
+            class="text-base font-semibold"
+            :class="isDark ? 'text-white' : 'text-gray-800'"
+          >
+            执行记录
+          </div>
           <div class="flex items-center gap-2">
             <!-- 列筛选按钮 -->
             <Dropdown
@@ -740,7 +796,11 @@ function handleVisibilityChange() {
                   >
                     <span
                       class="w-4 h-4 border rounded flex items-center justify-center"
-                      :class="columnVisibility[option.key] ? 'bg-primary border-primary' : 'border-gray-300'"
+                      :class="
+                        columnVisibility[option.key]
+                          ? 'bg-primary border-primary'
+                          : 'border-gray-300'
+                      "
                     >
                       <IconifyIcon
                         v-if="columnVisibility[option.key]"
@@ -749,7 +809,10 @@ function handleVisibilityChange() {
                         class="text-white"
                       />
                     </span>
-                    <span class="text-sm" :class="isDark ? 'text-gray-300' : 'text-gray-700'">{{ option.label }}</span>
+                    <span
+                      class="text-sm"
+                      :class="isDark ? 'text-gray-300' : 'text-gray-700'"
+                      >{{ option.label }}</span>
                   </div>
                   <div class="border-t border-gray-100 my-1"></div>
                   <div
@@ -776,144 +839,356 @@ function handleVisibilityChange() {
               :row-class-name="() => ''"
             >
               <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'id'">
-            <a class="text-primary hover:text-primary/80 font-medium" @click="viewDetail(record.id, record.flowId)">
-              {{ record.id }}
-            </a>
-          </template>
+                <template v-if="column.dataIndex === 'id'">
+                  <a
+                    class="text-primary hover:text-primary/80 font-medium"
+                    @click="viewDetail(record.id, record.flowId)"
+                  >
+                    {{ record.id }}
+                  </a>
+                </template>
 
-          <template v-else-if="column.dataIndex === 'trigger'">
-            <div v-if="record.trigger">
-              <Tooltip placement="top" :overlay-style="{ maxWidth: 'none' }" :overlay-inner-style="{ backgroundColor: isDark ? '#1f2937' : '#fff', color: isDark ? '#e5e7eb' : '#333', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '0', maxWidth: 'none', width: 'auto' }">
-                <template #title>
-                  <div style="width: 420px;">
-                    <div :style="{ padding: '12px 16px', fontWeight: 600, fontSize: '14px', borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`, color: isDark ? '#e5e7eb' : '#333', backgroundColor: isDark ? '#1f2937' : '#fff' }">触发器详情: {{ record.trigger.id }}</div>
-                    <div style="border-collapse: collapse; width: 100%;">
-                      <div style="display: table-row; borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`;">
-                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500 }">Id</div>
-                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333' }">{{ record.trigger.id }}</div>
-                      </div>
-                      <div style="display: table-row; borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`;">
-                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500 }">Type</div>
-                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333', wordBreak: 'break-all' }">{{ record.trigger.type }}</div>
-                      </div>
-                      <div v-if="record.trigger.variables" style="display: table-row;">
-                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#9ca3af' : '#666', backgroundColor: isDark ? '#374151' : '#fafafa', width: '80px', fontWeight: 500, verticalAlign: 'top' }">Variables</div>
-                        <div :style="{ display: 'table-cell', padding: '8px 16px', fontSize: '12px', color: isDark ? '#e5e7eb' : '#333' }">
-                          <pre :style="{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '11px', backgroundColor: isDark ? '#374151' : '#f5f5f5', padding: '6px', borderRadius: '4px', maxWidth: '280px', maxHeight: '200px', overflowY: 'auto' }">{{ JSON.stringify(record.trigger.variables, null, 2) }}</pre>
+                <template v-else-if="column.dataIndex === 'trigger'">
+                  <div v-if="record.trigger">
+                    <Tooltip
+                      placement="top"
+                      :overlay-style="{ maxWidth: 'none' }"
+                      :overlay-inner-style="{
+                        backgroundColor: isDark ? '#1f2937' : '#fff',
+                        color: isDark ? '#e5e7eb' : '#333',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        padding: '0',
+                        maxWidth: 'none',
+                        width: 'auto',
+                      }"
+                    >
+                      <template #title>
+                        <div style="width: 420px">
+                          <div
+                            :style="{
+                              padding: '12px 16px',
+                              fontWeight: 600,
+                              fontSize: '14px',
+                              borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`,
+                              color: isDark ? '#e5e7eb' : '#333',
+                              backgroundColor: isDark ? '#1f2937' : '#fff',
+                            }"
+                          >
+                            触发器详情: {{ record.trigger.id }}
+                          </div>
+                          <div style=" width: 100%;border-collapse: collapse">
+                            <div
+                              style="display: table-row; borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`;"
+                            >
+                              <div
+                                :style="{
+                                  display: 'table-cell',
+                                  padding: '8px 16px',
+                                  fontSize: '12px',
+                                  color: isDark ? '#9ca3af' : '#666',
+                                  backgroundColor: isDark
+                                    ? '#374151'
+                                    : '#fafafa',
+                                  width: '80px',
+                                  fontWeight: 500,
+                                }"
+                              >
+                                Id
+                              </div>
+                              <div
+                                :style="{
+                                  display: 'table-cell',
+                                  padding: '8px 16px',
+                                  fontSize: '12px',
+                                  color: isDark ? '#e5e7eb' : '#333',
+                                }"
+                              >
+                                {{ record.trigger.id }}
+                              </div>
+                            </div>
+                            <div
+                              style="display: table-row; borderBottom: `1px solid ${isDark ? '#374151' : '#f0f0f0'}`;"
+                            >
+                              <div
+                                :style="{
+                                  display: 'table-cell',
+                                  padding: '8px 16px',
+                                  fontSize: '12px',
+                                  color: isDark ? '#9ca3af' : '#666',
+                                  backgroundColor: isDark
+                                    ? '#374151'
+                                    : '#fafafa',
+                                  width: '80px',
+                                  fontWeight: 500,
+                                }"
+                              >
+                                Type
+                              </div>
+                              <div
+                                :style="{
+                                  display: 'table-cell',
+                                  padding: '8px 16px',
+                                  fontSize: '12px',
+                                  color: isDark ? '#e5e7eb' : '#333',
+                                  wordBreak: 'break-all',
+                                }"
+                              >
+                                {{ record.trigger.type }}
+                              </div>
+                            </div>
+                            <div
+                              v-if="record.trigger.variables"
+                              style="display: table-row"
+                            >
+                              <div
+                                :style="{
+                                  display: 'table-cell',
+                                  padding: '8px 16px',
+                                  fontSize: '12px',
+                                  color: isDark ? '#9ca3af' : '#666',
+                                  backgroundColor: isDark
+                                    ? '#374151'
+                                    : '#fafafa',
+                                  width: '80px',
+                                  fontWeight: 500,
+                                  verticalAlign: 'top',
+                                }"
+                              >
+                                Variables
+                              </div>
+                              <div
+                                :style="{
+                                  display: 'table-cell',
+                                  padding: '8px 16px',
+                                  fontSize: '12px',
+                                  color: isDark ? '#e5e7eb' : '#333',
+                                }"
+                              >
+                                <pre
+                                  :style="{
+                                    whiteSpace: 'pre-wrap',
+                                    margin: 0,
+                                    fontSize: '11px',
+                                    backgroundColor: isDark
+                                      ? '#374151'
+                                      : '#f5f5f5',
+                                    padding: '6px',
+                                    borderRadius: '4px',
+                                    maxWidth: '280px',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                  }"
+                                  >{{
+                                    JSON.stringify(
+                                      record.trigger.variables,
+                                      null,
+                                      2,
+                                    )
+                                  }}</pre>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      </template>
+                      <span
+                        class="flex items-center justify-center gap-1 cursor-help" :class="[
+                          isDark ? 'text-white/80' : 'text-gray-800',
+                        ]"
+                      >
+                        <IconifyIcon
+                          icon="mdi:flash"
+                          :size="14"
+                          class="text-orange-500"
+                        />
+                        <span>触发器触发</span>
+                      </span>
+                    </Tooltip>
+                  </div>
+                  <span
+                    v-else
+                    class="flex items-center justify-center w-full" :class="[
+                      isDark ? 'text-white/80' : 'text-gray-800',
+                    ]"
+                    >手动触发</span>
+                </template>
+
+                <template v-else-if="column.dataIndex === 'state'">
+                  <template v-if="column.title === '状态'">
+                    <span
+                      :style="{
+                        color: getStateColor(record.state.current),
+                        fontWeight: 500,
+                      }"
+                    >
+                      {{ getStateLabel(record.state.current) }}
+                    </span>
+                  </template>
+                  <template v-else-if="column.title === '开始时间'">
+                    {{ formatDate(record.state.startDate) }}
+                  </template>
+                  <template v-else-if="column.title === '结束时间'">
+                    {{ formatDate(record.state.endDate) }}
+                  </template>
+                  <template v-else-if="column.title === '耗时'">
+                    {{ formatDuration(record.state.duration) }}
+                  </template>
+                </template>
+
+                <template v-else-if="column.dataIndex === 'log'">
+                  <Button
+                    type="text"
+                    size="small"
+                    @click="
+                      handleViewLog(
+                        record.id,
+                        record.flowId,
+                        record.state.current,
+                      )
+                    "
+                    class="!text-blue-500 hover:!text-blue-700 hover:bg-blue-50 rounded-full w-6 h-6 flex items-center justify-center"
+                  >
+                    <IconifyIcon icon="mdi:file-document" :size="16" />
+                  </Button>
+                </template>
+
+                <template v-else-if="column.dataIndex === 'action'">
+                  <div class="flex items-center justify-center gap-1">
+                    <Tooltip placement="top" title="暂停">
+                      <Button
+                        type="text"
+                        size="small"
+                        @click="handlePause(record.id)"
+                        :loading="executionStore.isOperationLoading"
+                        :disabled="
+                          executionStore.isOperationLoading ||
+                          record.state.current !== 'RUNNING'
+                        "
+                        :class="
+                          getActionButtonClass(
+                            record.state.current === 'RUNNING',
+                            'blue',
+                            'gray',
+                          )
+                        "
+                      >
+                        <IconifyIcon icon="mdi:pause-circle" :size="16" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip placement="top" title="恢复">
+                      <Button
+                        type="text"
+                        size="small"
+                        @click="handleResume(record.id)"
+                        :loading="executionStore.isOperationLoading"
+                        :disabled="
+                          executionStore.isOperationLoading ||
+                          record.state.current !== 'PAUSED'
+                        "
+                        :class="
+                          getActionButtonClass(
+                            record.state.current === 'PAUSED',
+                            'green',
+                            'gray',
+                          )
+                        "
+                      >
+                        <IconifyIcon icon="mdi:play-circle" :size="16" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip placement="top" title="终止">
+                      <Button
+                        type="text"
+                        size="small"
+                        @click="handleKill(record.id)"
+                        :loading="executionStore.isOperationLoading"
+                        :disabled="
+                          executionStore.isOperationLoading ||
+                          (record.state.current !== 'RUNNING' &&
+                            record.state.current !== 'PAUSED')
+                        "
+                        :class="
+                          getActionButtonClass(
+                            record.state.current === 'RUNNING' ||
+                              record.state.current === 'PAUSED',
+                            'red',
+                            'gray',
+                          )
+                        "
+                      >
+                        <IconifyIcon icon="mdi:stop-circle" :size="16" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip placement="top" title="重启">
+                      <Button
+                        type="text"
+                        size="small"
+                        @click="handleRestart(record.id)"
+                        :loading="executionStore.isOperationLoading"
+                        :disabled="
+                          executionStore.isOperationLoading ||
+                          (record.state.current !== 'FAILED' &&
+                            record.state.current !== 'WARNING')
+                        "
+                        :class="
+                          getActionButtonClass(
+                            record.state.current === 'FAILED' ||
+                              record.state.current === 'WARNING',
+                            'orange',
+                            'gray',
+                          )
+                        "
+                      >
+                        <IconifyIcon icon="mdi:refresh-circle" :size="16" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip placement="top" title="重跑">
+                      <Button
+                        type="text"
+                        size="small"
+                        @click="handleReplay(record.id)"
+                        :loading="executionStore.isOperationLoading"
+                        :disabled="
+                          executionStore.isOperationLoading ||
+                          ![
+                            'SUCCESS',
+                            'FAILED',
+                            'WARNING',
+                            'KILLED',
+                            'CANCELLED',
+                          ].includes(record.state.current)
+                        "
+                        :class="
+                          getActionButtonClass(
+                            [
+                              'SUCCESS',
+                              'FAILED',
+                              'WARNING',
+                              'KILLED',
+                              'CANCELLED',
+                            ].includes(record.state.current),
+                            'indigo',
+                            'gray',
+                          )
+                        "
+                      >
+                        <IconifyIcon icon="mdi:rotate-3d-variant" :size="16" />
+                      </Button>
+                    </Tooltip>
                   </div>
                 </template>
-                <span :class="['flex items-center justify-center gap-1 cursor-help', isDark ? 'text-white/80' : 'text-gray-800']">
-                  <IconifyIcon icon="mdi:flash" :size="14" class="text-orange-500" />
-                  <span>触发器触发</span>
-                </span>
-              </Tooltip>
-            </div>
-            <span v-else :class="['flex items-center justify-center w-full', isDark ? 'text-white/80' : 'text-gray-800']">手动触发</span>
-          </template>
-
-          <template v-else-if="column.dataIndex === 'state'">
-            <template v-if="column.title === '状态'">
-              <span :style="{ color: getStateColor(record.state.current), fontWeight: 500 }">
-                {{ getStateLabel(record.state.current) }}
-              </span>
-            </template>
-            <template v-else-if="column.title === '开始时间'">
-              {{ formatDate(record.state.startDate) }}
-            </template>
-            <template v-else-if="column.title === '结束时间'">
-              {{ formatDate(record.state.endDate) }}
-            </template>
-            <template v-else-if="column.title === '耗时'">
-              {{ formatDuration(record.state.duration) }}
-            </template>
-          </template>
-
-          <template v-else-if="column.dataIndex === 'log'">
-            <Button
-              type="text"
-              size="small"
-              @click="handleViewLog(record.id, record.flowId, record.state.current)"
-              class="!text-blue-500 hover:!text-blue-700 hover:bg-blue-50 rounded-full w-6 h-6 flex items-center justify-center"
-            >
-              <IconifyIcon icon="mdi:file-document" :size="16" />
-            </Button>
-          </template>
-
-          <template v-else-if="column.dataIndex === 'action'">
-            <div class="flex items-center justify-center gap-1">
-              <Tooltip placement="top" title="暂停">
-                <Button
-                  type="text"
-                  size="small"
-                  @click="handlePause(record.id)"
-                  :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading || record.state.current !== 'RUNNING'"
-                  :class="getActionButtonClass(record.state.current === 'RUNNING', 'blue', 'gray')"
-                >
-                  <IconifyIcon icon="mdi:pause-circle" :size="16" />
-                </Button>
-              </Tooltip>
-              <Tooltip placement="top" title="恢复">
-                <Button
-                  type="text"
-                  size="small"
-                  @click="handleResume(record.id)"
-                  :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading || record.state.current !== 'PAUSED'"
-                  :class="getActionButtonClass(record.state.current === 'PAUSED', 'green', 'gray')"
-                >
-                  <IconifyIcon icon="mdi:play-circle" :size="16" />
-                </Button>
-              </Tooltip>
-              <Tooltip placement="top" title="终止">
-                <Button
-                  type="text"
-                  size="small"
-                  @click="handleKill(record.id)"
-                  :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading || (record.state.current !== 'RUNNING' && record.state.current !== 'PAUSED')"
-                  :class="getActionButtonClass(record.state.current === 'RUNNING' || record.state.current === 'PAUSED', 'red', 'gray')"
-                >
-                  <IconifyIcon icon="mdi:stop-circle" :size="16" />
-                </Button>
-              </Tooltip>
-              <Tooltip placement="top" title="重启">
-                <Button
-                  type="text"
-                  size="small"
-                  @click="handleRestart(record.id)"
-                  :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading || (record.state.current !== 'FAILED' && record.state.current !== 'WARNING')"
-                  :class="getActionButtonClass(record.state.current === 'FAILED' || record.state.current === 'WARNING', 'orange', 'gray')"
-                >
-                  <IconifyIcon icon="mdi:refresh-circle" :size="16" />
-                </Button>
-              </Tooltip>
-              <Tooltip placement="top" title="重跑">
-                <Button
-                  type="text"
-                  size="small"
-                  @click="handleReplay(record.id)"
-                  :loading="executionStore.isOperationLoading"
-                  :disabled="executionStore.isOperationLoading || !['SUCCESS', 'FAILED', 'WARNING', 'KILLED', 'CANCELLED'].includes(record.state.current)"
-                  :class="getActionButtonClass(['SUCCESS', 'FAILED', 'WARNING', 'KILLED', 'CANCELLED'].includes(record.state.current), 'indigo', 'gray')"
-                >
-                  <IconifyIcon icon="mdi:rotate-3d-variant" :size="16" />
-                </Button>
-              </Tooltip>
-            </div>
-          </template>
-        </template>
-      </Table>
-    </Spin>
+              </template>
+            </Table>
+          </Spin>
         </div>
         <!-- 分页区域 -->
-        <div class="px-4 py-3 flex items-center justify-between border-t border-gray-100">
-          <div class="flex items-center gap-3 text-sm" :class="isDark ? 'text-gray-400' : 'text-gray-500'">
+        <div
+          class="px-4 py-3 flex items-center justify-between border-t border-gray-100"
+        >
+          <div
+            class="flex items-center gap-3 text-sm"
+            :class="isDark ? 'text-gray-400' : 'text-gray-500'"
+          >
             <span>共 {{ executionStore.totalExecutions }} 条记录</span>
             <Select
               v-model:value="pageSize"
@@ -951,9 +1226,11 @@ function handleVisibilityChange() {
               <button
                 v-else
                 class="w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all"
-                :class="p === currentPage
-                  ? 'bg-primary text-white hover:bg-primary/90'
-                  : 'text-gray-600 hover:bg-gray-100'"
+                :class="
+                  p === currentPage
+                    ? 'bg-primary text-white hover:bg-primary/90'
+                    : 'text-gray-600 hover:bg-gray-100'
+                "
                 @click="goToPage(p)"
               >
                 {{ p }}
@@ -1020,21 +1297,21 @@ function handleVisibilityChange() {
 }
 
 .execution-table :deep(.ant-table-container) {
-  border-left: none;
   border-right: none;
+  border-left: none;
   border-radius: 0;
 }
 
 .execution-table :deep(.ant-table-thead > tr > th) {
-  background-color: #f5f7fa !important;
-  color: #323639 !important;
-  font-weight: 600;
   font-size: 12px;
+  font-weight: 600;
+  color: #323639 !important;
   text-align: center;
+  background-color: #f5f7fa !important;
+  border-top: none !important;
+  border-right: none !important;
   border-bottom: 1px solid #e5e7eb;
   border-left: none !important;
-  border-right: none !important;
-  border-top: none !important;
 }
 
 .execution-table :deep(.ant-table-thead > tr > th:first-child) {
@@ -1046,12 +1323,12 @@ function handleVisibilityChange() {
 }
 
 .execution-table :deep(.ant-table-tbody > tr > td) {
-  color: #323639;
   font-size: 12px;
+  color: #323639;
   text-align: center;
+  border-right: none !important;
   border-bottom: 1px solid #f0f0f0;
   border-left: none !important;
-  border-right: none !important;
 }
 
 .execution-table :deep(.ant-table-tbody > tr:last-child > td) {

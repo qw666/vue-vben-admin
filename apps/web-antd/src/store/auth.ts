@@ -42,6 +42,7 @@ export const useAuthStore = defineStore('auth', () => {
 
         // 先存储登录返回的基本用户信息，确保后续请求能获取到 loginUser 和 tenantId
         const loginUserInfo = {
+          accessToken: loginResult.accessToken,
           userId: loginResult.userId ?? '',
           username: loginResult.username ?? '',
           realName: loginResult.realName ?? '',

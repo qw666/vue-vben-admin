@@ -1,13 +1,14 @@
+import { _api, addCollection } from '@iconify/vue';
+
+import bizIcons from '#/assets/icons/biz-icons.json';
+import carbonIcons from '#/assets/icons/carbon-icons.json';
+import epIcons from '#/assets/icons/ep-icons.json';
+import lucideIcons from '#/assets/icons/lucide-icons.json';
 /**
  * 离线图标注册
  * 将本地图标集注册到 @iconify/vue，并禁用 CDN 加载
  */
 import mdiIcons from '#/assets/icons/mdi-icons.json';
-import lucideIcons from '#/assets/icons/lucide-icons.json';
-import epIcons from '#/assets/icons/ep-icons.json';
-import carbonIcons from '#/assets/icons/carbon-icons.json';
-import bizIcons from '#/assets/icons/biz-icons.json';
-import { _api, addCollection } from '@iconify/vue';
 
 let registered = false;
 
@@ -39,9 +40,7 @@ export function registerOfflineIcons() {
         },
       );
     });
-
-    console.log('[Icons] All icon collections registered successfully (offline mode)');
-  } catch (err) {
-    console.warn('[Icons] Failed to register icon collections:', err);
+  } catch (error) {
+    console.error('Failed to register icon collections:', error);
   }
 }

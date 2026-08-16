@@ -70,13 +70,16 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
       config.headers.Authorization = formatToken(accessStore.accessToken);
       config.headers['Accept-Language'] = preferences.app.locale;
       config.headers['Content-Type'] = 'application/json; charset=utf-8';
-      config.headers['Accept'] = 'application/json; charset=utf-8';
+      config.headers.Accept = 'application/json; charset=utf-8';
+
+      // 检查请求的 URL
+      const url = config.url || '';
 
       if (userStore.userInfo?.tenantId) {
-        config.headers['tenantId'] = userStore.userInfo.tenantId;
+        config.headers.tenantId = userStore.userInfo.tenantId;
       }
       if (userStore.userInfo?.userId) {
-        config.headers['loginUser'] = userStore.userInfo.userId;
+        config.headers.loginUser = userStore.userInfo.userId;
       }
 
       return config;

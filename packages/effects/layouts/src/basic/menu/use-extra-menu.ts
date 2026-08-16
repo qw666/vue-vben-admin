@@ -119,6 +119,15 @@ function useExtraMenu(useRootMenus?: ComputedRef<MenuRecordRaw[]>) {
     { immediate: true },
   );
 
+  // 监听菜单数据变化，确保登录后菜单更新时能正确计算扩展菜单
+  watch(
+    () => accessStore.accessMenus,
+    () => {
+      calcExtraMenus(route.meta?.activePath || route.path);
+    },
+    { deep: true },
+  );
+
   return {
     extraActiveMenu,
     extraMenus,

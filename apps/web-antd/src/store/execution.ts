@@ -1,8 +1,15 @@
-import { ref } from 'vue';
-import { defineStore } from 'pinia';
-import { requestClient } from '#/api/request';
-import type { Execution, ExecutionQueryParams, ExecutionPageResponse } from '#/types/execution';
+import type {
+  Execution,
+  ExecutionPageResponse,
+  ExecutionQueryParams,
+} from '#/types/execution';
 import type { ExecutionLogVO, LogSearchDTO } from '#/types/log';
+
+import { ref } from 'vue';
+
+import { defineStore } from 'pinia';
+
+import { requestClient } from '#/api/request';
 
 export interface ExecutionBatchOperateDTO {
   projectId: number;
@@ -20,7 +27,10 @@ export const useExecutionStore = defineStore('execution', () => {
   const currentExecution = ref<Execution | null>(null);
   const isOperationLoading = ref(false);
 
-  async function loadExecutions(params: ExecutionQueryParams, isAutoRefresh = false): Promise<void> {
+  async function loadExecutions(
+    params: ExecutionQueryParams,
+    isAutoRefresh = false,
+  ): Promise<void> {
     if (!isAutoRefresh) {
       isExecutionsLoading.value = true;
     }
@@ -51,16 +61,12 @@ export const useExecutionStore = defineStore('execution', () => {
   async function batchKill(params: ExecutionBatchOperateDTO): Promise<void> {
     isOperationLoading.value = true;
     try {
-      await requestClient.post(
-        '/flow/plat/execution/batch/kill',
-        params,
-        {
-          headers: {
-            tenantId: 'tenant001',
-            loginUser: 'admin',
-          },
+      await requestClient.post('/flow/plat/execution/batch/kill', params, {
+        headers: {
+          tenantId: 'tenant001',
+          loginUser: 'admin',
         },
-      );
+      });
     } finally {
       isOperationLoading.value = false;
     }
@@ -69,16 +75,12 @@ export const useExecutionStore = defineStore('execution', () => {
   async function batchRestart(params: ExecutionBatchOperateDTO): Promise<void> {
     isOperationLoading.value = true;
     try {
-      await requestClient.post(
-        '/flow/plat/execution/batch/restart',
-        params,
-        {
-          headers: {
-            tenantId: 'tenant001',
-            loginUser: 'admin',
-          },
+      await requestClient.post('/flow/plat/execution/batch/restart', params, {
+        headers: {
+          tenantId: 'tenant001',
+          loginUser: 'admin',
         },
-      );
+      });
     } finally {
       isOperationLoading.value = false;
     }
@@ -87,16 +89,12 @@ export const useExecutionStore = defineStore('execution', () => {
   async function batchReplay(params: ExecutionBatchReplayDTO): Promise<void> {
     isOperationLoading.value = true;
     try {
-      await requestClient.post(
-        '/flow/plat/execution/batch/replay',
-        params,
-        {
-          headers: {
-            tenantId: 'tenant001',
-            loginUser: 'admin',
-          },
+      await requestClient.post('/flow/plat/execution/batch/replay', params, {
+        headers: {
+          tenantId: 'tenant001',
+          loginUser: 'admin',
         },
-      );
+      });
     } finally {
       isOperationLoading.value = false;
     }
@@ -105,16 +103,12 @@ export const useExecutionStore = defineStore('execution', () => {
   async function batchPause(params: ExecutionBatchOperateDTO): Promise<void> {
     isOperationLoading.value = true;
     try {
-      await requestClient.post(
-        '/flow/plat/execution/batch/pause',
-        params,
-        {
-          headers: {
-            tenantId: 'tenant001',
-            loginUser: 'admin',
-          },
+      await requestClient.post('/flow/plat/execution/batch/pause', params, {
+        headers: {
+          tenantId: 'tenant001',
+          loginUser: 'admin',
         },
-      );
+      });
     } finally {
       isOperationLoading.value = false;
     }
@@ -123,24 +117,23 @@ export const useExecutionStore = defineStore('execution', () => {
   async function batchResume(params: ExecutionBatchOperateDTO): Promise<void> {
     isOperationLoading.value = true;
     try {
-      await requestClient.post(
-        '/flow/plat/execution/batch/resume',
-        params,
-        {
-          headers: {
-            tenantId: 'tenant001',
-            loginUser: 'admin',
-          },
+      await requestClient.post('/flow/plat/execution/batch/resume', params, {
+        headers: {
+          tenantId: 'tenant001',
+          loginUser: 'admin',
         },
-      );
+      });
     } finally {
       isOperationLoading.value = false;
     }
   }
 
-  async function loadExecutionDetail(projectId: number, flowId: string, executionId: string): Promise<Execution | null> {
+  async function loadExecutionDetail(
+    projectId: number,
+    flowId: string,
+    executionId: string,
+  ): Promise<Execution | null> {
     try {
-      console.log('loadExecutionDetail called with:', { projectId, flowId, executionId });
       const result = await requestClient.post<Execution>(
         '/flow/plat/execution/detail',
         {
@@ -155,7 +148,6 @@ export const useExecutionStore = defineStore('execution', () => {
           },
         },
       );
-      console.log('loadExecutionDetail result:', result);
       return result;
     } catch (error) {
       console.error('Failed to load execution detail:', error);
@@ -167,7 +159,9 @@ export const useExecutionStore = defineStore('execution', () => {
     currentExecution.value = execution;
   }
 
-  async function listExecutionLog(params: LogSearchDTO): Promise<ExecutionLogVO[]> {
+  async function listExecutionLog(
+    params: LogSearchDTO,
+  ): Promise<ExecutionLogVO[]> {
     try {
       const result = await requestClient.post<ExecutionLogVO[]>(
         '/flow/plat/execution/log/list',
@@ -194,9 +188,12 @@ export const useExecutionStore = defineStore('execution', () => {
     onMessage?: (log: ExecutionLogVO) => void,
     onError?: (error: any) => void,
     onComplete?: () => void,
-  ): { abort: () => void } | null {
+  ): null | { abort: () => void } {
     try {
-      const url = new URL('/api/flow/plat/execution/log/follow', window.location.origin);
+      const url = new URL(
+        '/api/flow/plat/execution/log/follow',
+        window.location.origin,
+      );
       url.searchParams.set('projectId', String(projectId));
       url.searchParams.set('flowId', flowId);
       url.searchParams.set('executionId', executionId);
@@ -205,24 +202,19 @@ export const useExecutionStore = defineStore('execution', () => {
         url.searchParams.set('minLevel', minLevel);
       }
 
-      console.log('Connecting to SSE:', url.toString());
-
       const controller = new AbortController();
       const signal = controller.signal;
 
       fetch(url.toString(), {
         method: 'GET',
         headers: {
-          'Accept': 'text/event-stream',
+          Accept: 'text/event-stream',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
+          Connection: 'keep-alive',
         },
         signal,
       })
         .then(async (response) => {
-          console.log('SSE response status:', response.status);
-          console.log('SSE response Content-Type:', response.headers.get('content-type'));
-          
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
@@ -238,41 +230,46 @@ export const useExecutionStore = defineStore('execution', () => {
           while (true) {
             const { done, value } = await reader.read();
             if (done) {
-              console.log('SSE connection closed');
               break;
             }
 
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
-            
+
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
 
             for (const line of lines) {
               if (line.trim()) {
-                console.log('SSE raw line:', line);
-                
                 if (line.startsWith('data: ')) {
                   try {
-                    const dataStr = line.substring(6);
+                    const dataStr = line.slice(6);
                     const log = JSON.parse(dataStr);
-                    console.log('Parsed log:', log);
                     if (onMessage) {
                       onMessage(log);
                     }
                   } catch (error) {
-                    console.error('Failed to parse log message:', error, 'raw data:', line.substring(6));
+                    console.error(
+                      'Failed to parse log message:',
+                      error,
+                      'raw data:',
+                      line.slice(6),
+                    );
                   }
                 } else if (line.startsWith('data:')) {
                   try {
-                    const dataStr = line.substring(5);
+                    const dataStr = line.slice(5);
                     const log = JSON.parse(dataStr);
-                    console.log('Parsed log (no space):', log);
                     if (onMessage) {
                       onMessage(log);
                     }
                   } catch (error) {
-                    console.error('Failed to parse log message:', error, 'raw data:', line.substring(5));
+                    console.error(
+                      'Failed to parse log message:',
+                      error,
+                      'raw data:',
+                      line.slice(5),
+                    );
                   }
                 }
               }
@@ -292,7 +289,6 @@ export const useExecutionStore = defineStore('execution', () => {
 
       return {
         abort: () => {
-          console.log('Aborting SSE connection');
           controller.abort();
         },
       };

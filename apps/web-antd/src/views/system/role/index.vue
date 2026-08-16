@@ -1,9 +1,34 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
-import { Table, Button, Input, Tag, Modal, Form, Switch, message, Tree, Select } from 'ant-design-vue';
-import { listRoles, saveRole, updateRole, deleteRole, listMenus, getRoleUserCount, listUsersByRole, listAvailableUsers, addUsersToRole, removeUserFromRole } from '#/api/core/system';
+
+import {
+  Button,
+  Form,
+  Input,
+  message,
+  Modal,
+  Select,
+  Switch,
+  Table,
+  Tag,
+  Tree,
+} from 'ant-design-vue';
+
+import {
+  addUsersToRole,
+  deleteRole,
+  getRoleUserCount,
+  listAvailableUsers,
+  listMenus,
+  listRoles,
+  listUsersByRole,
+  removeUserFromRole,
+  saveRole,
+  updateRole,
+} from '#/api/core/system';
 
 const loading = ref(false);
 const dataSource = ref<any[]>([]);
@@ -14,7 +39,7 @@ const searchName = ref('');
 
 const modalOpen = ref(false);
 const isEdit = ref(false);
-const modalMode = ref<'edit' | 'perm' | 'add'>('add');
+const modalMode = ref<'add' | 'edit' | 'perm'>('add');
 const formRef = ref();
 const formData = ref({
   id: undefined as string | undefined,
@@ -54,11 +79,15 @@ onMounted(() => {
 async function loadData() {
   loading.value = true;
   try {
-    const result = await listRoles({ page: currentPage.value, pageSize: pageSize.value, name: searchName.value || undefined });
+    const result = await listRoles({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      name: searchName.value || undefined,
+    });
     dataSource.value = result.list;
     total.value = result.total;
     loadUserCounts(result.list);
-  } catch (e) {
+  } catch {
     message.error('加载角色列表失败');
   } finally {
     loading.value = false;
@@ -74,7 +103,7 @@ async function loadUserCounts(roles: any[]) {
       } catch {
         counts[role.id] = 0;
       }
-    })
+    }),
   );
   userCountMap.value = counts;
 }
@@ -83,17 +112,17 @@ async function loadMenus() {
   try {
     const menus = await listMenus();
     menuTree.value = convertMenuTree(menus);
-  } catch (e) {
-    console.error('加载菜单失败', e);
+  } catch (error) {
+    console.error('加载菜单失败', error);
   }
 }
 
 function convertMenuTree(data: any[]): any[] {
   return data
-    .filter(item => item && item.id != null)
-    .map(item => ({
+    .filter((item) => item && item.id != null)
+    .map((item) => ({
       key: String(item.id),
-      title: item.name,
+      title: item.meta?.title || item.name,
       id: item.id,
       icon: getMenuIcon(item.type),
       type: item.type,
@@ -113,7 +142,7 @@ function getMenuIcon(type: string) {
 function getAllKeys(tree: any[]): string[] {
   const keys: string[] = [];
   const traverse = (nodes: any[]) => {
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       keys.push(node.key);
       if (node.children?.length) {
         traverse(node.children);
@@ -157,10 +186,10 @@ const filteredMenuTree = computed(() => {
   const searchText = menuSearchText.value.toLowerCase();
   const filterTree = (nodes: any[]): any[] => {
     return nodes
-      .map(node => {
+      .map((node) => {
         const children = filterTree(node.children || []);
         const titleMatch = node.title?.toLowerCase().includes(searchText);
-        if (titleMatch || children.length) {
+        if (titleMatch || children.length > 0) {
           return { ...node, children };
         }
         return null;
@@ -170,9 +199,13 @@ const filteredMenuTree = computed(() => {
   return filterTree(menuTree.value);
 });
 
-watch(checkedKeys, (val) => {
-  formData.value.menuIds = [...val];
-}, { deep: true });
+watch(
+  checkedKeys,
+  (val) => {
+    formData.value.menuIds = [...val];
+  },
+  { deep: true },
+);
 
 function handlePageChange(page: number) {
   currentPage.value = page;
@@ -220,7 +253,13 @@ const pageList = computed(() => {
 function handleAdd() {
   isEdit.value = false;
   modalMode.value = 'add';
-  formData.value = { id: undefined, name: '', status: 1, remark: '', menuIds: [] };
+  formData.value = {
+    id: undefined,
+    name: '',
+    status: 1,
+    remark: '',
+    menuIds: [],
+  };
   checkedKeys.value = [];
   halfCheckedKeys.value = [];
   expandedKeys.value = [];
@@ -266,7 +305,10 @@ async function handleSubmit() {
     await formRef.value?.validate();
     const submitData = {
       ...formData.value,
-      menuIds: modalMode.value === 'perm' ? formData.value.menuIds.map(Number) : undefined,
+      menuIds:
+        modalMode.value === 'perm'
+          ? formData.value.menuIds.map(Number)
+          : undefined,
     };
     if (isEdit.value) {
       await updateRole(submitData);
@@ -277,7 +319,7 @@ async function handleSubmit() {
     }
     modalOpen.value = false;
     loadData();
-  } catch (e) {
+  } catch {
     message.error('保存失败');
   }
 }
@@ -296,7 +338,7 @@ async function handleDelete(record: any) {
         loadData();
       },
     });
-  } catch (e) {
+  } catch {
     message.error('删除失败');
   }
 }
@@ -339,18 +381,20 @@ async function handleOpenAddUsers() {
 const filteredAvailableUsers = computed(() => {
   if (!addUserSearchText.value) return availableUserList.value;
   const kw = addUserSearchText.value.toLowerCase();
-  return availableUserList.value.filter(u => u.name?.toLowerCase().includes(kw));
+  return availableUserList.value.filter((u) =>
+    u.name?.toLowerCase().includes(kw),
+  );
 });
 
 const isAllFilteredSelected = computed(() => {
-  const filteredIds = filteredAvailableUsers.value.map(u => Number(u.id));
+  const filteredIds = filteredAvailableUsers.value.map((u) => Number(u.id));
   if (filteredIds.length === 0) return false;
-  return filteredIds.every(id => selectedUserIds.value.includes(id));
+  return filteredIds.every((id) => selectedUserIds.value.includes(id));
 });
 
 function handleToggleSelectUser(userId: number) {
   const idx = selectedUserIds.value.indexOf(userId);
-  if (idx > -1) {
+  if (idx !== -1) {
     selectedUserIds.value.splice(idx, 1);
   } else {
     selectedUserIds.value.push(userId);
@@ -358,10 +402,12 @@ function handleToggleSelectUser(userId: number) {
 }
 
 function handleSelectAllAvailable() {
-  const allIds = filteredAvailableUsers.value.map(u => Number(u.id));
-  const allSelected = allIds.every(id => selectedUserIds.value.includes(id));
+  const allIds = filteredAvailableUsers.value.map((u) => Number(u.id));
+  const allSelected = allIds.every((id) => selectedUserIds.value.includes(id));
   if (allSelected) {
-    selectedUserIds.value = selectedUserIds.value.filter(id => !allIds.includes(id));
+    selectedUserIds.value = selectedUserIds.value.filter(
+      (id) => !allIds.includes(id),
+    );
   } else {
     const newIds = [...new Set([...selectedUserIds.value, ...allIds])];
     selectedUserIds.value = newIds;
@@ -396,7 +442,7 @@ async function handleRemoveUser(userRecord: any) {
       async onOk() {
         await removeUserFromRole(currentRoleId.value, userRecord.id);
         message.success('移除成功');
-        userList.value = userList.value.filter(u => u.id !== userRecord.id);
+        userList.value = userList.value.filter((u) => u.id !== userRecord.id);
         userListTotal.value--;
         loadData();
       },
@@ -418,12 +464,41 @@ function handleReset() {
 }
 
 const columns = computed(() => [
-  { title: '角色名称', dataIndex: 'name', key: 'name', width: 160, align: 'center' as const },
+  {
+    title: '角色名称',
+    dataIndex: 'name',
+    key: 'name',
+    width: 160,
+    align: 'center' as const,
+  },
   { title: '用户数', key: 'userCount', width: 100, align: 'center' as const },
-  { title: '状态', dataIndex: 'status', key: 'status', width: 80, align: 'center' as const },
-  { title: '备注', dataIndex: 'remark', key: 'remark', align: 'center' as const },
-  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 170, align: 'center' as const },
-  { title: '操作', key: 'action', width: 260, fixed: 'right' as const, align: 'center' as const },
+  {
+    title: '状态',
+    dataIndex: 'status',
+    key: 'status',
+    width: 80,
+    align: 'center' as const,
+  },
+  {
+    title: '备注',
+    dataIndex: 'remark',
+    key: 'remark',
+    align: 'center' as const,
+  },
+  {
+    title: '创建时间',
+    dataIndex: 'createTime',
+    key: 'createTime',
+    width: 170,
+    align: 'center' as const,
+  },
+  {
+    title: '操作',
+    key: 'action',
+    width: 260,
+    fixed: 'right' as const,
+    align: 'center' as const,
+  },
 ]);
 </script>
 
@@ -434,9 +509,19 @@ const columns = computed(() => [
       <div class="px-6 py-4">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="flex items-center gap-2">
-            <label class="text-sm whitespace-nowrap w-20 text-right text-gray-600">角色名称</label>
-            <Input v-model:value="searchName" placeholder="请输入角色名称" allow-clear class="flex-1" @press-enter="handleSearch">
-              <template #prefix><IconifyIcon icon="mdi:magnify" :size="14" /></template>
+            <label
+              class="text-sm whitespace-nowrap w-20 text-right text-gray-600"
+              >角色名称</label>
+            <Input
+              v-model:value="searchName"
+              placeholder="请输入角色名称"
+              allow-clear
+              class="flex-1"
+              @press-enter="handleSearch"
+            >
+              <template #prefix>
+<IconifyIcon icon="mdi:magnify" :size="14" />
+</template>
             </Input>
           </div>
           <div class="flex items-center gap-2">
@@ -453,7 +538,9 @@ const columns = computed(() => [
 
     <!-- 表格区域 -->
     <div class="bg-card rounded-lg shadow-sm">
-      <div class="px-6 py-4 flex items-center justify-between border-b border-gray-100">
+      <div
+        class="px-6 py-4 flex items-center justify-between border-b border-gray-100"
+      >
         <div class="text-base font-semibold text-gray-800">角色列表</div>
         <Button type="primary" @click="handleAdd">
           <IconifyIcon icon="mdi:plus" :size="14" class="mr-1" />新增角色
@@ -465,7 +552,7 @@ const columns = computed(() => [
           :data-source="dataSource"
           :loading="loading"
           :pagination="false"
-          :row-key="'id'"
+          row-key="id"
           :scroll="{ x: 900 }"
           size="middle"
           class="data-table"
@@ -477,14 +564,28 @@ const columns = computed(() => [
               </Tag>
             </template>
             <template v-else-if="column.key === 'userCount'">
-              <span class="font-medium text-blue-600">{{ userCountMap[record.id] ?? '-' }}</span>
+              <span class="font-medium text-blue-600">{{
+                userCountMap[record.id] ?? '-'
+              }}</span>
             </template>
             <template v-else-if="column.key === 'action'">
               <div class="flex items-center justify-center gap-2">
-                <a class="text-primary hover:text-primary/80" @click="handleEdit(record)">编辑</a>
-                <a class="text-blue-500 hover:text-blue-600" @click="handleViewUsers(record)">用户</a>
-                <a class="text-indigo-500 hover:text-indigo-600" @click="handleAssignPerm(record)">授权</a>
-                <a class="text-red-500 hover:text-red-600" @click="handleDelete(record)">删除</a>
+                <a
+                  class="text-primary hover:text-primary/80"
+                  @click="handleEdit(record)"
+                  >编辑</a>
+                <a
+                  class="text-blue-500 hover:text-blue-600"
+                  @click="handleViewUsers(record)"
+                  >用户</a>
+                <a
+                  class="text-indigo-500 hover:text-indigo-600"
+                  @click="handleAssignPerm(record)"
+                  >授权</a>
+                <a
+                  class="text-red-500 hover:text-red-600"
+                  @click="handleDelete(record)"
+                  >删除</a>
               </div>
             </template>
             <template v-else>
@@ -494,7 +595,9 @@ const columns = computed(() => [
         </Table>
       </div>
       <!-- 分页区域 -->
-      <div class="px-4 py-3 flex items-center justify-between border-t border-gray-100">
+      <div
+        class="px-4 py-3 flex items-center justify-between border-t border-gray-100"
+      >
         <div class="flex items-center gap-3 text-sm text-gray-500">
           <span>共 {{ total }} 条记录</span>
           <Select
@@ -533,9 +636,11 @@ const columns = computed(() => [
             <button
               v-else
               class="w-8 h-8 flex items-center justify-center rounded-md text-sm font-medium transition-all"
-              :class="p === currentPage
-                ? 'bg-primary text-white hover:bg-primary/90'
-                : 'text-gray-600 hover:bg-gray-100'"
+              :class="
+                p === currentPage
+                  ? 'bg-primary text-white hover:bg-primary/90'
+                  : 'text-gray-600 hover:bg-gray-100'
+              "
               @click="handlePageChange(p as number)"
             >
               {{ p }}
@@ -562,7 +667,9 @@ const columns = computed(() => [
     <!-- 新增/编辑 角色弹窗 -->
     <Modal
       v-model:open="modalOpen"
-      :title="modalMode === 'perm' ? '分配权限' : (isEdit ? '编辑角色' : '新增角色')"
+      :title="
+        modalMode === 'perm' ? '分配权限' : isEdit ? '编辑角色' : '新增角色'
+      "
       @ok="handleSubmit"
       ok-text="确定"
       cancel-text="取消"
@@ -570,31 +677,63 @@ const columns = computed(() => [
     >
       <Form ref="formRef" :model="formData" layout="vertical">
         <template v-if="modalMode !== 'perm'">
-          <Form.Item label="角色名称" name="name" :rules="[{ required: true, message: '请输入角色名称' }]">
+          <Form.Item
+            label="角色名称"
+            name="name"
+            :rules="[{ required: true, message: '请输入角色名称' }]"
+          >
             <Input v-model:value="formData.name" placeholder="请输入角色名称" />
           </Form.Item>
           <Form.Item label="状态" name="status">
-            <Switch v-model:checked="formData.status" checked-children="启用" un-checked-children="禁用" />
+            <Switch
+              v-model:checked="formData.status"
+              checked-children="启用"
+              un-checked-children="禁用"
+            />
           </Form.Item>
           <Form.Item label="备注" name="remark">
-            <Input.TextArea v-model:value="formData.remark" placeholder="请输入备注" :rows="2" />
+            <Input.TextArea
+              v-model:value="formData.remark"
+              placeholder="请输入备注"
+              :rows="2"
+            />
           </Form.Item>
         </template>
         <template v-if="modalMode === 'perm'">
-          <div class="text-sm text-gray-500 mb-2">为角色 "{{ formData.name }}" 分配菜单权限</div>
-          <div class="flex flex-col gap-2 border border-gray-200 rounded-md p-3">
+          <div class="text-sm text-gray-500 mb-2">
+            为角色 "{{ formData.name }}" 分配菜单权限
+          </div>
+          <div
+            class="flex flex-col gap-2 border border-gray-200 rounded-md p-3"
+          >
             <div class="flex items-center justify-between">
-              <Input v-model:value="menuSearchText" placeholder="搜索菜单" allow-clear size="small" style="width: 200px">
-                <template #prefix><IconifyIcon icon="mdi:magnify" :size="12" /></template>
+              <Input
+                v-model:value="menuSearchText"
+                placeholder="搜索菜单"
+                allow-clear
+                size="small"
+                style="width: 200px"
+              >
+                <template #prefix>
+<IconifyIcon icon="mdi:magnify" :size="12" />
+</template>
               </Input>
               <div class="flex items-center gap-2">
                 <Button size="small" @click="handleExpandAll">展开全部</Button>
-                <Button size="small" @click="handleCollapseAll">折叠全部</Button>
-                <Button size="small" type="primary" @click="handleCheckAll">全选</Button>
-                <Button size="small" danger @click="handleClearAll">清空</Button>
+                <Button size="small" @click="handleCollapseAll">
+折叠全部
+</Button>
+                <Button size="small" type="primary" @click="handleCheckAll">
+全选
+</Button>
+                <Button size="small" danger @click="handleClearAll">
+清空
+</Button>
               </div>
             </div>
-            <div class="max-h-[400px] overflow-auto border-t border-gray-100 pt-2">
+            <div
+              class="max-h-[400px] overflow-auto border-t border-gray-100 pt-2"
+            >
               <Tree
                 :tree-data="filteredMenuTree"
                 :checked-keys="checkedKeys"
@@ -604,13 +743,22 @@ const columns = computed(() => [
                 block-node
                 :default-expand-all="true"
                 @check="handleCheck"
-                @expand="(keys: string[]) => expandedKeys = keys"
+                @expand="(keys: string[]) => (expandedKeys = keys)"
               >
                 <template #title="{ dataRef }">
                   <span class="flex items-center gap-1">
-                    <IconifyIcon :icon="dataRef.icon" :size="14" class="text-gray-500" />
+                    <IconifyIcon
+                      :icon="dataRef.icon"
+                      :size="14"
+                      class="text-gray-500"
+                    />
                     <span>{{ dataRef.title }}</span>
-                    <Tag v-if="dataRef.type === 'button'" color="default" size="small" class="ml-1">按钮</Tag>
+                    <Tag
+                      v-if="dataRef.type === 'button'"
+                      color="default"
+                      size="small"
+                      class="ml-1"
+                      >按钮</Tag>
                   </span>
                 </template>
               </Tree>
@@ -639,15 +787,37 @@ const columns = computed(() => [
       <div class="role-user-table-wrapper">
         <Table
           :columns="[
-            { title: '用户名', dataIndex: 'name', key: 'name', align: 'center' as const },
-            { title: '状态', dataIndex: 'status', key: 'status', align: 'center' as const, width: 80 },
-            { title: '创建时间', dataIndex: 'createTime', key: 'createTime', align: 'center' as const, width: 160 },
-            { title: '操作', key: 'action', align: 'center' as const, width: 80 },
+            {
+              title: '用户名',
+              dataIndex: 'name',
+              key: 'name',
+              align: 'center' as const,
+            },
+            {
+              title: '状态',
+              dataIndex: 'status',
+              key: 'status',
+              align: 'center' as const,
+              width: 80,
+            },
+            {
+              title: '创建时间',
+              dataIndex: 'createTime',
+              key: 'createTime',
+              align: 'center' as const,
+              width: 160,
+            },
+            {
+              title: '操作',
+              key: 'action',
+              align: 'center' as const,
+              width: 80,
+            },
           ]"
           :data-source="userList"
           :loading="userModalLoading"
           :pagination="false"
-          :row-key="'id'"
+          row-key="id"
           size="middle"
           class="data-table"
         >
@@ -658,7 +828,12 @@ const columns = computed(() => [
               </Tag>
             </template>
             <template v-else-if="column.key === 'action'">
-              <Button size="small" type="link" danger @click="handleRemoveUser(record)">
+              <Button
+                size="small"
+                type="link"
+                danger
+                @click="handleRemoveUser(record)"
+              >
                 移除
               </Button>
             </template>
@@ -685,7 +860,9 @@ const columns = computed(() => [
           size="small"
           style="width: 200px"
         >
-          <template #prefix><IconifyIcon icon="mdi:magnify" :size="12" /></template>
+          <template #prefix>
+<IconifyIcon icon="mdi:magnify" :size="12" />
+</template>
         </Input>
         <div class="flex items-center gap-2">
           <Button size="small" @click="handleSelectAllAvailable">
@@ -706,17 +883,37 @@ const columns = computed(() => [
             <div class="flex items-center gap-2">
               <div
                 class="w-4 h-4 border rounded flex items-center justify-center transition-all"
-                :class="selectedUserIds.includes(Number(user.id)) ? 'bg-blue-500 border-blue-500' : 'border-gray-300'"
+                :class="
+                  selectedUserIds.includes(Number(user.id))
+                    ? 'bg-blue-500 border-blue-500'
+                    : 'border-gray-300'
+                "
               >
-                <IconifyIcon v-if="selectedUserIds.includes(Number(user.id))" icon="mdi:check" :size="12" class="text-white" />
+                <IconifyIcon
+                  v-if="selectedUserIds.includes(Number(user.id))"
+                  icon="mdi:check"
+                  :size="12"
+                  class="text-white"
+                />
               </div>
-              <IconifyIcon icon="mdi:account-circle" :size="16" class="text-gray-400" />
+              <IconifyIcon
+                icon="mdi:account-circle"
+                :size="16"
+                class="text-gray-400"
+              />
               <span class="text-sm">{{ user.name }}</span>
-              <Tag :color="user.status === 1 ? 'green' : 'red'" size="small">{{ user.status === 1 ? '启用' : '禁用' }}</Tag>
+              <Tag :color="user.status === 1 ? 'green' : 'red'" size="small">
+{{
+                user.status === 1 ? '启用' : '禁用'
+              }}
+</Tag>
             </div>
             <span class="text-xs text-gray-400">{{ user.createTime }}</span>
           </div>
-          <div v-if="filteredAvailableUsers.length === 0 && !addUserModalLoading" class="py-8 text-center text-gray-400 text-sm">
+          <div
+            v-if="filteredAvailableUsers.length === 0 && !addUserModalLoading"
+            class="py-8 text-center text-gray-400 text-sm"
+          >
             暂无可分配的用户
           </div>
         </div>
@@ -736,21 +933,21 @@ const columns = computed(() => [
 }
 
 .data-table :deep(.ant-table-container) {
-  border-left: none;
   border-right: none;
+  border-left: none;
   border-radius: 0;
 }
 
 .data-table :deep(.ant-table-thead > tr > th) {
-  background-color: #f5f7fa !important;
-  color: #323639 !important;
-  font-weight: 600;
   font-size: 12px;
+  font-weight: 600;
+  color: #323639 !important;
   text-align: center;
+  background-color: #f5f7fa !important;
+  border-top: none !important;
+  border-right: none !important;
   border-bottom: 1px solid #e5e7eb;
   border-left: none !important;
-  border-right: none !important;
-  border-top: none !important;
 }
 
 .data-table :deep(.ant-table-thead > tr > th:first-child) {
@@ -762,12 +959,12 @@ const columns = computed(() => [
 }
 
 .data-table :deep(.ant-table-tbody > tr > td) {
-  color: #323639;
   font-size: 12px;
+  color: #323639;
   text-align: center;
+  border-right: none !important;
   border-bottom: 1px solid #f0f0f0;
   border-left: none !important;
-  border-right: none !important;
 }
 
 .data-table :deep(.ant-table-tbody > tr:last-child > td) {

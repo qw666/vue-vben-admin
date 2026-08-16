@@ -42,7 +42,7 @@ async function generateAccessible(
       if (route.children && route.children.length > 0) {
         delete route.component;
       }
-      // 根据router name判断，如果路由已经存在，则不再添加
+      // 根据router name判断，如果路由已经存在，则更新
       if (names?.includes(route.name)) {
         // 找到已存在的路由索引并更新，不更新会造成切换用户时，一级目录未更新，homePath 在二级目录导致的404问题
         const index = root.children?.findIndex(
@@ -175,6 +175,12 @@ function mergeRoutesByName(
   const result: RouteRecordRaw[] = [];
   const routeMap = new Map<string, RouteRecordRaw>();
 
+  // 如果后端路由为空，说明用户没有任何权限，返回空数组
+  // 前端路由也不应该显示
+  if (baseRoutes.length === 0) {
+    return [];
+  }
+
   for (const route of baseRoutes) {
     const clone = { ...route } as RouteRecordRaw;
     result.push(clone);
@@ -224,13 +230,9 @@ function mergeRoutesByName(
       }
 
       Object.assign(existing, merged);
-    } else {
-      const clone = { ...route } as RouteRecordRaw;
-      result.push(clone);
-      if (clone.name && isString(clone.name)) {
-        routeMap.set(clone.name as string, clone);
-      }
     }
+    // 注意：不再添加 else 分支，前端路由如果在后端不存在，则不显示
+    // 这确保了权限控制的正确性
   }
 
   return result;
