@@ -1,4 +1,4 @@
-import type { FlowSaveDTO, FlowValidateResultVO, FlowVO, ProjectVO } from '#/api';
+import type { FlowSaveDTO, FlowValidateResultVO, FlowVO } from '#/api';
 import type {
   Workflow,
   WorkflowEdge,
@@ -6,7 +6,7 @@ import type {
   WorkflowNode,
 } from '#/types/workflow';
 
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
@@ -20,28 +20,34 @@ import {
   getFlowDetail,
   getFlowPage,
   getFolderTree,
-  listMyProjects,
   runFlow,
   updateFlow,
   updateFolder,
   validateFlow as validateFlowApi,
 } from '#/api';
+import { useProjectStore } from '#/store/project';
 import { generateFlowId } from '#/views/workflow/utils/idGenerator';
 
 export const useWorkflowStore = defineStore('workflow', () => {
+  const projectStore = useProjectStore();
+
   const workflows = ref<Workflow[]>([]);
   const folders = ref<WorkflowFolder[]>([]);
-  const projects = ref<ProjectVO[]>([]);
   const currentWorkflow = ref<null | Workflow>(null);
   const selectedNodeId = ref<null | string>(null);
   const selectedFolderId = ref<null | number>(null);
   const selectedWorkflowId = ref<null | string>(null);
-  const projectId = ref<number>(1);
   const searchKeyword = ref('');
   const totalWorkflows = ref(0);
   const isWorkflowsLoading = ref(false);
   const validationResult = ref<FlowValidateResultVO | null>(null);
   const isValidating = ref(false);
+
+  const projects = computed(() => projectStore.projects);
+  const projectId = computed({
+    get: () => projectStore.selectedId ?? 1,
+    set: (val: number) => projectStore.selectProject(val),
+  });
 
   function setValidationResult(result: FlowValidateResultVO | null) {
     validationResult.value = result;
@@ -186,25 +192,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return workflows.value.find((w) => w.id === id);
   }
 
-  async function loadProjects(force = false) {
-    if (!force && projects.value.length > 0 && projectId.value != null) {
-      return;
-    }
-    try {
-      const data = await listMyProjects();
-      if (data && data.length > 0) {
-        projects.value = data as ProjectVO[];
-        const found = projects.value.find((p) => p.id === projectId.value);
-        if (!found && projects.value[0]) {
-          projectId.value = projects.value[0].id;
-        }
-      } else {
-        projects.value = [];
-      }
-    } catch (e) {
-      console.error('Failed to load projects:', e);
-      projects.value = [];
-    }
+  async function loadProjects(_force = false) {
+    await projectStore.loadProjects();
   }
 
   function transformFolder(folder: any): WorkflowFolder {
