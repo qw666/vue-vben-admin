@@ -27,7 +27,7 @@ const routes: RouteRecordRaw[] = [
       {
         name: 'WorkflowList',
         path: 'workflow/list',
-        component: () => import('#/views/workflow/list.vue'),
+        component: () => import('#/views/workflow/list/index.vue'),
         meta: {
           icon: 'mdi:format-list-bulleted',
           title: $t('page.execution.workflow'),
@@ -46,7 +46,7 @@ const routes: RouteRecordRaw[] = [
       {
         name: 'ExecutionList',
         path: 'execution/list',
-        component: () => import('#/views/execution/list.vue'),
+        component: () => import('#/views/execution/list/index.vue'),
         meta: {
           icon: 'mdi:history',
           title: $t('page.execution.list'),
