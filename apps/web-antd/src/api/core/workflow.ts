@@ -221,7 +221,7 @@ export async function getFlowPage(
   );
 }
 
-export async function addFlow(data: FlowSaveDTO): Promise<ApiResponse> {
+export async function addFlow(data: FlowSaveDTO): Promise<ApiResponse<number>> {
   return requestClient.post(`${BASE_URL}/flow/add`, data, {
     
   });

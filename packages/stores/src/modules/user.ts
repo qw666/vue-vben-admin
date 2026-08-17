@@ -29,6 +29,9 @@ export const useUserStore = defineStore('core-user', {
       this.userRoles = roles;
     },
   },
+  persist: {
+    pick: ['userInfo', 'userRoles'],
+  },
   state: (): AccessState => ({
     userInfo: null,
     userRoles: [],

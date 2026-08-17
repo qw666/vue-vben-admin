@@ -74,6 +74,14 @@ export function useWorkflowActions(
 
       if (saved) {
         message.success('流程已保存');
+        // 保存成功后，更新 URL
+        const workflowId = store.currentWorkflow?.id;
+        if (workflowId && route.params.id !== workflowId) {
+          router.replace({
+            path: `/shuzhiliu/workflow/editor/${workflowId}`,
+            query: route.query,
+          });
+        }
       } else {
         message.error('保存失败');
       }

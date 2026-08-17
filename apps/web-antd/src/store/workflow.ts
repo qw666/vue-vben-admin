@@ -396,9 +396,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
       }
       if (current.backendId === undefined) {
         const response = await addFlow(data);
-        if (response && response.data && typeof response.data.id === 'number') {
-          current.backendId = response.data.id;
-          current.id = `workflow-${response.data.id}`;
+        if (typeof response === 'number') {
+          current.backendId = response;
+          current.id = `workflow-${response}`;
         }
       } else {
         await updateFlow(current.backendId, data);
