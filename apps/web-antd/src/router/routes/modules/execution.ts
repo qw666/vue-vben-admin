@@ -29,6 +29,7 @@ const routes: RouteRecordRaw[] = [
         path: 'workflow/list',
         component: () => import('#/views/workflow/list/index.vue'),
         meta: {
+          fullPathKey: false,
           icon: 'mdi:format-list-bulleted',
           title: $t('page.execution.workflow'),
         },
@@ -48,6 +49,7 @@ const routes: RouteRecordRaw[] = [
         path: 'execution/list',
         component: () => import('#/views/execution/list/index.vue'),
         meta: {
+          fullPathKey: false,
           icon: 'mdi:history',
           title: $t('page.execution.list'),
         },

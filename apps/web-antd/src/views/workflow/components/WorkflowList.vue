@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
@@ -16,7 +16,7 @@ import {
   Tooltip,
 } from 'ant-design-vue';
 
-import { exportFlows } from '#/api/core/workflow';
+import { exportFlows, getFlowSelectList } from '#/api/core/workflow';
 import { useWorkflowStore } from '#/store/workflow';
 
 import {
@@ -37,30 +37,54 @@ const currentPage = ref(Number(route.query.page) || 1);
 const pageSize = ref(Number(route.query.pageSize) || 10);
 const runningWorkflowId = ref<string | null>(null);
 
-function syncQueryToUrl() {
-  const query: Record<string, string> = { ...route.query };
-  if (searchInput.value) query.keyword = searchInput.value;
-  else delete query.keyword;
-  if (startTime.value) query.startTime = startTime.value;
-  else delete query.startTime;
-  if (endTime.value) query.endTime = endTime.value;
-  else delete query.endTime;
-  if (currentPage.value > 1) query.page = String(currentPage.value);
-  else delete query.page;
-  if (pageSize.value !== 10) query.pageSize = String(pageSize.value);
-  else delete query.pageSize;
-  router.replace({ path: route.path, query });
+const flowOptions = ref<{ description: string; flowId: string }[]>([]);
+const flowSearchLoading = ref(false);
+let flowSearchTimer: null | ReturnType<typeof setTimeout> = null;
+
+async function searchFlows(keyword: string) {
+  if (!store.projectId) {
+    flowOptions.value = [];
+    return;
+  }
+  flowSearchLoading.value = true;
+  try {
+    const list = await getFlowSelectList(store.projectId, keyword || undefined);
+    flowOptions.value = (list || []).map((item) => ({
+      flowId: item.flowId,
+      description: item.description || item.flowId,
+    }));
+  } catch {
+    flowOptions.value = [];
+  } finally {
+    flowSearchLoading.value = false;
+  }
 }
 
-watch([searchInput, startTime, endTime, currentPage, pageSize], () => {
-  syncQueryToUrl();
-}, { flush: 'post' });
+function handleFlowSearch(value: string) {
+  if (flowSearchTimer) clearTimeout(flowSearchTimer);
+  flowSearchTimer = setTimeout(() => {
+    searchFlows(value);
+  }, 300);
+}
+
+onMounted(() => {
+  searchFlows('');
+});
+
+function syncQueryToUrl() {
+  const query: Record<string, string> = {};
+  if (searchInput.value) query.keyword = searchInput.value;
+  if (startTime.value) query.startTime = startTime.value;
+  if (endTime.value) query.endTime = endTime.value;
+  if (currentPage.value > 1) query.page = String(currentPage.value);
+  if (pageSize.value !== 10) query.pageSize = String(pageSize.value);
+  router.replace({ path: route.path, query });
+}
 
 // 输入对话框状态
 const showInputDialog = ref(false);
 const inputDialogLoading = ref(false);
 const currentRunWorkflow = ref<any>(null);
-let searchTimer: null | ReturnType<typeof setTimeout> = null;
 
 // 批量模式状态
 const isBatchMode = ref(false);
@@ -319,29 +343,32 @@ function handleToggleEnable(workflow: any) {
     },
   });
 }
-function triggerSearch() {
-  if (searchTimer) {
-    clearTimeout(searchTimer);
-  }
-  searchTimer = setTimeout(() => {
-    currentPage.value = 1;
-    store.setSearchKeyword(searchInput.value);
-    store.loadWorkflows(
-      store.selectedFolderId || undefined,
-      searchInput.value,
-      startTime.value,
-      endTime.value,
-      currentPage.value,
-      pageSize.value,
-    );
-  }, 300);
+function handleSearch() {
+  currentPage.value = 1;
+  store.setSearchKeyword(searchInput.value);
+  syncQueryToUrl();
+  store.loadWorkflows(
+    store.selectedFolderId || undefined,
+    searchInput.value,
+    startTime.value,
+    endTime.value,
+    currentPage.value,
+    pageSize.value,
+  );
 }
-function handleSearchClear() {
+
+function handleSelectChange(value: string) {
+  searchInput.value = value;
+  handleSearch();
+}
+
+function handleResetSearch() {
   searchInput.value = '';
   startTime.value = undefined;
   endTime.value = undefined;
   currentPage.value = 1;
   store.setSearchKeyword('');
+  syncQueryToUrl();
   store.loadWorkflows(store.selectedFolderId || undefined);
 }
 function formatDateTimeForBackend(dateStr: string | undefined): string | undefined {
@@ -358,7 +385,6 @@ function formatDateTimeForBackend(dateStr: string | undefined): string | undefin
 function handleDateChange(_dates: [string, string] | [any, any], dateString: [string, string]) {
   startTime.value = formatDateTimeForBackend(dateString[0]);
   endTime.value = dateString[1] ? `${dateString[1]} 23:59:59` : undefined;
-  triggerSearch();
 }
 
 const totalPages = computed(() => {
@@ -397,6 +423,7 @@ const pageList = computed(() => {
 function goToPage(page: number) {
   if (page < 1 || page > totalPages.value || page === currentPage.value) return;
   currentPage.value = page;
+  syncQueryToUrl();
   store.loadWorkflows(
     store.selectedFolderId || undefined,
     searchInput.value,
@@ -410,6 +437,7 @@ function goToPage(page: number) {
 function handlePageSizeChange(value: number) {
   pageSize.value = value;
   currentPage.value = 1;
+  syncQueryToUrl();
   store.loadWorkflows(
     store.selectedFolderId || undefined,
     searchInput.value,
@@ -432,10 +460,6 @@ function formatDate(dateStr: string) {
     return '-';
   }
 }
-
-watch(searchInput, () => {
-  triggerSearch();
-});
 </script>
 
 <template>
@@ -443,23 +467,42 @@ watch(searchInput, () => {
     <Card class="flex-shrink-0 rounded-lg">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
-          <div class="w-48">
-            <Input
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">流程名称</span>
+            <Select
               v-model:value="searchInput"
-              placeholder="搜索流程名称"
+              show-search
+              placeholder="请输入流程名称搜索"
+              style="width: 240px"
               allow-clear
-              @clear="handleSearchClear"
+              :filter-option="false"
+              :loading="flowSearchLoading"
+              @search="handleFlowSearch"
+              @change="handleSelectChange"
             >
-              <template #prefix>
-                <IconifyIcon icon="mdi:search" :size="14" />
-              </template>
-            </Input>
+              <Select.Option
+                v-for="item in flowOptions"
+                :key="item.flowId"
+                :value="item.description"
+              >
+                {{ item.description }}
+              </Select.Option>
+            </Select>
           </div>
-          <DatePicker.RangePicker
-            :placeholder="['开始时间', '结束时间']"
-            style="width: 320px"
-            @change="handleDateChange"
-          />
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">创建时间</span>
+            <DatePicker.RangePicker
+              :placeholder="['开始时间', '结束时间']"
+              style="width: 280px"
+              @change="handleDateChange"
+            />
+          </div>
+          <Button type="primary" @click="handleSearch">
+            搜索
+          </Button>
+          <Button @click="handleResetSearch">
+            重置
+          </Button>
         </div>
 
         <!-- 正常模式工具栏 -->
