@@ -404,7 +404,7 @@ function validateJsonOnBlur(index: number) {
               class="w-full"
               @change="onFlowSelect"
             >
-              <Select-option
+              <Select.Option
                 v-for="opt in options"
                 :key="opt.flowId"
                 :value="opt.flowId"
@@ -413,7 +413,7 @@ function validateJsonOnBlur(index: number) {
                   <span>{{ opt.description || opt.flowId }}</span>
                   <span v-if="opt.description" class="text-gray-400 text-xs">{{ opt.flowId }}</span>
                 </div>
-              </Select-option>
+              </Select.Option>
             </Select>
           </template>
         </AutoComplete>

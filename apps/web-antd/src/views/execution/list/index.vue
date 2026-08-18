@@ -992,6 +992,20 @@ function handleVisibilityChange() {
                         </div>
                       </template>
                       <span
+                        v-if="record.trigger.type === 'idp_core_flow_Subflow'"
+                        class="flex items-center justify-center gap-1 cursor-help" :class="[
+                          isDark ? 'text-white/80' : 'text-gray-800',
+                        ]"
+                      >
+                        <IconifyIcon
+                          icon="mdi:workflow"
+                          :size="14"
+                          class="text-purple-500"
+                        />
+                        <span>子流程触发</span>
+                      </span>
+                      <span
+                        v-else
                         class="flex items-center justify-center gap-1 cursor-help" :class="[
                           isDark ? 'text-white/80' : 'text-gray-800',
                         ]"
@@ -1010,7 +1024,7 @@ function handleVisibilityChange() {
                     class="flex items-center justify-center w-full" :class="[
                       isDark ? 'text-white/80' : 'text-gray-800',
                     ]"
-                    >手动触发</span>
+                    >调用触发</span>
                 </template>
 
                 <template v-else-if="column.dataIndex === 'state'">
