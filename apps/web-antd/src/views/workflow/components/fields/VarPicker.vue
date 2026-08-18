@@ -252,6 +252,9 @@ const searchValue = ref('');
 const slashQuery = ref('');
 const editorRef = ref<HTMLElement | null>(null);
 
+/** 缓存 editor 内最后一次有效的光标范围（不要用 ref 避免 DOM Node 被响应式化） */
+let lastRange: Range | null = null;
+
 /** 存储值 ref — 数据模型层始终存储真实表达式 */
 const storedValue = ref(currentValue.value);
 
@@ -358,6 +361,32 @@ watch(storedValue, () => {
 
 // ===== 事件处理 =====
 
+/** 把当前 Selection 中的 Range（必须在 editor 内）缓存到 lastRange */
+function cacheCursorRange() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (editorRef.value && editorRef.value.contains(range.startContainer)) {
+    lastRange = range.cloneRange();
+  }
+}
+
+/** 判断一个 Range 是否仍属于 editorRef */
+function isRangeInEditor(range: Range | null): boolean {
+  if (!range || !editorRef.value) return false;
+  return (
+    editorRef.value.contains(range.startContainer) &&
+    editorRef.value.contains(range.endContainer)
+  );
+}
+
+/** trigger-icon 上 mousedown 时先缓存光标（此时焦点还在 editor） */
+function onTriggerMouseDown(e: MouseEvent) {
+  e.preventDefault();
+  cacheCursorRange();
+  editorRef.value?.focus();
+}
+
 function handleInput() {
   if (isInternalRender) return;
   
@@ -394,6 +423,9 @@ function handleInput() {
   }
 
   closePanel();
+
+  // 最后缓存一次光标
+  cacheCursorRange();
 }
 
 /** 获取光标位置之前的纯文本（用于检测 / 命令） */
@@ -439,6 +471,7 @@ function handleFocus() {
     clearTimeout(blurTimer);
     blurTimer = null;
   }
+  cacheCursorRange();
 }
 
 let blurTimer: ReturnType<typeof setTimeout> | null = null;
@@ -475,6 +508,7 @@ function placeCaretAtEnd(el: HTMLElement) {
   const sel = window.getSelection();
   sel?.removeAllRanges();
   sel?.addRange(range);
+  cacheCursorRange();
 }
 
 function placeCaretAfterNode(node: Node) {
@@ -484,22 +518,38 @@ function placeCaretAfterNode(node: Node) {
   const sel = window.getSelection();
   sel?.removeAllRanges();
   sel?.addRange(range);
+  cacheCursorRange();
 }
 
 function insertNodeAtCursor(node: Node) {
   if (!editorRef.value) return;
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || !editorRef.value.contains(sel.anchorNode)) {
-    // 光标不在编辑器内，追加到末尾
+
+  // 优先级：缓存的 lastRange（经过有效性校验）> 当前 Selection > 末尾 fallback
+  let useRange: Range | null = null;
+  if (isRangeInEditor(lastRange)) {
+    useRange = lastRange!.cloneRange();
+  } else {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editorRef.value.contains(sel.anchorNode)) {
+      useRange = sel.getRangeAt(0);
+    }
+  }
+
+  if (!useRange) {
+    // 最终 fallback：追加到末尾
     editorRef.value.appendChild(node);
     placeCaretAfterNode(node);
+    cacheCursorRange();
     return;
   }
 
-  const range = sel.getRangeAt(0);
-  range.deleteContents();
-  range.insertNode(node);
+  useRange.deleteContents();
+  useRange.insertNode(node);
   placeCaretAfterNode(node);
+
+  // 插入完成后，把焦点拉回 editor 并刷新 lastRange 缓存
+  editorRef.value.focus();
+  cacheCursorRange();
 }
 
 function pickVar(item: FlatVarItem) {
@@ -563,13 +613,9 @@ function deleteSlashQuery() {
   storedValue.value = newStored;
   syncDomFromStored();
 
-  // 光标定位到删除位置
-  nextTick(() => {
-    if (editorRef.value) {
-      const pos = storedSlashIdx;
-      setCaretByOffset(editorRef.value, pos);
-    }
-  });
+  // ★ 同步（非 nextTick）把光标恢复到删除位置，保证后续 insertNodeAtCursor 能拿到有效 Range
+  const pos = storedSlashIdx;
+  setCaretByOffset(editorRef.value, pos);
 }
 
 /** 根据文本偏移量设置光标位置 */
@@ -586,6 +632,7 @@ function setCaretByOffset(root: HTMLElement, offset: number) {
       const sel = window.getSelection();
       sel?.removeAllRanges();
       sel?.addRange(range);
+      cacheCursorRange();
       return;
     }
     remaining -= len;
@@ -602,7 +649,10 @@ function togglePanel() {
     popoverOpen.value = true;
     slashQuery.value = '';
     editorRef.value.focus();
-    placeCaretAtEnd(editorRef.value);
+    // ★ 只有在没有有效缓存光标时才兜底放到末尾（例如用户从未交互过 editor）
+    if (!isRangeInEditor(lastRange)) {
+      placeCaretAtEnd(editorRef.value);
+    }
   }
 }
 
@@ -771,13 +821,16 @@ const inputModeSearchResults = computed<FlatSection[]>(() => {
         :data-placeholder="placeholder"
         @input="handleInput"
         @keydown="handleKeydown"
+        @keyup="cacheCursorRange"
+        @click="cacheCursorRange"
+        @select="cacheCursorRange"
         @focus="handleFocus"
         @blur="handleBlur"
         @paste="handlePaste"
       ></div>
       <span
         class="trigger-icon"
-        @mousedown.prevent
+        @mousedown.prevent="onTriggerMouseDown"
         @click.stop="togglePanel"
       >
         <IconifyIcon icon="mdi:variable" :size="14" />
