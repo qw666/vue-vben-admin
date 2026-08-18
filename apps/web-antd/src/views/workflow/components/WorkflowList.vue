@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onActivated, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { IconifyIcon } from '@vben/icons';
@@ -69,6 +69,20 @@ function handleFlowSearch(value: string) {
 
 onMounted(() => {
   searchFlows('');
+});
+
+// 从画布返回时，仅在画布有保存操作时才刷新列表
+onActivated(() => {
+  if (!store.isWorkflowDirty) return;
+  store.isWorkflowDirty = false;
+  store.loadWorkflows(
+    store.selectedFolderId || undefined,
+    searchInput.value,
+    startTime.value,
+    endTime.value,
+    currentPage.value,
+    pageSize.value,
+  ).catch(() => {});
 });
 
 function syncQueryToUrl() {

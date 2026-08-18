@@ -11,6 +11,8 @@ import { useWorkflowStore } from '#/store/workflow';
 import FolderTree from '../components/FolderTree.vue';
 import WorkflowList from '../components/WorkflowList.vue';
 
+defineOptions({ name: 'WorkflowList' });
+
 const store = useWorkflowStore();
 
 const isLoading = ref(true);

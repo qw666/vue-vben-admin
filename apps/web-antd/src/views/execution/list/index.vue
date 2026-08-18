@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -24,6 +24,8 @@ import { useExecutionStore } from '#/store/execution';
 import { useWorkflowStore } from '#/store/workflow';
 
 import LogModal from '../components/LogModal.vue';
+
+defineOptions({ name: 'ExecutionList' });
 
 const router = useRouter();
 const executionStore = useExecutionStore();
@@ -593,7 +595,31 @@ onMounted(async () => {
   } finally {
     isLoading.value = false;
   }
+});
+
+// 首次 onMounted 已加载数据，onActivated 跳过首次
+let isFirstActivation = true;
+onActivated(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  if (isFirstActivation) {
+    isFirstActivation = false;
+    return;
+  }
+  // 从详情页返回时，恢复自动刷新定时器（不重新加载数据）
+  const hasRunning = executionStore.executions.some(
+    (e) => e && e.state && e.state.current === 'RUNNING',
+  );
+  if (hasRunning) {
+    toggleAutoRefresh(true);
+  }
+});
+
+onDeactivated(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
 });
 
 watch(

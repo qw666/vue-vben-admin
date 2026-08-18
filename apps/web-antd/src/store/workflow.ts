@@ -42,6 +42,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const isWorkflowsLoading = ref(false);
   const validationResult = ref<FlowValidateResultVO | null>(null);
   const isValidating = ref(false);
+  /** 画布有保存/删除操作时置 true，列表页返回后据此决定是否刷新 */
+  const isWorkflowDirty = ref(false);
 
   const projects = computed(() => projectStore.projects);
   const projectId = computed({
@@ -403,6 +405,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       } else {
         await updateFlow(current.backendId, data);
       }
+      isWorkflowDirty.value = true;
       return true;
     } catch (error) {
       console.error('Failed to save workflow:', error);
@@ -506,6 +509,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     selectedFolderId,
     selectedWorkflowId,
     isWorkflowsLoading,
+    isWorkflowDirty,
     searchKeyword,
     totalWorkflows,
     validationResult,

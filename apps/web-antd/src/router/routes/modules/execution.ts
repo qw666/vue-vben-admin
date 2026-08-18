@@ -31,6 +31,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           fullPathKey: false,
           icon: 'mdi:format-list-bulleted',
+          keepAlive: true,
           title: $t('page.execution.workflow'),
         },
       },
@@ -51,6 +52,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           fullPathKey: false,
           icon: 'mdi:history',
+          keepAlive: true,
           title: $t('page.execution.list'),
         },
       },
