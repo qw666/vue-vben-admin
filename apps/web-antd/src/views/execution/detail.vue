@@ -198,7 +198,6 @@ function stopRefreshTimer() {
 }
 
 function handleVisibilityChange() {
-  console.log('visibilitychange event, hidden:', document.hidden);
   if (document.hidden) {
     stopRefreshTimer();
   } else {
@@ -229,7 +228,7 @@ async function loadWorkflowModel() {
       execution.value.flowLayout,
     );
 
-    console.log('[ExecutionCanvas] restored workflow:', restored.nodes.length, 'nodes,', restored.edges.length, 'edges');
+
     workflowNodes.value = restored.nodes || [];
     workflowEdges.value = restored.edges || [];
 
@@ -242,7 +241,6 @@ async function loadWorkflowModel() {
         }
       }
       taskStateMap.value = map;
-      console.log('[ExecutionCanvas] taskStateMap:', map);
     }
 
     // 构建 taskId → description 映射（用于任务详情列表显示节点名称）
@@ -281,11 +279,6 @@ function goBack() {
 }
 
 onMounted(async () => {
-  console.log('detail.vue onMounted');
-  console.log('route.params:', route.params);
-  console.log('executionId:', executionId.value);
-  console.log('flowId:', flowId.value);
-  
   await loadExecution();
   await loadWorkflowModel();
   document.addEventListener('visibilitychange', handleVisibilityChange);
