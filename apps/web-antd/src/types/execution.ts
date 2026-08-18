@@ -15,20 +15,11 @@ export interface TaskAttempt {
 }
 
 export interface TaskRun {
-  id: string;
-  executionId: string;
-  namespace: string;
-  flowId: string;
   taskId: string;
   parentTaskRunId?: string;
   attempts: TaskAttempt[];
   outputs: Record<string, any>;
   state: ExecutionState;
-}
-
-export interface ExecutionLabel {
-  key: string;
-  value: string;
 }
 
 export interface ExecutionTrigger {
@@ -37,24 +28,22 @@ export interface ExecutionTrigger {
   variables: Record<string, any>;
 }
 
-export interface ExecutionMetadata {
-  attemptNumber: number;
-  originalCreatedDate: string;
-}
-
 export interface Execution {
   id: string;
-  namespace: string;
   flowId: string;
   flowRevision: number;
-  labels: ExecutionLabel[];
   state: ExecutionState;
   taskRunList: TaskRun[];
-  originalId: string;
-  deleted: boolean;
-  metadata: ExecutionMetadata;
   trigger?: ExecutionTrigger;
   scheduleDate?: string;
+  inputs?: Record<string, any>;
+  outputs?: Record<string, any>;
+  /** 流程名称（后端关联 SysFlowBiz.description 返回） */
+  flowName?: string;
+  /** 流程模型（后端关联 SysFlowBiz.flowModelRaw 解析返回） */
+  flowModel?: Record<string, any>;
+  /** 节点布局（后端关联 SysFlowBiz.flowLayout 返回） */
+  flowLayout?: string;
 }
 
 export interface ExecutionQueryParams {

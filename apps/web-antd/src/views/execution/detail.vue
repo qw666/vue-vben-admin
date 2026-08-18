@@ -9,6 +9,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { useExecutionStore } from '#/store/execution';
 import { useWorkflowStore } from '#/store/workflow';
 import type { Execution, TaskRun } from '#/types/execution';
+import type { WorkflowNode, WorkflowEdge } from '#/types/workflow';
+
+import ReadOnlyCanvas from './components/ReadOnlyCanvas.vue';
+import { useExecutionCanvas } from './composables/useExecutionCanvas';
+import { convertFlowModelToWorkflow } from '../workflow/utils/flowModelConverter';
 
 const route = useRoute();
 const router = useRouter();
@@ -18,6 +23,14 @@ const workflowStore = useWorkflowStore();
 const execution = ref<Execution | null>(null);
 const isLoading = ref(true);
 const expandedTaskIds = ref<string[]>([]);
+
+// 画布相关状态
+const workflowNodes = ref<WorkflowNode[]>([]);
+const workflowEdges = ref<WorkflowEdge[]>([]);
+const taskStateMap = ref<Record<string, string>>({});
+const taskDescMap = ref<Record<string, string>>({});
+const selectedTaskNodeId = ref<null | string>(null);
+const isCanvasLoading = ref(false);
 
 const executionId = computed(() => route.params.id as string);
 const flowId = computed(() => route.query.flowId as string);
@@ -132,6 +145,11 @@ function getTriggerLabel(type: string): string {
 }
 
 function getTaskLabel(taskId: string): string {
+  // 优先使用 flowModel 中 task 的 description
+  if (taskDescMap.value[taskId]) {
+    return taskDescMap.value[taskId];
+  }
+  // fallback：拆分 taskId
   const parts = taskId.split('_');
   if (parts.length > 1) {
     return parts[0];
@@ -190,6 +208,74 @@ function handleVisibilityChange() {
   }
 }
 
+/** 加载流程模型并构建画布数据 */
+async function loadWorkflowModel() {
+  if (!execution.value) return;
+  isCanvasLoading.value = true;
+  try {
+    const flowModel = execution.value.flowModel;
+    if (!flowModel || !flowModel.tasks || flowModel.tasks.length === 0) {
+      console.warn('[ExecutionCanvas] flowModel has no tasks');
+      return;
+    }
+
+    const restored = convertFlowModelToWorkflow(
+      flowModel,
+      '', // workflowId 不需要
+      execution.value.flowName || '未命名流程',
+      undefined,
+      execution.value.flowId,
+      {}, // pluginGroupsCache 留空，插件节点图标 fallback 到默认值
+      execution.value.flowLayout,
+    );
+
+    console.log('[ExecutionCanvas] restored workflow:', restored.nodes.length, 'nodes,', restored.edges.length, 'edges');
+    workflowNodes.value = restored.nodes || [];
+    workflowEdges.value = restored.edges || [];
+
+    // 构建 taskId → state 映射
+    if (execution.value.taskRunList) {
+      const map: Record<string, string> = {};
+      for (const task of execution.value.taskRunList) {
+        if (task.taskId && task.state?.current) {
+          map[task.taskId] = task.state.current;
+        }
+      }
+      taskStateMap.value = map;
+      console.log('[ExecutionCanvas] taskStateMap:', map);
+    }
+
+    // 构建 taskId → description 映射（用于任务详情列表显示节点名称）
+    const descMap: Record<string, string> = {};
+    const tasks = (flowModel as any).tasks;
+    if (Array.isArray(tasks)) {
+      for (const task of tasks) {
+        if (task.id && task.description) {
+          descMap[task.id] = task.description;
+        }
+      }
+    }
+    taskDescMap.value = descMap;
+  } catch (error) {
+    console.error('[ExecutionCanvas] Failed to load workflow model:', error);
+  } finally {
+    isCanvasLoading.value = false;
+  }
+}
+
+/** 画布节点点击：高亮节点 + 滚动到对应任务详情 */
+function onCanvasNodeClick(nodeId: string) {
+  selectedTaskNodeId.value = nodeId;
+  const el = document.getElementById(`task-${nodeId}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 自动展开
+    if (!expandedTaskIds.value.includes(nodeId)) {
+      expandedTaskIds.value.push(nodeId);
+    }
+  }
+}
+
 function goBack() {
   router.push('/shuzhiliu/execution/list');
 }
@@ -201,15 +287,16 @@ onMounted(async () => {
   console.log('flowId:', flowId.value);
   
   await loadExecution();
+  await loadWorkflowModel();
   document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 watch(
   () => route.params.id,
   async (newId) => {
-    console.log('route.params.id changed:', newId);
     if (newId) {
       await loadExecution();
+      await loadWorkflowModel();
     }
   }
 );
@@ -251,8 +338,24 @@ onUnmounted(() => {
             <Descriptions.Item label="开始时间">{{ formatDate(execution.state.startDate) }}</Descriptions.Item>
             <Descriptions.Item label="结束时间">{{ execution.state.endDate ? formatDate(execution.state.endDate) : '-' }}</Descriptions.Item>
             <Descriptions.Item label="耗时" :span="2">{{ formatDuration(execution.state.duration) }}</Descriptions.Item>
-            <Descriptions.Item label="尝试次数" :span="2">{{ execution.metadata.attemptNumber }}</Descriptions.Item>
           </Descriptions>
+        </div>
+
+        <!-- 流程画布（只读） -->
+        <div class="bg-card rounded-lg shadow-sm p-6">
+          <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <IconifyIcon icon="mdi:workflow" :size="20" />
+            流程拓扑
+          </h3>
+          <Spin :spinning="isCanvasLoading">
+            <ReadOnlyCanvas
+              :nodes="workflowNodes"
+              :edges="workflowEdges"
+              :task-states="taskStateMap"
+              :selected-node-id="selectedTaskNodeId"
+              @select-node="onCanvasNodeClick"
+            />
+          </Spin>
         </div>
 
         <div class="bg-card rounded-lg shadow-sm p-6">
@@ -275,8 +378,12 @@ onUnmounted(() => {
               <div
                 v-for="task in execution.taskRunList"
                 :key="task.id"
-                class="relative"
-                :class="{ 'pl-6': task.parentTaskRunId }"
+                :id="`task-${task.taskId}`"
+                class="relative rounded-lg transition-colors"
+                :class="{
+                  'pl-6': task.parentTaskRunId,
+                  'bg-blue-50 ring-1 ring-blue-200': selectedTaskNodeId === task.taskId,
+                }"
               >
                 <div class="flex items-center gap-3 mb-1">
                   <span class="w-24 text-sm text-foreground truncate flex-shrink-0">
