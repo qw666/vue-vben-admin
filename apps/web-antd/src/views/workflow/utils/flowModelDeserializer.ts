@@ -354,10 +354,17 @@ export function convertFlowModelToWorkflow(
     edges,
     outputs: flowModel.outputs || [],
     inputs: flowModel.inputs || [],
-    triggers: (flowModel.triggers || []).map((t: any) => ({
-      ...t,
-      disabled: t.disabled !== undefined ? t.disabled : false,
-    })),
+    triggers: (flowModel.triggers || []).map((t: any) => {
+      const trigger = { ...t, disabled: t.disabled !== undefined ? t.disabled : false };
+      if (trigger.type === 'idp_core_trigger_Schedule' && trigger.cron) {
+        const parts = trigger.cron.trim().split(/\s+/);
+        if (parts.length === 6) {
+          trigger.cron = parts.slice(1).join(' ');
+          delete trigger.withSeconds;
+        }
+      }
+      return trigger;
+    }),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     flowId: flowId || generateFlowId(),

@@ -180,9 +180,6 @@ function updateField(index: number, key: string, value: any) {
   emit('updateTriggersField', fieldKey.value, index, key, value);
   if (key === 'type' && value) {
     loadTriggerMeta(value);
-    if (value === 'idp_core_trigger_Schedule') {
-      emit('updateTriggersField', fieldKey.value, index, 'withSeconds', false);
-    }
   }
 }
 

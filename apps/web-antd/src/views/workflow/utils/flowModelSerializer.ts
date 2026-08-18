@@ -251,7 +251,18 @@ export function convertWorkflowToFlowModel(workflow: Workflow): FlowModel {
   }
 
   if (workflow.triggers && workflow.triggers.length > 0) {
-    model.triggers = workflow.triggers;
+    model.triggers = workflow.triggers.map((t: any) => {
+      if (t.type === 'idp_core_trigger_Schedule' && t.cron) {
+        const parts = t.cron.trim().split(/\s+/);
+        if (parts.length === 5) {
+          return { ...t, cron: `0 ${t.cron}`, withSeconds: true };
+        }
+        if (parts.length === 6) {
+          return { ...t, withSeconds: true };
+        }
+      }
+      return t;
+    });
   }
 
   return removeEmptyValues(model);
