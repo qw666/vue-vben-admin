@@ -322,6 +322,8 @@ export async function runFlow(data: ExecutionTriggerRequest): Promise<ApiRespons
 export interface FlowSelectVO {
   flowId: string;
   description: string;
+  projectId?: number;
+  inputs?: Array<Record<string, any>>;
   [key: string]: any;
 }
 

@@ -1,6 +1,7 @@
 import AiChatConfig from '../components/custom/AiChatConfig.vue';
 import CodeConfig from '../components/custom/CodeConfig.vue';
 import HttpRequestConfig from '../components/custom/HttpRequestConfig.vue';
+import SubflowConfig from '../components/custom/SubflowConfig.vue';
 import { nodeConfigComponentRegistry } from './NodeConfigComponentRegistry';
 
 import './Start.node';
@@ -25,6 +26,7 @@ import './AiChat.node';
 nodeConfigComponentRegistry.register('idp_core_http_Request', HttpRequestConfig);
 nodeConfigComponentRegistry.register('idp_scripts_python_Script', CodeConfig);
 nodeConfigComponentRegistry.register('idp_ai_completion_ChatCompletion', AiChatConfig);
+nodeConfigComponentRegistry.register('idp_core_flow_Subflow', SubflowConfig);
 
 export { flowControlNodeRegistry } from './types';
 export type { FlowControlNodeConfig, FlowControlNodeStrategy } from './types';
